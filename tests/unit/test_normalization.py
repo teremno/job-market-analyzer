@@ -13,14 +13,16 @@ from job_market_analyzer.models import (
     SalaryPeriod,
 )
 
+VALID_CONTENT_HASH = "a" * 64
+
 
 def test_job_posting_accepts_valid_data() -> None:
     now = datetime.now(UTC)
 
     posting = JobPosting(
         canonical_job_id=uuid4(),
-        source_provider="remote_ok",
-        source_scope="global",
+        source_provider="Remote_OK",
+        source_scope="GLOBAL",
         external_id="12345",
         source_url="https://remoteok.com/remote-jobs/12345",
         application_url="https://example.com/apply",
@@ -39,12 +41,18 @@ def test_job_posting_accepts_valid_data() -> None:
         published_at=now,
         first_seen_at=now,
         last_seen_at=now,
-        content_hash="abc123",
+        content_hash=VALID_CONTENT_HASH,
     )
+
+    assert posting.source_provider == "remote_ok"
+    assert posting.source_scope == "global"
+    assert posting.external_id == "12345"
 
     assert posting.salary_currency == "EUR"
     assert posting.salary_min == Decimal(40000)
+
     assert posting.remote_scope is RemoteScope.REGION
+    assert posting.employment_type is EmploymentType.CONTRACT
 
 
 def test_job_posting_rejects_invalid_salary_range() -> None:
@@ -62,7 +70,7 @@ def test_job_posting_rejects_invalid_salary_range() -> None:
             salary_max=Decimal(50000),
             first_seen_at=now,
             last_seen_at=now,
-            content_hash="abc123",
+            content_hash=VALID_CONTENT_HASH,
         )
 
 
@@ -80,7 +88,41 @@ def test_job_posting_rejects_invalid_seen_range() -> None:
             title="Python Developer",
             first_seen_at=first_seen,
             last_seen_at=last_seen,
+            content_hash=VALID_CONTENT_HASH,
+        )
+
+
+def test_job_posting_rejects_invalid_content_hash_length() -> None:
+    now = datetime.now(UTC)
+
+    with pytest.raises(ValidationError):
+        JobPosting(
+            canonical_job_id=uuid4(),
+            source_provider="remote_ok",
+            source_scope="global",
+            external_id="12345",
+            source_url="https://remoteok.com/remote-jobs/12345",
+            title="Python Developer",
+            first_seen_at=now,
+            last_seen_at=now,
             content_hash="abc123",
+        )
+
+
+def test_job_posting_rejects_non_hex_content_hash() -> None:
+    now = datetime.now(UTC)
+
+    with pytest.raises(ValidationError):
+        JobPosting(
+            canonical_job_id=uuid4(),
+            source_provider="remote_ok",
+            source_scope="global",
+            external_id="12345",
+            source_url="https://remoteok.com/remote-jobs/12345",
+            title="Python Developer",
+            first_seen_at=now,
+            last_seen_at=now,
+            content_hash="z" * 64,
         )
 
 
