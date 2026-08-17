@@ -160,3 +160,161 @@ High-confidence matching may use:
 - description similarity
 
 Low-confidence matches must not be merged automatically.
+
+---
+
+## ADR-006: Job identity, lifecycle and provenance
+
+Date: 2026-08-17
+
+Status: Accepted
+
+### Decision
+
+The job data model has three distinct levels:
+
+1. RawJob
+2. JobPosting
+3. CanonicalJob
+
+These levels have different responsibilities and must not be merged.
+
+### RawJob
+
+RawJob represents an immutable observation collected from an external source at a specific time.
+
+A source posting may produce multiple RawJob observations over time.
+
+RawJob stores:
+
+- source provider
+- source scope
+- external source ID
+- fetched timestamp
+- original source payload
+- collector metadata needed for routing and identity
+
+Raw observations must preserve provenance and should not be overwritten when the source content changes.
+
+### JobPosting
+
+JobPosting represents a durable vacancy posting on one specific source.
+
+Its identity is based on:
+
+- source_provider
+- source_scope
+- external_id
+
+Example:
+
+source_provider = greenhouse
+source_scope = example-company
+external_id = 123456
+
+A JobPosting may have multiple RawJob observations collected over time.
+
+JobPosting stores normalized source-level information such as:
+
+- title
+- company
+- description
+- location
+- remote information
+- employment type
+- salary information
+- publication date
+- first_seen_at
+- last_seen_at
+- content_hash
+
+Repeated collection of the same source posting must update the existing JobPosting rather than create a duplicate posting.
+
+### CanonicalJob
+
+CanonicalJob represents the logical real-world vacancy.
+
+Multiple JobPostings from different sources may belong to one CanonicalJob.
+
+CanonicalJob is primarily a grouping identity.
+
+For the MVP it should not independently duplicate source-level fields such as:
+
+- salary
+- description
+- publication date
+- location
+
+unless a documented resolution policy is introduced later.
+
+### Cardinality
+
+The intended relationship is:
+
+CanonicalJob
+  1 -> many JobPostings
+
+JobPosting
+  1 -> many RawJob observations
+
+Every JobPosting belongs to exactly one CanonicalJob.
+
+A newly discovered posting that cannot be confidently matched to an existing CanonicalJob receives a new CanonicalJob.
+
+A JobPosting may later be re-linked if a high-confidence match is discovered.
+
+### Deduplication
+
+Two separate operations must remain distinct:
+
+1. Same-source identity/upsert
+2. Cross-source canonical linking
+
+Same-source repeated observations must not create duplicate JobPostings.
+
+Cross-source duplicate postings must not be deleted.
+
+They remain separate JobPostings linked to the same CanonicalJob.
+
+### Analytics
+
+Market statistics should normally count CanonicalJobs rather than JobPostings.
+
+Source-level information remains available for provenance and comparison.
+
+### Derived Data
+
+Future AI-derived or analytical fields such as:
+
+- skills
+- seniority
+- role classification
+- salary interpretation
+- remote geography
+- AI leverage
+
+must not be silently written into the core CanonicalJob model.
+
+Derived records should preserve:
+
+- input entity ID
+- extractor name
+- extractor version
+- input hash
+- created_at
+- confidence
+- extraction method
+
+### Raw Observation Persistence
+
+The in-memory RawJob model does not require a JobPosting ID at collection time because the corresponding durable JobPosting may not exist yet.
+
+During persistence:
+
+1. `(source_provider, source_scope, external_id)` is used to resolve or create the JobPosting.
+2. The RawJob observation is then stored with a foreign-key relationship to that JobPosting.
+3. The database must preserve the relationship:
+
+   JobPosting 1 -> many RawJob observations.
+
+This relationship is mandatory in persistent storage even though it is not required in the collector-facing RawJob model.
