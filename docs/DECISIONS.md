@@ -196,6 +196,17 @@ RawJob stores:
 
 Raw observations must preserve provenance and should not be overwritten when the source content changes.
 
+### NormalizedJobPosting
+
+NormalizedJobPosting is an application DTO between normalization and persistence. It contains normalized source-level vacancy data but intentionally has no:
+
+- database ID;
+- canonical job ID;
+- first-seen or last-seen timestamps;
+- persistence hashes.
+
+The repository receives RawJob and NormalizedJobPosting together and verifies that their source identities match.
+
 ### JobPosting
 
 JobPosting represents a durable vacancy posting on one specific source.
@@ -227,6 +238,8 @@ JobPosting stores normalized source-level information such as:
 - first_seen_at
 - last_seen_at
 - content_hash
+
+The persistence layer owns `content_hash`. It calculates the hash from an explicit set of normalized fields and excludes database IDs, canonical relationships, lifecycle timestamps, and persistence metadata.
 
 Repeated collection of the same source posting must update the existing JobPosting rather than create a duplicate posting.
 
@@ -312,9 +325,68 @@ The in-memory RawJob model does not require a JobPosting ID at collection time b
 During persistence:
 
 1. `(source_provider, source_scope, external_id)` is used to resolve or create the JobPosting.
-2. The RawJob observation is then stored with a foreign-key relationship to that JobPosting.
-3. The database must preserve the relationship:
+2. The repository calculates a deterministic observation hash from source identity, source URL, and payload.
+3. The first observation and each observation that differs from the immediately previous persisted observation are stored.
+4. An immediately unchanged observation updates lifecycle state without duplicating JSON.
+5. A later sequence such as A -> B -> A stores all three versions.
+6. The RawJob observation is stored with a foreign-key relationship to its JobPosting.
+7. The database must preserve the relationship:
 
    JobPosting 1 -> many RawJob observations.
 
 This relationship is mandatory in persistent storage even though it is not required in the collector-facing RawJob model.
+
+### Persistence Serialization
+
+The persistence boundary uses deterministic representations:
+
+- aware datetimes are converted to UTC and stored as `YYYY-MM-DDTHH:MM:SS.ffffffZ`;
+- Decimal values are stored as exact canonical strings without conversion through float;
+- source payloads are stored as compact UTF-8 JSON with stable key ordering;
+- NaN, infinity, and arbitrary non-JSON Python objects are rejected;
+- SHA-256 hashes use exactly 64 lowercase hexadecimal characters.
+
+`observation_hash` belongs to persistence and represents raw source identity, source URL, and payload. `content_hash` also belongs to persistence and represents the normalized source-level state stored on JobPosting.
+
+### Repository Boundary
+
+Application services depend on a small JobRepository protocol rather than SQLite. The repository owns durable IDs, lifecycle timestamps, deterministic hashes, raw-to-posting links, and atomic transaction behavior. Concrete SQLite or future PostgreSQL connections must not leak into collectors, normalizers, or user-facing interfaces.
+
+---
+
+## ADR-007: Product is designed for multiple users and interfaces
+
+Date: 2026-08-17
+
+Status: Accepted
+
+### Decision
+
+Job Market Analyzer is not designed as a one-off personal script.
+
+The product should remain usable locally during the MVP stage, but its architecture must support future use by other people and future interfaces.
+
+The core application logic must remain independent from:
+
+- local filesystem paths;
+- a specific operating system;
+- CLI-only interaction;
+- SQLite-specific implementation details;
+- Telegram, Discord, web, or API interfaces.
+
+The product may later expose the same core functionality through:
+
+- CLI;
+- REST API;
+- web application;
+- Telegram bot;
+- Discord bot;
+- scheduled background jobs.
+
+The MVP does not require a multi-user SaaS architecture yet.
+
+User accounts, authentication, permissions, billing, hosted infrastructure, and tenant isolation are explicitly postponed until they are justified by a real product requirement.
+
+Configuration and secrets must remain external to source code so that different users and deployment environments can run the application safely.
+
+Storage, collectors, analysis logic, and application services should be designed so that they can be reused by multiple interfaces without duplication.

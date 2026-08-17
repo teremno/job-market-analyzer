@@ -19,4 +19,5 @@ src/job_market_analyzer/normalization/jobs.py
 src/job_market_analyzer/services/__init__.py
 src/job_market_analyzer/services/collection.py
 src/job_market_analyzer/storage/__init__.py
+src/job_market_analyzer/storage/schema.sql
 src/job_market_analyzer/storage/sqlite.py

@@ -2,97 +2,100 @@
 
 ## Goal
 
-Build a modular system capable of collecting remote job listings from multiple sources and transforming them into structured data suitable for market analysis.
+Build a maintainable system that collects remote job listings from a small number of reliable sources and preserves enough provenance for later market analysis.
 
-## High-Level Pipeline
+## Current MVP Pipeline
 
-Sources
+External sources
 ↓
-Collectors
+Independent collectors
 ↓
-Raw Jobs
+RawJob
 ↓
 Normalizer
 ↓
-Deduplication
+NormalizedJobPosting
 ↓
-Database
+JobRepository persistence boundary
 ↓
-AI / Structured Extraction
+JobPosting
 ↓
-Analytics
+CanonicalJob
 ↓
-Reports
+Later structured extraction and analytics
 
-## Planned Components
+## Core Models
 
-### 1. Collectors
+### RawJob
 
-Each source should have an independent collector.
+An immutable source observation collected at a specific time. It contains source identity metadata and the original JSON-like payload, but no persistent JobPosting ID.
 
-Possible source types:
+Raw provenance is mandatory. The first observation and every changed observation are stored. An immediately unchanged observation updates the posting lifecycle without duplicating its JSON payload.
 
-- REST API
-- GraphQL API
-- RSS / Atom
-- Public JSON
-- ATS APIs
-- HTML scraping only when necessary
+### NormalizedJobPosting
 
-### 2. Normalizer
+The normalized source-level vacancy before persistence. It has no database ID, canonical ID, lifecycle timestamps, or persistence hashes.
 
-All collected jobs must be converted into a common internal schema.
+### JobPosting
 
-Example fields:
+A durable posting on one source. Its stable identity is:
 
-- source
-- external_id
-- title
-- company
-- description
-- url
-- published_at
-- remote
-- remote_region
-- salary_min
-- salary_max
-- salary_currency
-- employment_type
+`(source_provider, source_scope, external_id)`
 
-### 3. Skill Extraction
+Repeated collection updates the same JobPosting. It stores normalized source-level fields, first/last seen timestamps, and the persistence-owned `content_hash`.
 
-Job descriptions will be analyzed to identify:
+### CanonicalJob
 
-- required skills
-- preferred skills
-- programming languages
-- frameworks
-- databases
-- cloud technologies
-- AI tools
-- automation tools
-- required experience
-- education requirements
-- seniority
+A minimal grouping identity for one real-world vacancy. Multiple source-specific JobPostings may belong to one CanonicalJob. Source-level descriptions, salary, location, and publication dates remain on JobPosting records.
 
-### 4. Analytics
+## Identity and Deduplication
 
-The analytics layer should answer questions such as:
+Two operations remain separate:
 
-- Most demanded technologies
-- Skills by profession
-- Junior-accessible professions
-- Remote availability
-- Salary distributions
-- Technology combinations
-- Skills that unlock the largest number of additional jobs
+1. Same-source upsert resolves a JobPosting by source provider, scope, and external ID.
+2. Cross-source canonical linking groups distinct JobPostings without deleting them.
+
+A new posting without a high-confidence match receives a new CanonicalJob. Low-confidence matches are not merged automatically. Analytics normally count CanonicalJobs while retaining every source posting for provenance.
+
+## Persistence Boundary
+
+Application services depend on the `JobRepository` protocol, not SQLite. A repository accepts `RawJob` plus `NormalizedJobPosting` and owns durable IDs, lifecycle timestamps, hashes, transactions, and raw-to-posting links.
+
+Persistence uses deterministic representations:
+
+- timestamps: UTC `YYYY-MM-DDTHH:MM:SS.ffffffZ`;
+- Decimal values: exact canonical decimal strings without floats;
+- payloads: compact UTF-8 JSON with sorted keys and non-finite numbers rejected;
+- `observation_hash`: calculated by persistence from source identity, source URL, and raw payload;
+- `content_hash`: calculated by persistence from an explicit set of normalized source-level fields.
+
+The SQLite schema stores exactly three MVP tables:
+
+- `canonical_jobs`;
+- `job_postings`;
+- `raw_jobs`.
+
+## Collectors
+
+Each source has an independent collector. Prefer sources in this order:
+
+1. REST APIs
+2. GraphQL APIs
+3. RSS / Atom
+4. Public structured JSON
+5. Public ATS endpoints
+6. HTML scraping only when necessary
+
+Do not bypass authentication, CAPTCHAs, Cloudflare challenges, rate limits, or access restrictions.
+
+## Later Analysis
+
+Later derived records may cover skills, seniority, role classification, salary interpretation, remote geography, and AI-assisted work potential. Derived data must retain its input entity, extractor identity/version, input hash, creation time, method, and confidence instead of silently modifying CanonicalJob.
 
 ## Engineering Principles
 
-- Prefer public APIs, RSS, and structured feeds over scraping.
-- Keep each collector independent.
-- Store original raw data where practical.
-- Normalize data before analysis.
-- Do not bypass authentication, CAPTCHAs, Cloudflare, or access restrictions.
-- Make data provenance traceable.
-- Keep external-source attribution documented.
+- Keep collectors independent from normalization, persistence, and analysis.
+- Preserve original source payloads and trace every CanonicalJob back to its postings and observations.
+- Keep application services independent from CLI, web, bots, and a concrete database.
+- Prefer small, explicit modules and deterministic data transformations.
+- Document external-source attribution in `docs/SOURCES.md`.

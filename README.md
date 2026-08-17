@@ -18,15 +18,19 @@ The project should help answer:
 
 ## Main pipeline
 
-Sources
-→ Collectors
-→ Normalization
-→ Database
-→ AI Skill Extraction
-→ Job Classification
-→ Salary Analysis
-→ Skill Statistics
-→ Reports
+External source
+→ RawJob
+→ NormalizedJobPosting
+→ Repository persistence
+→ JobPosting
+→ CanonicalJob
+→ Later structured extraction and analytics
+
+`RawJob` preserves the original source observation. `JobPosting` is the durable posting on one source, while `CanonicalJob` groups postings that represent the same real-world vacancy.
+
+Repeated observations from the same source update one JobPosting. Cross-source duplicates remain separate JobPostings linked to one CanonicalJob, so provenance is preserved while analytics can count the vacancy once.
+
+Persistence is deterministic: timestamps use a fixed UTC format, JSON keys are sorted, Decimal values never pass through binary floats, and persistence owns both raw `observation_hash` and normalized `content_hash` values.
 
 ## Initial target roles
 

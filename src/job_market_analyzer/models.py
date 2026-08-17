@@ -1,3 +1,4 @@
+import re
 from decimal import Decimal
 from enum import StrEnum
 from typing import Any
@@ -12,6 +13,8 @@ from pydantic import (
     field_validator,
     model_validator,
 )
+
+SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
 
 
 class RemoteScope(StrEnum):
@@ -95,29 +98,17 @@ class RawJob(BaseModel):
         return value
 
 
-class JobPosting(BaseModel):
+class NormalizedJobPosting(BaseModel):
     """
-    Durable normalized vacancy posting on one specific source.
+    Normalized source posting before persistence.
 
-    Identity is defined by:
+    This model intentionally has no database identity,
+    canonical_job_id, lifecycle timestamps, or persistence hashes.
 
-        (source_provider, source_scope, external_id)
-
-    Multiple RawJob observations may describe the same JobPosting
-    at different points in time.
-
-    `content_hash` is the SHA-256 fingerprint of the normalized
-    persisted posting state.
-
-    It is not the hash of the raw payload and must not include
-    lifecycle fields such as `last_seen_at`.
+    Those values are owned by the persistence layer.
     """
 
     model_config = ConfigDict(str_strip_whitespace=True)
-
-    id: UUID = Field(default_factory=uuid4)
-
-    canonical_job_id: UUID
 
     source_provider: str = Field(min_length=1)
     source_scope: str = Field(min_length=1)
@@ -145,11 +136,6 @@ class JobPosting(BaseModel):
     published_at: AwareDatetime | None = None
     source_updated_at: AwareDatetime | None = None
 
-    first_seen_at: AwareDatetime
-    last_seen_at: AwareDatetime
-
-    content_hash: str = Field(min_length=64, max_length=64)
-
     @field_validator("source_provider", "source_scope")
     @classmethod
     def normalize_source_identity(cls, value: str) -> str:
@@ -168,21 +154,6 @@ class JobPosting(BaseModel):
 
         return value
 
-    @field_validator("content_hash")
-    @classmethod
-    def validate_content_hash(cls, value: str) -> str:
-        value = value.strip().lower()
-
-        if len(value) != 64:
-            raise ValueError("content_hash must be a 64-character SHA-256 hex digest")
-
-        try:
-            bytes.fromhex(value)
-        except ValueError as exc:
-            raise ValueError("content_hash must contain only hexadecimal characters") from exc
-
-        return value
-
     @field_validator("salary_currency")
     @classmethod
     def normalize_currency(cls, value: str | None) -> str | None:
@@ -191,21 +162,62 @@ class JobPosting(BaseModel):
 
         value = value.strip().upper()
 
-        if len(value) != 3 or not value.isalpha():
-            raise ValueError("salary_currency must be a 3-letter currency code")
+        if not re.fullmatch(r"[A-Z]{3}", value):
+            raise ValueError(
+                "salary_currency must be a 3-letter ASCII currency code"
+            )
 
         return value
 
     @model_validator(mode="after")
-    def validate_salary_range(self) -> "JobPosting":
+    def validate_salary_range(self) -> "NormalizedJobPosting":
         if (
             self.salary_min is not None
             and self.salary_max is not None
             and self.salary_min > self.salary_max
         ):
-            raise ValueError("salary_min must be less than or equal to salary_max")
+            raise ValueError(
+                "salary_min must be less than or equal to salary_max"
+            )
 
         return self
+
+
+class JobPosting(NormalizedJobPosting):
+    """
+    Durable source-specific vacancy stored by the persistence layer.
+
+    Identity is defined by:
+
+        (source_provider, source_scope, external_id)
+
+    Multiple RawJob observations may describe the same JobPosting
+    at different points in time.
+
+    `content_hash` is owned and calculated by the persistence layer
+    from the normalized persisted posting state.
+    """
+
+    id: UUID = Field(default_factory=uuid4)
+
+    canonical_job_id: UUID
+
+    first_seen_at: AwareDatetime
+    last_seen_at: AwareDatetime
+
+    content_hash: str
+
+    @field_validator("content_hash")
+    @classmethod
+    def validate_content_hash(cls, value: str) -> str:
+        value = value.strip().lower()
+
+        if not SHA256_PATTERN.fullmatch(value):
+            raise ValueError(
+                "content_hash must be exactly 64 lowercase hexadecimal characters"
+            )
+
+        return value
 
     @model_validator(mode="after")
     def validate_seen_range(self) -> "JobPosting":
@@ -226,10 +238,6 @@ class CanonicalJob(BaseModel):
 
     CanonicalJob intentionally contains only grouping identity and
     lifecycle timestamps.
-
-    Source-level fields such as salary, description, location, and
-    publication date remain on JobPosting until a documented
-    resolution policy exists.
     """
 
     model_config = ConfigDict(str_strip_whitespace=True)
