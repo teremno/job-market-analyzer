@@ -1,0 +1,10 @@
+Metadata-Version: 2.4
+Name: job-market-analyzer
+Version: 0.1.0
+Summary: Collect and analyze remote job market data.
+Requires-Python: >=3.13
+Requires-Dist: httpx>=0.28
+Requires-Dist: pydantic>=2.10
+Provides-Extra: dev
+Requires-Dist: pytest>=8.3; extra == "dev"
+Requires-Dist: ruff>=0.9; extra == "dev"
