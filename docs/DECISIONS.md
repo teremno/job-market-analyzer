@@ -336,6 +336,8 @@ During persistence:
 
 This relationship is mandatory in persistent storage even though it is not required in the collector-facing RawJob model.
 
+`latest_observation_hash` is an arrival-order cursor. It represents the most recently persisted observation, not necessarily the observation with the greatest `fetched_at`. Normalized JobPosting state and `last_seen_at` follow event-time freshness: a stale changed observation is preserved as raw provenance and becomes the latest arrived observation, but it must not regress the durable normalized state or `last_seen_at`.
+
 ### Persistence Serialization
 
 The persistence boundary uses deterministic representations:

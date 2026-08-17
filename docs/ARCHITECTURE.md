@@ -32,6 +32,8 @@ An immutable source observation collected at a specific time. It contains source
 
 Raw provenance is mandatory. The first observation and every changed observation are stored. An immediately unchanged observation updates the posting lifecycle without duplicating its JSON payload.
 
+`latest_observation_hash` follows persistence arrival order: it is the hash of the most recently persisted observation, even when that observation has an older `fetched_at`. Current normalized JobPosting state and monotonic `last_seen_at` follow event-time freshness, so a stale observation may extend raw provenance and advance `latest_observation_hash` without overwriting newer normalized state.
+
 ### NormalizedJobPosting
 
 The normalized source-level vacancy before persistence. It has no database ID, canonical ID, lifecycle timestamps, or persistence hashes.

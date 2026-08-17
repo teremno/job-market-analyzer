@@ -9,6 +9,8 @@ from typing import Any
 
 from job_market_analyzer.models import NormalizedJobPosting, RawJob
 
+SQLiteValue = str | int | None
+
 
 def serialize_utc_datetime(value: datetime) -> str:
     """Serialize an aware datetime to the canonical SQLite UTC format."""
@@ -60,13 +62,21 @@ def calculate_observation_hash(raw_job: RawJob) -> str:
 def calculate_content_hash(posting: NormalizedJobPosting) -> str:
     """Hash the explicit normalized source-level fields persisted for a posting."""
 
-    persisted_fields = {
+    return _sha256(_serialize_json(serialize_normalized_posting(posting)))
+
+
+def serialize_normalized_posting(
+    posting: NormalizedJobPosting,
+) -> dict[str, SQLiteValue]:
+    """Serialize the explicit normalized fields stored on JobPosting."""
+
+    return {
         "application_url": _serialize_optional_url(posting.application_url),
         "company_name": posting.company_name,
         "description_text": posting.description_text,
         "employment_type": _serialize_optional_enum(posting.employment_type),
         "external_id": posting.external_id,
-        "is_remote": posting.is_remote,
+        "is_remote": None if posting.is_remote is None else int(posting.is_remote),
         "location_text": posting.location_text,
         "published_at": _serialize_optional_datetime(posting.published_at),
         "remote_scope": _serialize_optional_enum(posting.remote_scope),
@@ -81,8 +91,6 @@ def calculate_content_hash(posting: NormalizedJobPosting) -> str:
         "source_url": str(posting.source_url),
         "title": posting.title,
     }
-
-    return _sha256(_serialize_json(persisted_fields))
 
 
 def _serialize_json(value: object) -> str:
@@ -113,11 +121,11 @@ def _serialize_optional_decimal(value: Decimal | None) -> str | None:
     return serialize_decimal(value)
 
 
-def _serialize_optional_enum(value: Enum | None) -> object | None:
+def _serialize_optional_enum(value: Enum | None) -> str | None:
     if value is None:
         return None
 
-    return value.value
+    return str(value.value)
 
 
 def _serialize_optional_url(value: object | None) -> str | None:

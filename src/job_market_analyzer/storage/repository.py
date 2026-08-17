@@ -5,6 +5,10 @@ from uuid import UUID
 from job_market_analyzer.models import NormalizedJobPosting, RawJob
 
 
+class SourceIdentityMismatchError(ValueError):
+    """Raised when raw and normalized records identify different postings."""
+
+
 @dataclass(frozen=True)
 class PersistResult:
     """Result of persisting one collected job observation."""
@@ -52,7 +56,8 @@ class JobRepository(Protocol):
         - calculate persistence-owned hashes deterministically;
 
         - store a RawJob observation only when it differs from the
-          immediately previous persisted observation;
+          immediately previous persisted observation in arrival order,
+          regardless of fetched_at chronology;
 
         - preserve raw provenance;
 
