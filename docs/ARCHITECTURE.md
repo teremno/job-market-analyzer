@@ -24,9 +24,9 @@ CanonicalJob
 ↓
 Pure deterministic intelligence extraction
 ↓
-In-memory SkillEvidence
+Versioned analysis_runs + job_skills evidence
 ↓
-Later derived-data persistence and analytics
+Later canonical-job analytics
 
 ## Core Models
 
@@ -76,11 +76,22 @@ Persistence uses deterministic representations:
 - `observation_hash`: calculated by persistence from source identity, source URL, and raw payload;
 - `content_hash`: calculated by persistence from an explicit set of normalized source-level fields, including `source_tags`.
 
-The SQLite schema stores exactly three MVP tables:
+The SQLite schema stores three authoritative source/domain tables:
 
 - `canonical_jobs`;
 - `job_postings`;
 - `raw_jobs`.
+
+Replaceable skill intelligence is stored separately in:
+
+- `skills`, a small stable-code reference table;
+- `analysis_runs`, one row per posting, analyzer/version, and dedicated input hash;
+- `job_skills`, direct mention evidence owned by one analysis run, including the
+  evidence-time skill display-name snapshot.
+
+`SkillIntelligenceRepository` is separate from `JobRepository`. One analysis run, any required skill reference rows, and all `job_skills` evidence are committed atomically. Derived rows may cascade when their `JobPosting` is deleted; source/domain rows never depend on derived intelligence.
+
+SQLite initialization reads `PRAGMA user_version` before application DDL. Versions newer than the supported schema fail without mutation. Committed v1 is structurally validated before the additive v2 migration, unexpected partial intelligence tables are rejected, and an existing v2 database must pass critical table, column, key, index, constraint, and foreign-key checks instead of being silently repaired.
 
 ## Collectors
 
@@ -103,7 +114,11 @@ The first intelligence component is a pure deterministic skill extractor. It con
 
 Evidence currently means only that a skill was `mentioned`. It does not claim that the skill is required, preferred, mastered, or central to the vacancy. Absence of `SkillEvidence` means only that the current extractor did not identify a matching v1 rule; it does not prove that the vacancy does not mention or require the skill in reality. Source tags go through the same taxonomy rules as title and description text; unknown tags are not converted into skills. Contextual guards are bypassed for an exact source-tag alias because a tag is structured source-observed evidence rather than free prose.
 
-The extractor has no database, network, AI, LLM, or embedding dependency. Deterministic evidence is not persisted in this checkpoint. A later persistence design must retain the input entity and hash, taxonomy/extractor version, creation time, method, and evidence instead of silently modifying `JobPosting` or `CanonicalJob`.
+The extractor has no database, network, AI, LLM, or embedding dependency. A separate application service analyzes a supplied current persisted `JobPosting`, calculates a dedicated SHA-256 hash from only `title`, `description_text`, and normalized `source_tags`, and persists the resulting evidence through `SkillIntelligenceRepository`. `None`, empty, and whitespace-only descriptions share the no-description hash representation. Salary, company, location, URLs, source lifecycle timestamps, and raw observations do not affect this analyzer input hash.
+
+An `analysis_runs` row records analyzer kind, taxonomy version, extractor version, input hash, and creation time. The v1 taxonomy constant currently represents the full deterministic extraction semantics and is stored as both version identities. Identical posting/version/input analysis is idempotent, including a successful run with zero evidence. Changed analyzer input or version creates a new historical run; old runs are not deleted automatically. `skills` stores one row per stable canonical code and preserves the first persisted reference display name instead of changing it according to recomputation order. Each `job_skills` row separately snapshots the extractor-produced `skill_name`, so historical `SkillEvidence` keeps its original label. Aliases and rules remain code-owned taxonomy data.
+
+`analyze_job_skills()` is currently a trusted internal service. Its caller must supply the current persisted `JobPosting` state; `JobRepository` currently returns persistence IDs and flags, not a reloaded durable `JobPosting`. Passing a stale in-memory posting can create a historical run for stale inputs associated with that posting ID. Before production collection-to-analysis orchestration, add an explicit durable read or current-state verification boundary. The service never analyzes `RawJob` directly, and this checkpoint intentionally adds no misleading latest-run API.
 
 Later derived records may also cover seniority, role classification, salary interpretation, remote geography, and AI-assisted work potential. These remain outside the current checkpoint.
 

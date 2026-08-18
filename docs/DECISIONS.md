@@ -450,4 +450,36 @@ The initial mention kind is `mentioned`. A mention must not be presented as proo
 
 ### Boundaries
 
-The extractor does not use AI, LLMs, embeddings, networking, or persistence. It does not infer unknown source tags or cloud-provider skills from related service names. An exact source-tag alias may bypass prose-only contextual guards because source tags are structured source observations, while unknown tags still produce no skill evidence. Derived skill tables, analyzer runs, roles, companies, analytics, and confidence/requirement classification remain later checkpoints.
+The extractor itself does not use AI, LLMs, embeddings, networking, or persistence. It does not infer unknown source tags or cloud-provider skills from related service names. An exact source-tag alias may bypass prose-only contextual guards because source tags are structured source observations, while unknown tags still produce no skill evidence. A separate persistence service may store the immutable extractor result; roles, companies, analytics, and confidence/requirement classification remain later checkpoints.
+
+---
+
+## ADR-010: Skill intelligence is versioned, derived, and recomputable
+
+Date: 2026-08-18
+
+Status: Accepted
+
+### Decision
+
+Skill evidence belongs to a persisted `JobPosting` but remains separate from authoritative source/domain state. SQLite stores:
+
+- one global `skills` reference row per stable canonical skill code;
+- one `analysis_runs` row per posting, analyzer kind, taxonomy version, extractor version, and analyzer input hash;
+- at most one `job_skills` evidence row per analysis run, skill code, and evidence field, with an evidence-time `skill_name` snapshot.
+
+The dedicated skill input hash contains only the actual deterministic extractor inputs: `title`, `description_text`, and normalized `source_tags`. `None`, empty, and whitespace-only descriptions use one canonical no-description representation. The hash excludes company, salary, location, URLs, lifecycle timestamps, raw observations, and persistence IDs. The current single semantics version is persisted as both taxonomy and extractor version, keeping the schema explicit without adding a second versioning subsystem.
+
+A run is persisted even when extraction finds zero skills. Identical posting/version/input analysis reuses the existing run. Changed input or version creates a new run, and historical runs coexist. Source tables are never mutated by analysis, and migration does not automatically backfill intelligence.
+
+The SQLite intelligence repository owns a short transaction covering the run, required skill reference rows, and all mention evidence. Any evidence failure rolls back the complete new run. Derived rows cascade from a deleted posting; no derived relationship may delete or block authoritative source data.
+
+The global `skills` row preserves its first persisted display name; later runs with a different display label do not overwrite it. Historical evidence does not read that mutable reference label: `job_skills.skill_name` snapshots exactly what its extractor run produced. The skill-specific key rejects analyzer kinds other than `skills`.
+
+Initialization rejects unsupported future schema versions before DDL, rejects partial intelligence structures in v1, and validates the critical declared-v2 structure. Derived DDL, structural validation, and the `user_version = 2` update share one transaction, so failure leaves committed v1 intact and retryable.
+
+### Boundaries
+
+The trusted internal analysis service expects its caller to provide the current persisted `JobPosting` state. The current `JobRepository` does not return a reloaded durable posting, and the service does not verify the supplied object against SQLite. A stale object can therefore create a historical run for stale inputs. Production collection-to-analysis orchestration must first introduce an explicit durable read or verification boundary. The service does not analyze `RawJob`, perform collection, schedule work, or provide batch/CLI execution. Persisted evidence still means only `mentioned`, never required, preferred, proficient, or employer-verified.
+
+Future analytics may join `job_skills` through `analysis_runs` and `job_postings` to `canonical_job_id`, and should count distinct canonical jobs where appropriate. Complete cross-source canonical linking is not implemented, so those future counts cannot yet claim complete cross-source deduplication.

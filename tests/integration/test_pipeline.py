@@ -4,6 +4,7 @@ from uuid import uuid4
 
 import pytest
 
+import job_market_analyzer.storage.sqlite as sqlite_storage
 from job_market_analyzer.models import NormalizedJobPosting, RawJob
 from job_market_analyzer.storage.serialization import (
     calculate_content_hash,
@@ -12,8 +13,12 @@ from job_market_analyzer.storage.serialization import (
     serialize_utc_datetime,
 )
 from job_market_analyzer.storage.sqlite import (
+    InconsistentDatabaseSchemaError,
+    SKILL_INTELLIGENCE_SCHEMA_VERSION,
+    UnsupportedDatabaseSchemaVersionError,
     connect_database,
     initialize_database,
+    load_intelligence_schema,
     load_schema,
 )
 from job_market_analyzer.storage.sqlite_repository import SQLiteJobRepository
@@ -159,10 +164,14 @@ def test_storage_initializes_required_tables(
     }
 
     assert {
+        "analysis_runs",
         "canonical_jobs",
+        "job_skills",
         "job_postings",
         "raw_jobs",
+        "skills",
     }.issubset(tables)
+    assert connection.execute("PRAGMA user_version").fetchone()[0] == 2
 
 
 def test_storage_initialization_is_idempotent(
@@ -182,10 +191,106 @@ def test_storage_initialization_is_idempotent(
     }
 
     assert {
+        "analysis_runs",
         "canonical_jobs",
+        "job_skills",
         "job_postings",
         "raw_jobs",
+        "skills",
     }.issubset(tables)
+
+
+def test_storage_rejects_future_schema_without_mutating_database() -> None:
+    future_connection = connect_database(":memory:")
+
+    try:
+        future_connection.execute("PRAGMA user_version = 3")
+        schema_before = future_connection.execute(
+            "SELECT type, name, sql FROM sqlite_master ORDER BY type, name"
+        ).fetchall()
+
+        with pytest.raises(
+            UnsupportedDatabaseSchemaVersionError,
+            match="newer than supported version 2",
+        ):
+            initialize_database(future_connection)
+
+        assert future_connection.execute("PRAGMA user_version").fetchone()[0] == 3
+        assert future_connection.execute(
+            "SELECT type, name, sql FROM sqlite_master ORDER BY type, name"
+        ).fetchall() == schema_before
+    finally:
+        future_connection.close()
+
+
+def test_storage_rejects_v2_missing_intelligence_tables() -> None:
+    malformed_connection = connect_database(":memory:")
+
+    try:
+        malformed_connection.executescript(load_schema())
+        malformed_connection.execute("PRAGMA user_version = 2")
+
+        with pytest.raises(
+            InconsistentDatabaseSchemaError,
+            match="missing tables: analysis_runs, job_skills, skills",
+        ):
+            initialize_database(malformed_connection)
+
+        assert malformed_connection.execute("PRAGMA user_version").fetchone()[0] == 2
+    finally:
+        malformed_connection.close()
+
+
+def test_storage_rejects_v2_missing_critical_intelligence_column() -> None:
+    malformed_connection = connect_database(":memory:")
+    malformed_schema = (
+        load_intelligence_schema()
+        .replace("    skill_name TEXT NOT NULL,\n", "")
+        .replace("    CHECK (length(trim(skill_name)) > 0),\n", "")
+    )
+
+    try:
+        malformed_connection.executescript(load_schema())
+        malformed_connection.executescript(malformed_schema)
+        malformed_connection.execute("PRAGMA user_version = 2")
+
+        with pytest.raises(
+            InconsistentDatabaseSchemaError,
+            match="missing columns: skill_name",
+        ):
+            initialize_database(malformed_connection)
+
+        assert malformed_connection.execute("PRAGMA user_version").fetchone()[0] == 2
+    finally:
+        malformed_connection.close()
+
+
+def test_storage_rejects_partial_intelligence_schema_at_v1_without_mutation() -> None:
+    partial_connection = connect_database(":memory:")
+
+    try:
+        partial_connection.executescript(load_schema())
+        partial_connection.execute("PRAGMA user_version = 1")
+        partial_connection.execute(
+            "CREATE TABLE skills (code TEXT PRIMARY KEY, display_name TEXT NOT NULL)"
+        )
+        partial_connection.commit()
+        schema_before = partial_connection.execute(
+            "SELECT type, name, sql FROM sqlite_master ORDER BY type, name"
+        ).fetchall()
+
+        with pytest.raises(
+            InconsistentDatabaseSchemaError,
+            match="unexpected partial intelligence tables: skills",
+        ):
+            initialize_database(partial_connection)
+
+        assert partial_connection.execute("PRAGMA user_version").fetchone()[0] == 1
+        assert partial_connection.execute(
+            "SELECT type, name, sql FROM sqlite_master ORDER BY type, name"
+        ).fetchall() == schema_before
+    finally:
+        partial_connection.close()
 
 
 def test_storage_source_urls_are_nullable(connection: sqlite3.Connection) -> None:
@@ -314,13 +419,189 @@ def test_storage_migrates_source_tags_without_losing_rows() -> None:
         )
         assert len(source_tags_columns) == 1
         assert source_tags_columns[0][3] == 1
-        assert legacy_connection.execute("PRAGMA user_version").fetchone()[0] == 1
+        assert (
+            legacy_connection.execute("PRAGMA user_version").fetchone()[0]
+            == SKILL_INTELLIGENCE_SCHEMA_VERSION
+        )
         assert legacy_connection.execute(
             "SELECT COUNT(*) FROM canonical_jobs"
         ).fetchone()[0] == 1
         assert legacy_connection.execute(
             "SELECT COUNT(*) FROM job_postings"
         ).fetchone()[0] == 1
+    finally:
+        legacy_connection.close()
+
+
+def test_storage_migrates_committed_v1_schema_to_skill_intelligence() -> None:
+    legacy_connection = connect_database(":memory:")
+
+    try:
+        legacy_connection.executescript(load_schema())
+        legacy_connection.execute("PRAGMA user_version = 1")
+        canonical_job_id = str(uuid4())
+        posting_id = str(uuid4())
+        raw_job = RawJob(
+            source_provider="greenhouse",
+            source_scope="example-company",
+            external_id="12345",
+            source_url="https://example.com/jobs/12345",
+            fetched_at=datetime(2026, 8, 17, 10, 0, tzinfo=UTC),
+            payload={"title": "Python Developer"},
+        )
+        insert_canonical_job(legacy_connection, canonical_job_id)
+        insert_job_posting(
+            legacy_connection,
+            posting_id=posting_id,
+            canonical_job_id=canonical_job_id,
+        )
+        insert_raw_job(
+            legacy_connection,
+            posting_id=posting_id,
+            raw_job=raw_job,
+        )
+        legacy_connection.commit()
+
+        initialize_database(legacy_connection)
+        initialize_database(legacy_connection)
+
+        tables = {
+            row[0]
+            for row in legacy_connection.execute(
+                "SELECT name FROM sqlite_master WHERE type = 'table'"
+            )
+        }
+        assert {"analysis_runs", "job_skills", "skills"}.issubset(tables)
+        assert (
+            legacy_connection.execute("PRAGMA user_version").fetchone()[0]
+            == SKILL_INTELLIGENCE_SCHEMA_VERSION
+        )
+        assert legacy_connection.execute(
+            "SELECT id FROM canonical_jobs"
+        ).fetchone()[0] == canonical_job_id
+        assert legacy_connection.execute(
+            "SELECT id FROM job_postings"
+        ).fetchone()[0] == posting_id
+        assert legacy_connection.execute(
+            "SELECT job_posting_id FROM raw_jobs"
+        ).fetchone()[0] == posting_id
+        assert legacy_connection.execute(
+            "SELECT COUNT(*) FROM analysis_runs"
+        ).fetchone()[0] == 0
+        assert legacy_connection.execute("PRAGMA foreign_key_check").fetchall() == []
+        assert legacy_connection.execute("PRAGMA foreign_keys").fetchone()[0] == 1
+    finally:
+        legacy_connection.close()
+
+
+def test_skill_intelligence_migration_failure_rolls_back_and_retry_succeeds(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    legacy_connection = connect_database(":memory:")
+
+    try:
+        legacy_connection.executescript(load_schema())
+        legacy_connection.execute("PRAGMA user_version = 1")
+        canonical_job_id = str(uuid4())
+        posting_id = str(uuid4())
+        insert_canonical_job(legacy_connection, canonical_job_id)
+        insert_job_posting(
+            legacy_connection,
+            posting_id=posting_id,
+            canonical_job_id=canonical_job_id,
+        )
+        insert_raw_job(
+            legacy_connection,
+            posting_id=posting_id,
+            raw_job=RawJob(
+                source_provider="greenhouse",
+                source_scope="example-company",
+                external_id="12345",
+                source_url="https://example.com/jobs/12345",
+                fetched_at=datetime(2026, 8, 17, 10, 0, tzinfo=UTC),
+                payload={"title": "Python Developer"},
+            ),
+        )
+        legacy_connection.commit()
+        source_rows_before = {
+            "canonical_jobs": [
+                dict(row)
+                for row in legacy_connection.execute("SELECT * FROM canonical_jobs")
+            ],
+            "job_postings": [
+                dict(row)
+                for row in legacy_connection.execute("SELECT * FROM job_postings")
+            ],
+            "raw_jobs": [
+                dict(row) for row in legacy_connection.execute("SELECT * FROM raw_jobs")
+            ],
+        }
+
+        valid_intelligence_schema = load_intelligence_schema()
+        malformed_intelligence_schema = (
+            valid_intelligence_schema
+            .replace("    skill_name TEXT NOT NULL,\n", "")
+            .replace("    CHECK (length(trim(skill_name)) > 0),\n", "")
+        )
+        monkeypatch.setattr(
+            sqlite_storage,
+            "load_intelligence_schema",
+            lambda: malformed_intelligence_schema,
+        )
+
+        with pytest.raises(
+            InconsistentDatabaseSchemaError,
+            match="missing columns: skill_name",
+        ):
+            initialize_database(legacy_connection)
+
+        tables = {
+            row[0]
+            for row in legacy_connection.execute(
+                "SELECT name FROM sqlite_master WHERE type = 'table'"
+            )
+        }
+        assert "skills" not in tables
+        assert "job_skills" not in tables
+        assert "analysis_runs" not in tables
+        assert legacy_connection.execute("PRAGMA user_version").fetchone()[0] == 1
+        assert legacy_connection.execute("PRAGMA foreign_key_check").fetchall() == []
+        assert legacy_connection.in_transaction is False
+        assert {
+            "canonical_jobs": [
+                dict(row)
+                for row in legacy_connection.execute("SELECT * FROM canonical_jobs")
+            ],
+            "job_postings": [
+                dict(row)
+                for row in legacy_connection.execute("SELECT * FROM job_postings")
+            ],
+            "raw_jobs": [
+                dict(row) for row in legacy_connection.execute("SELECT * FROM raw_jobs")
+            ],
+        } == source_rows_before
+
+        monkeypatch.setattr(
+            sqlite_storage,
+            "load_intelligence_schema",
+            lambda: valid_intelligence_schema,
+        )
+        initialize_database(legacy_connection)
+
+        assert legacy_connection.execute("PRAGMA user_version").fetchone()[0] == 2
+        assert {
+            "analysis_runs",
+            "job_skills",
+            "skills",
+        }.issubset(
+            {
+                row[0]
+                for row in legacy_connection.execute(
+                    "SELECT name FROM sqlite_master WHERE type = 'table'"
+                )
+            }
+        )
+        assert legacy_connection.execute("PRAGMA foreign_key_check").fetchall() == []
     finally:
         legacy_connection.close()
 

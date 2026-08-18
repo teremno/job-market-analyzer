@@ -20,13 +20,14 @@ This roadmap is directional. It describes meaningful product milestones, not a r
 | Remote OK repeated-run validation | ✅ | Second live run created no duplicate posting or raw observation |
 | Web3.career integration | ✅ | Offline tests plus successful real one-shot and repeated-run collection validation |
 | Normalized source-tag intelligence input | ✅ | Committed normalized analyzer input contract with migration and regression coverage |
-| Skill Taxonomy v1 / deterministic extractor | 🟡 | Pure taxonomy-backed evidence extraction implemented and awaiting checkpoint review; persistence is not implemented |
+| Skill Taxonomy v1 / deterministic extractor | ✅ | Committed pure taxonomy-backed extraction with direct mention evidence |
+| Versioned skill persistence / recomputation | 🟡 | Derived SQLite analysis runs and evidence implemented in the current review checkpoint |
 
 ## Visual Direction
 
 ```mermaid
 flowchart LR
-    P1["🟡 Phase 1<br/>Data Foundation"] --> P2["⬜ Phase 2<br/>Data Intelligence"]
+    P1["✅ Phase 1<br/>Data Foundation"] --> P2["🟡 Phase 2<br/>Data Intelligence"]
     P2 --> P3["⬜ Phase 3<br/>Market Analytics"]
     P3 --> P4["⬜ Phase 4<br/>Personal Intelligence"]
     P3 --> P5["⬜ Phase 5<br/>Product API / Hosted Backend"]
@@ -52,7 +53,7 @@ flowchart LR
 
 ### Current / next
 
-- 🟡 Review and finalize Skill Taxonomy v1 and the deterministic extractor before designing derived-data persistence.
+- 🟡 Review versioned skill-intelligence persistence and recomputation before adding new intelligence domains.
 
 ### Planned foundation work
 
@@ -64,8 +65,8 @@ flowchart LR
 ## Phase 2 — Data Intelligence
 
 - ✅ Normalized source-observed tags persisted as deterministic analyzer input; these are not canonical skills.
-- 🟡 Skill Taxonomy v1 and pure deterministic extraction with structured mention evidence.
-- ⬜ Persist versioned derived skill evidence and analyzer-run metadata after the extraction contract is reviewed.
+- ✅ Skill Taxonomy v1 and pure deterministic extraction with structured mention evidence.
+- 🟡 Versioned, recomputable skill analysis runs with dedicated input hashes and persisted direct mention evidence.
 - ⬜ Role and company normalization.
 - ⬜ Geography and remote-restriction normalization.
 - ⬜ Salary normalization with explicit disclosed, estimated, and derived provenance.
