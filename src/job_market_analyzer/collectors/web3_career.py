@@ -133,7 +133,7 @@ class Web3CareerCollector:
             raise TypeError("Web3.career job entry must be a JSON object")
 
         external_id = _required_source_id(item.get("id"))
-        source_url = _required_text(item.get("url"), field_name="url")
+        source_url = _optional_text(item.get("url"), field_name="url")
         _required_text(item.get("apply_url"), field_name="apply_url")
         return RawJob(
             source_provider=WEB3_CAREER_SOURCE_PROVIDER,
@@ -195,3 +195,12 @@ def _required_text(value: object, *, field_name: str) -> str:
     if not text:
         raise ValueError(f"Web3.career job field '{field_name}' must not be blank")
     return text
+
+
+def _optional_text(value: object, *, field_name: str) -> str | None:
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise TypeError(f"Web3.career job field '{field_name}' must be a string")
+
+    return value.strip() or None

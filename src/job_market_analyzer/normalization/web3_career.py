@@ -108,7 +108,14 @@ def _optional_text(value: object, *, field_name: str) -> str | None:
 
 
 def _validate_source_url(raw_job: RawJob, value: object) -> None:
-    source_url = _required_text(value, field_name="url")
+    source_url = _optional_text(value, field_name="url")
+    if source_url is None:
+        if raw_job.source_url is not None:
+            raise Web3CareerNormalizationError(
+                "Web3.career url does not match RawJob source_url"
+            )
+        return
+
     try:
         normalized_source_url = HttpUrl(source_url)
     except ValueError as exc:
@@ -195,7 +202,7 @@ def _parse_datetime(value: object) -> datetime | None:
 
     date_value = value.strip()
     try:
-        parsed_datetime = datetime.fromisoformat(date_value.replace("Z", "+00:00"))
+        parsed_datetime = datetime.fromisoformat(date_value)
     except ValueError:
         return None
 

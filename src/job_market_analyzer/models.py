@@ -74,7 +74,7 @@ class RawJob(BaseModel):
     source_scope: str = Field(min_length=1)
     external_id: str = Field(min_length=1)
 
-    source_url: HttpUrl
+    source_url: HttpUrl | None = None
     fetched_at: AwareDatetime
 
     payload: dict[str, Any]
@@ -114,7 +114,7 @@ class NormalizedJobPosting(BaseModel):
     source_scope: str = Field(min_length=1)
     external_id: str = Field(min_length=1)
 
-    source_url: HttpUrl
+    source_url: HttpUrl | None = None
     application_url: HttpUrl | None = None
 
     title: str = Field(min_length=1)

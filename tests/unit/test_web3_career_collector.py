@@ -21,10 +21,24 @@ TEST_TOKEN = "offline-test-token"
 def test_collector_uses_official_query_and_extracts_nested_jobs() -> None:
     payload = {
         "id": 101,
+        "date": "2026-08-17T10:30:00Z",
+        "date_epoch": 1786962600,
+        "is_remote": True,
+        "country": None,
+        "city": None,
         "title": "Solidity Engineer",
         "company": "Chain Labs",
+        "location": "Worldwide",
         "apply_url": "https://web3.career/redirect/101?source=api",
-        "url": "https://web3.career/solidity-engineer-chain-labs/101",
+        "tags": ["solidity", "smart-contracts"],
+        "salary_min_value": 100000,
+        "salary_max_value": 140000,
+        "salary_currency": "USD",
+        "salary_unit": "year",
+        "estimated_min_salary": 95000,
+        "estimated_max_salary": 145000,
+        "estimated_avg_salary": 120000,
+        "description": "<p>Build secure contracts.</p>",
     }
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -59,12 +73,36 @@ def test_collector_uses_official_query_and_extracts_nested_jobs() -> None:
     assert result.jobs[0].source_provider == "web3_career"
     assert result.jobs[0].source_scope == "global"
     assert result.jobs[0].external_id == "101"
-    assert str(result.jobs[0].source_url) == payload["url"]
+    assert result.jobs[0].source_url is None
     assert result.jobs[0].fetched_at == FETCHED_AT
     assert result.jobs[0].payload == payload
     assert result.jobs[0].payload["apply_url"] == payload["apply_url"]
     assert "token" not in result.jobs[0].payload
     assert TEST_TOKEN not in str(result.jobs[0].source_url)
+
+
+def test_collector_accepts_explicit_null_source_url() -> None:
+    payload = {
+        "id": "null-url",
+        "title": "Protocol Engineer",
+        "apply_url": "https://web3.career/redirect/null-url",
+        "url": None,
+    }
+    collector = Web3CareerCollector(
+        api_token=TEST_TOKEN,
+        base_url="https://web3-career.test/api",
+        transport=httpx.MockTransport(
+            lambda request: httpx.Response(200, json=[payload], request=request)
+        ),
+        clock=lambda: FETCHED_AT,
+    )
+
+    result = asyncio.run(collector.collect())
+
+    assert result.failures == ()
+    assert result.jobs[0].external_id == "null-url"
+    assert result.jobs[0].source_url is None
+    assert result.jobs[0].payload == payload
 
 
 def test_collector_accepts_direct_jobs_array_fallback() -> None:
@@ -131,14 +169,42 @@ def test_collector_reports_malformed_items_and_keeps_valid_jobs() -> None:
     result = asyncio.run(collector.collect())
 
     assert result.fetched == 5
-    assert [job.external_id for job in result.jobs] == ["valid-1"]
-    assert len(result.failures) == 4
-    assert [failure.item_index for failure in result.failures] == [0, 1, 2, 3]
+    assert [job.external_id for job in result.jobs] == ["missing-url", "valid-1"]
+    assert result.jobs[0].source_url is None
+    assert len(result.failures) == 3
+    assert [failure.item_index for failure in result.failures] == [0, 2, 3]
     assert all(failure.stage == "collect" for failure in result.failures)
     assert "field 'id'" in result.failures[0].message
-    assert "field 'url'" in result.failures[1].message
-    assert "field 'apply_url'" in result.failures[2].message
-    assert "JSON object" in result.failures[3].message
+    assert "field 'apply_url'" in result.failures[1].message
+    assert "JSON object" in result.failures[2].message
+
+
+def test_collector_rejects_non_string_optional_source_url() -> None:
+    collector = Web3CareerCollector(
+        api_token=TEST_TOKEN,
+        base_url="https://web3-career.test/api",
+        transport=httpx.MockTransport(
+            lambda request: httpx.Response(
+                200,
+                json=[
+                    {
+                        "id": "malformed-url",
+                        "title": "Developer",
+                        "apply_url": "https://web3.career/redirect/malformed-url",
+                        "url": 123,
+                    }
+                ],
+                request=request,
+            )
+        ),
+        clock=lambda: FETCHED_AT,
+    )
+
+    result = asyncio.run(collector.collect())
+
+    assert result.jobs == ()
+    assert len(result.failures) == 1
+    assert "field 'url' must be a string" in result.failures[0].message
 
 
 def test_collector_requires_token_configuration(monkeypatch: pytest.MonkeyPatch) -> None:

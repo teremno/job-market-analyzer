@@ -1,6 +1,7 @@
 """Shared contracts for source-specific job normalization."""
 
 from html.parser import HTMLParser
+from typing import ClassVar
 
 
 class NormalizationError(ValueError):
@@ -8,7 +9,7 @@ class NormalizationError(ValueError):
 
 
 class _DescriptionHTMLParser(HTMLParser):
-    _break_tags = {
+    _break_tags: ClassVar[set[str]] = {
         "br",
         "div",
         "h1",
@@ -21,7 +22,7 @@ class _DescriptionHTMLParser(HTMLParser):
         "p",
         "tr",
     }
-    _ignored_tags = {"script", "style"}
+    _ignored_tags: ClassVar[set[str]] = {"script", "style"}
     _trailing_punctuation = frozenset(".,;:!?)]}")
 
     def __init__(self) -> None:

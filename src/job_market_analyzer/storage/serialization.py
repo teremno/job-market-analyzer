@@ -53,7 +53,7 @@ def calculate_observation_hash(raw_job: RawJob) -> str:
         "payload": raw_job.payload,
         "source_provider": raw_job.source_provider,
         "source_scope": raw_job.source_scope,
-        "source_url": str(raw_job.source_url),
+        "source_url": _serialize_optional_url(raw_job.source_url),
     }
 
     return _sha256(_serialize_json(observation))
@@ -88,7 +88,7 @@ def serialize_normalized_posting(
         "source_provider": posting.source_provider,
         "source_scope": posting.source_scope,
         "source_updated_at": _serialize_optional_datetime(posting.source_updated_at),
-        "source_url": str(posting.source_url),
+        "source_url": _serialize_optional_url(posting.source_url),
         "title": posting.title,
     }
 

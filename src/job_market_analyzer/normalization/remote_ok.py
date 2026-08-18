@@ -169,7 +169,7 @@ def _published_at(payload: dict[str, object]) -> datetime | None:
     date_value = _optional_text(payload.get("date"), field_name="date")
     if date_value is not None:
         try:
-            published_at = datetime.fromisoformat(date_value.replace("Z", "+00:00"))
+            published_at = datetime.fromisoformat(date_value)
         except ValueError as exc:
             raise RemoteOKNormalizationError(
                 "Remote OK payload field 'date' must be an ISO-8601 datetime"

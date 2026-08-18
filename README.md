@@ -57,14 +57,29 @@ See [Product Vision](docs/PRODUCT_VISION.md) for long-term principles and [Produ
 
 ## Manual one-shot collection
 
-Install the package locally, then run one real Remote OK collection with an explicit SQLite path:
+Install the package locally:
 
 ```bash
 python -m pip install -e .
 ```
+
+### Remote OK
+
+Run one real Remote OK collection with an explicit SQLite path:
 
 ```bash
 job-market-analyzer collect-remote-ok --database ./job-market.sqlite3
 ```
 
 This command makes a real network request to Remote OK, initializes or reuses the selected SQLite database, prints a concise result and a sample of up to five vacancies, then exits. It does not start a scheduler or background process. Repeated runs against the same database reuse and upsert existing source postings; the command never deletes or recreates the database.
+
+### Web3.career
+
+Set the required `WEB3_CAREER_API_TOKEN` environment variable, then run one collection with an explicit SQLite path. For PowerShell:
+
+```powershell
+$env:WEB3_CAREER_API_TOKEN = "<YOUR_TOKEN>"
+job-market-analyzer collect-web3-career --database ./web3-career-smoke.sqlite3
+```
+
+Never commit the token or store it in tracked files. The command reads it only from `WEB3_CAREER_API_TOKEN`, performs one authenticated API collection run, initializes or reuses the selected database, prints a token-safe summary and at most five vacancies, then exits. Repeated runs reuse the same database and its existing deduplication/upsert behavior.

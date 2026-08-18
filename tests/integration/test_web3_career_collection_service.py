@@ -15,7 +15,6 @@ SECOND_FETCHED_AT = datetime(2026, 8, 18, 13, 0, tzinfo=UTC)
 
 def test_repeated_web3_feed_is_idempotent_with_real_sqlite_repository() -> None:
     apply_url = "https://web3.career/redirect/stable-job?source=api"
-    source_url = "https://web3.career/stable-web3-job/stable-job"
     test_token = "offline-test-token"
     feed = [
         "metadata",
@@ -27,7 +26,6 @@ def test_repeated_web3_feed_is_idempotent_with_real_sqlite_repository() -> None:
                 "remote": True,
                 "location": "Worldwide",
                 "apply_url": apply_url,
-                "url": source_url,
                 "date": "2026-08-17T10:30:00Z",
             }
         ],
@@ -108,12 +106,10 @@ def test_repeated_web3_feed_is_idempotent_with_real_sqlite_repository() -> None:
         assert second_posting["id"] == first_posting["id"]
         assert second_posting["canonical_job_id"] == first_posting["canonical_job_id"]
         assert raw_posting_id == first_posting["id"]
-        assert first_posting["source_url"] == source_url
+        assert first_posting["source_url"] is None
         assert first_posting["application_url"] == apply_url
-        assert raw_observation["source_url"] == source_url
-        assert test_token not in raw_observation["source_url"]
+        assert raw_observation["source_url"] is None
         assert test_token not in raw_observation["payload_json"]
-        assert test_token not in first_posting["source_url"]
         assert test_token not in first_posting["application_url"]
         assert second_posting["first_seen_at"] == first_posting["first_seen_at"]
         assert first_posting["last_seen_at"] == "2026-08-18T12:00:00.000000Z"

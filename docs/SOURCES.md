@@ -105,14 +105,16 @@ MVP source identity:
 - `source_provider = "web3_career"`;
 - `source_scope = "global"`;
 - `external_id` uses only the source-native `id` field;
-- `RawJob.source_url` preserves the Web3.career posting-page `url`;
-- normalized `application_url` preserves the unmodified user-facing `apply_url` required for attribution.
+- `RawJob.source_url` preserves `url` when the API supplies a valid non-empty value;
+- the live API may omit `url`, and a missing or null value does not invalidate the vacancy;
+- no posting URL is synthesized from `id`, and `apply_url` is not copied into `source_url`;
+- normalized `application_url` preserves the required, unmodified user-facing `apply_url` used for attribution and application.
 
 Fields currently used:
 
 - `id`;
-- `url`;
-- `apply_url`;
+- optional `url`, when supplied;
+- required `apply_url`;
 - `title`;
 - `company`;
 - `location`, with `city` and `country` as a fallback;

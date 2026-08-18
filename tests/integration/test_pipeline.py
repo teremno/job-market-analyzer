@@ -6,6 +6,7 @@ import pytest
 from job_market_analyzer.storage.sqlite import (
     connect_database,
     initialize_database,
+    load_schema,
 )
 
 VALID_HASH_A = "a" * 64
@@ -129,6 +130,91 @@ def test_storage_initialization_is_idempotent(
         "job_postings",
         "raw_jobs",
     }.issubset(tables)
+
+
+def test_storage_source_urls_are_nullable(connection: sqlite3.Connection) -> None:
+    for table_name in ("job_postings", "raw_jobs"):
+        source_url = next(
+            row
+            for row in connection.execute(f"PRAGMA table_info({table_name})")
+            if row[1] == "source_url"
+        )
+        assert source_url[3] == 0
+
+
+def test_storage_migrates_required_source_urls_without_losing_rows() -> None:
+    legacy_schema = load_schema().replace(
+        "source_url TEXT,",
+        "source_url TEXT NOT NULL,",
+    ).replace(
+        "CHECK (source_url IS NULL OR length(trim(source_url)) > 0)",
+        "CHECK (length(trim(source_url)) > 0)",
+    )
+    legacy_connection = connect_database(":memory:")
+
+    try:
+        legacy_connection.executescript(legacy_schema)
+        canonical_job_id = str(uuid4())
+        posting_id = str(uuid4())
+        source_url = "https://example.com/jobs/legacy"
+        insert_canonical_job(legacy_connection, canonical_job_id)
+        insert_job_posting(
+            legacy_connection,
+            posting_id=posting_id,
+            canonical_job_id=canonical_job_id,
+        )
+        legacy_connection.execute(
+            """
+            INSERT INTO raw_jobs (
+                id,
+                job_posting_id,
+                source_provider,
+                source_scope,
+                external_id,
+                source_url,
+                fetched_at,
+                observation_hash,
+                payload_json
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                str(uuid4()),
+                posting_id,
+                "greenhouse",
+                "example-company",
+                "12345",
+                source_url,
+                "2026-08-17T10:00:00.000000Z",
+                VALID_HASH_A,
+                '{"title":"Python Developer"}',
+            ),
+        )
+        legacy_connection.commit()
+
+        initialize_database(legacy_connection)
+
+        assert legacy_connection.execute(
+            "SELECT COUNT(*) FROM job_postings"
+        ).fetchone()[0] == 1
+        assert legacy_connection.execute(
+            "SELECT COUNT(*) FROM raw_jobs"
+        ).fetchone()[0] == 1
+        assert legacy_connection.execute(
+            "SELECT source_url FROM raw_jobs"
+        ).fetchone()[0] == source_url
+        assert legacy_connection.execute("PRAGMA foreign_keys").fetchone()[0] == 1
+        for table_name in ("job_postings", "raw_jobs"):
+            source_url_column = next(
+                row
+                for row in legacy_connection.execute(
+                    f"PRAGMA table_info({table_name})"
+                )
+                if row[1] == "source_url"
+            )
+            assert source_url_column[3] == 0
+    finally:
+        legacy_connection.close()
 
 
 def test_storage_initialization_rejects_active_transaction(

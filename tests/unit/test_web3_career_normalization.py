@@ -16,14 +16,13 @@ SOURCE_URL = "https://web3.career/solidity-engineer-chain-labs/101"
 def make_raw_job(payload: dict[str, object]) -> RawJob:
     complete_payload = {
         "apply_url": APPLY_URL,
-        "url": SOURCE_URL,
         **payload,
     }
     return RawJob(
         source_provider="web3_career",
         source_scope="global",
         external_id=str(complete_payload.get("id", "101")),
-        source_url=str(complete_payload["url"]),
+        source_url=complete_payload.get("url"),
         fetched_at=FETCHED_AT,
         payload=complete_payload,
     )
@@ -85,6 +84,7 @@ def test_normalizer_keeps_explicit_null_optional_fields_empty() -> None:
                 "city": None,
                 "country": None,
                 "description": None,
+                "url": None,
                 "remote": None,
                 "is_remote": None,
                 "apply_url": APPLY_URL,
@@ -99,6 +99,7 @@ def test_normalizer_keeps_explicit_null_optional_fields_empty() -> None:
     )
 
     assert posting.company_name is None
+    assert posting.source_url is None
     assert posting.description_text is None
     assert posting.location_text is None
     assert posting.is_remote is None
@@ -110,6 +111,21 @@ def test_normalizer_keeps_explicit_null_optional_fields_empty() -> None:
     assert posting.salary_currency is None
     assert posting.salary_period is None
     assert posting.published_at is None
+
+
+def test_normalizer_preserves_application_url_when_source_url_is_missing() -> None:
+    posting = normalize_web3_career_job(
+        make_raw_job(
+            {
+                "id": "101",
+                "title": "Protocol Engineer",
+                "apply_url": APPLY_URL,
+            }
+        )
+    )
+
+    assert posting.source_url is None
+    assert str(posting.application_url) == APPLY_URL
 
 
 def test_normalizer_builds_country_location_and_scope() -> None:

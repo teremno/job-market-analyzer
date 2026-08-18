@@ -62,7 +62,9 @@ class SQLiteJobRepository:
             "payload_json": payload_json,
             "source_provider": raw_job.source_provider,
             "source_scope": raw_job.source_scope,
-            "source_url": str(raw_job.source_url),
+            "source_url": (
+                str(raw_job.source_url) if raw_job.source_url is not None else None
+            ),
         }
 
         self._connection.execute("BEGIN IMMEDIATE")

@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS job_postings (
     source_scope TEXT NOT NULL,
     external_id TEXT NOT NULL,
 
-    source_url TEXT NOT NULL,
+    source_url TEXT,
     application_url TEXT,
 
     title TEXT NOT NULL,
@@ -58,7 +58,7 @@ CREATE TABLE IF NOT EXISTS job_postings (
     CHECK (length(trim(source_provider)) > 0),
     CHECK (length(trim(source_scope)) > 0),
     CHECK (length(trim(external_id)) > 0),
-    CHECK (length(trim(source_url)) > 0),
+    CHECK (source_url IS NULL OR length(trim(source_url)) > 0),
     CHECK (length(trim(title)) > 0),
 
     CHECK (
@@ -91,7 +91,7 @@ CREATE TABLE IF NOT EXISTS raw_jobs (
     source_scope TEXT NOT NULL,
     external_id TEXT NOT NULL,
 
-    source_url TEXT NOT NULL,
+    source_url TEXT,
 
     fetched_at TEXT NOT NULL,
 
@@ -106,7 +106,7 @@ CREATE TABLE IF NOT EXISTS raw_jobs (
     CHECK (length(trim(source_provider)) > 0),
     CHECK (length(trim(source_scope)) > 0),
     CHECK (length(trim(external_id)) > 0),
-    CHECK (length(trim(source_url)) > 0),
+    CHECK (source_url IS NULL OR length(trim(source_url)) > 0),
 
     CHECK (
         length(observation_hash) = 64
