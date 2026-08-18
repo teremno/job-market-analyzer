@@ -90,6 +90,8 @@ Each source has an independent collector. Prefer sources in this order:
 
 Do not bypass authentication, CAPTCHAs, Cloudflare challenges, rate limits, or access restrictions.
 
+Collection runs fail loudly for source-wide HTTP or feed-shape errors. A malformed individual vacancy reported by a collector, or a source normalizer's typed recoverable `NormalizationError`, is recorded in the collection summary while later valid items continue. Unexpected normalizer defects and all repository/storage errors propagate immediately because continuing after a systemic failure could hide data loss or corruption.
+
 ## Later Analysis
 
 Later derived records may cover skills, seniority, role classification, salary interpretation, remote geography, and AI-assisted work potential. Derived data must retain its input entity, extractor identity/version, input hash, creation time, method, and confidence instead of silently modifying CanonicalJob.
