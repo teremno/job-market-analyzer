@@ -53,6 +53,8 @@ Persistence is deterministic: timestamps use a fixed UTC format, JSON keys are s
 
 Early development / research phase.
 
+See [Product Vision](docs/PRODUCT_VISION.md) for long-term principles and [Product Roadmap](docs/ROADMAP.md) for current progress and future phases.
+
 ## Manual one-shot collection
 
 Install the package locally, then run one real Remote OK collection with an explicit SQLite path:
