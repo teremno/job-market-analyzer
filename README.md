@@ -52,3 +52,17 @@ Persistence is deterministic: timestamps use a fixed UTC format, JSON keys are s
 ## Project status
 
 Early development / research phase.
+
+## Manual one-shot collection
+
+Install the package locally, then run one real Remote OK collection with an explicit SQLite path:
+
+```bash
+python -m pip install -e .
+```
+
+```bash
+job-market-analyzer collect-remote-ok --database ./job-market.sqlite3
+```
+
+This command makes a real network request to Remote OK, initializes or reuses the selected SQLite database, prints a concise result and a sample of up to five vacancies, then exits. It does not start a scheduler or background process. Repeated runs against the same database reuse and upsert existing source postings; the command never deletes or recreates the database.

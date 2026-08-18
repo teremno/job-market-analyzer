@@ -3,3 +3,10 @@ __pycache__/
 *.pyc
 .env
 .idea/
+
+# Local SQLite artifacts
+*.db
+*.sqlite
+*.sqlite3
+*-wal
+*-shm
