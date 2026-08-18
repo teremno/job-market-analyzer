@@ -36,7 +36,7 @@ Raw provenance is mandatory. The first observation and every changed observation
 
 ### NormalizedJobPosting
 
-The normalized source-level vacancy before persistence. It has no database ID, canonical ID, lifecycle timestamps, or persistence hashes.
+The normalized source-level vacancy before persistence. It has no database ID, canonical ID, lifecycle timestamps, or persistence hashes. Its `source_tags` field is a deterministic tuple of source-observed labels. These labels are normalized inputs, not canonical skills or role classifications; the original raw payload remains authoritative provenance.
 
 ### JobPosting
 
@@ -68,8 +68,9 @@ Persistence uses deterministic representations:
 - timestamps: UTC `YYYY-MM-DDTHH:MM:SS.ffffffZ`;
 - Decimal values: exact canonical decimal strings without floats;
 - payloads: compact UTF-8 JSON with sorted keys and non-finite numbers rejected;
+- source tags: compact canonical JSON arrays with deterministic order;
 - `observation_hash`: calculated by persistence from source identity, source URL, and raw payload;
-- `content_hash`: calculated by persistence from an explicit set of normalized source-level fields.
+- `content_hash`: calculated by persistence from an explicit set of normalized source-level fields, including `source_tags`.
 
 The SQLite schema stores exactly three MVP tables:
 
@@ -94,7 +95,9 @@ Collection runs fail loudly for source-wide HTTP or feed-shape errors. A malform
 
 ## Later Analysis
 
-Later derived records may cover skills, seniority, role classification, salary interpretation, remote geography, and AI-assisted work potential. Derived data must retain its input entity, extractor identity/version, input hash, creation time, method, and confidence instead of silently modifying CanonicalJob.
+Later deterministic analyzers may use the normalized posting title, description, and source-observed tags as inputs. `source_tags` must not be treated as extracted skills without taxonomy matching and evidence. Later derived records may cover skills, seniority, role classification, salary interpretation, remote geography, and AI-assisted work potential. Derived data must retain its input entity, extractor identity/version, input hash, creation time, method, and confidence instead of silently modifying CanonicalJob.
+
+Canonical analytics remove duplication only when multiple postings already share one `CanonicalJob`. Complete cross-source canonical linking is not implemented yet, so current data must not be described as fully deduplicated across sources.
 
 ## Engineering Principles
 

@@ -17,6 +17,21 @@ from pydantic import (
 SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
 
 
+def normalize_source_tags(value: object) -> tuple[str, ...]:
+    """Normalize source-observed tags without interpreting their meaning."""
+
+    if not isinstance(value, (list, tuple)):
+        return ()
+
+    normalized_tags = {
+        normalized_tag
+        for tag in value
+        if isinstance(tag, str)
+        if (normalized_tag := " ".join(tag.split()))
+    }
+    return tuple(sorted(normalized_tags, key=lambda tag: (tag.casefold(), tag)))
+
+
 class RemoteScope(StrEnum):
     """How the remote-work geography is restricted."""
 
@@ -120,6 +135,7 @@ class NormalizedJobPosting(BaseModel):
     title: str = Field(min_length=1)
     company_name: str | None = None
     description_text: str | None = None
+    source_tags: tuple[str, ...] = ()
 
     location_text: str | None = None
     is_remote: bool | None = None
@@ -153,6 +169,11 @@ class NormalizedJobPosting(BaseModel):
             raise ValueError("Value must not be blank")
 
         return value
+
+    @field_validator("source_tags", mode="before")
+    @classmethod
+    def normalize_observed_source_tags(cls, value: object) -> tuple[str, ...]:
+        return normalize_source_tags(value)
 
     @field_validator("salary_currency")
     @classmethod

@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS job_postings (
     title TEXT NOT NULL,
     company_name TEXT,
     description_text TEXT,
+    source_tags_json TEXT NOT NULL DEFAULT '[]',
 
     location_text TEXT,
     is_remote INTEGER,
@@ -60,6 +61,8 @@ CREATE TABLE IF NOT EXISTS job_postings (
     CHECK (length(trim(external_id)) > 0),
     CHECK (source_url IS NULL OR length(trim(source_url)) > 0),
     CHECK (length(trim(title)) > 0),
+    CHECK (json_valid(source_tags_json)),
+    CHECK (json_type(source_tags_json) = 'array'),
 
     CHECK (
         is_remote IS NULL

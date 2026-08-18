@@ -1,16 +1,34 @@
 import sqlite3
+from datetime import UTC, datetime
 from uuid import uuid4
 
 import pytest
 
+from job_market_analyzer.models import NormalizedJobPosting, RawJob
+from job_market_analyzer.storage.serialization import (
+    calculate_content_hash,
+    calculate_observation_hash,
+    serialize_raw_payload,
+    serialize_utc_datetime,
+)
 from job_market_analyzer.storage.sqlite import (
     connect_database,
     initialize_database,
     load_schema,
 )
+from job_market_analyzer.storage.sqlite_repository import SQLiteJobRepository
 
 VALID_HASH_A = "a" * 64
 VALID_HASH_B = "b" * 64
+
+
+def schema_without_source_tags() -> str:
+    return (
+        load_schema()
+        .replace("    source_tags_json TEXT NOT NULL DEFAULT '[]',\n", "")
+        .replace("    CHECK (json_valid(source_tags_json)),\n", "")
+        .replace("    CHECK (json_type(source_tags_json) = 'array'),\n", "")
+    )
 
 
 @pytest.fixture
@@ -52,6 +70,7 @@ def insert_job_posting(
     source_provider: str = "greenhouse",
     source_scope: str = "example-company",
     external_id: str = "12345",
+    salary_currency: str | None = None,
     content_hash: str = VALID_HASH_A,
     latest_observation_hash: str = VALID_HASH_A,
 ) -> None:
@@ -65,12 +84,13 @@ def insert_job_posting(
             external_id,
             source_url,
             title,
+            salary_currency,
             first_seen_at,
             last_seen_at,
             content_hash,
             latest_observation_hash
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             posting_id,
@@ -80,10 +100,46 @@ def insert_job_posting(
             external_id,
             "https://example.com/jobs/12345",
             "Python Developer",
+            salary_currency,
             "2026-08-17T10:00:00.000000Z",
             "2026-08-17T10:00:00.000000Z",
             content_hash,
             latest_observation_hash,
+        ),
+    )
+
+
+def insert_raw_job(
+    connection: sqlite3.Connection,
+    *,
+    posting_id: str,
+    raw_job: RawJob,
+) -> None:
+    connection.execute(
+        """
+        INSERT INTO raw_jobs (
+            id,
+            job_posting_id,
+            source_provider,
+            source_scope,
+            external_id,
+            source_url,
+            fetched_at,
+            observation_hash,
+            payload_json
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            str(raw_job.id),
+            posting_id,
+            raw_job.source_provider,
+            raw_job.source_scope,
+            raw_job.external_id,
+            str(raw_job.source_url) if raw_job.source_url is not None else None,
+            serialize_utc_datetime(raw_job.fetched_at),
+            calculate_observation_hash(raw_job),
+            serialize_raw_payload(raw_job.payload),
         ),
     )
 
@@ -143,7 +199,7 @@ def test_storage_source_urls_are_nullable(connection: sqlite3.Connection) -> Non
 
 
 def test_storage_migrates_required_source_urls_without_losing_rows() -> None:
-    legacy_schema = load_schema().replace(
+    legacy_schema = schema_without_source_tags().replace(
         "source_url TEXT,",
         "source_url TEXT NOT NULL,",
     ).replace(
@@ -213,6 +269,243 @@ def test_storage_migrates_required_source_urls_without_losing_rows() -> None:
                 if row[1] == "source_url"
             )
             assert source_url_column[3] == 0
+    finally:
+        legacy_connection.close()
+
+
+def test_storage_migrates_source_tags_without_losing_rows() -> None:
+    legacy_connection = connect_database(":memory:")
+
+    try:
+        legacy_connection.executescript(schema_without_source_tags())
+        canonical_job_id = str(uuid4())
+        posting_id = str(uuid4())
+        insert_canonical_job(legacy_connection, canonical_job_id)
+        insert_job_posting(
+            legacy_connection,
+            posting_id=posting_id,
+            canonical_job_id=canonical_job_id,
+        )
+        legacy_connection.commit()
+
+        initialize_database(legacy_connection)
+        initialize_database(legacy_connection)
+
+        row = legacy_connection.execute(
+            "SELECT id, source_tags_json, content_hash FROM job_postings"
+        ).fetchone()
+        source_tags_columns = [
+            column
+            for column in legacy_connection.execute(
+                "PRAGMA table_info(job_postings)"
+            )
+            if column[1] == "source_tags_json"
+        ]
+        assert row["id"] == posting_id
+        assert row["source_tags_json"] == "[]"
+        assert row["content_hash"] == calculate_content_hash(
+            NormalizedJobPosting(
+                source_provider="greenhouse",
+                source_scope="example-company",
+                external_id="12345",
+                source_url="https://example.com/jobs/12345",
+                title="Python Developer",
+            )
+        )
+        assert len(source_tags_columns) == 1
+        assert source_tags_columns[0][3] == 1
+        assert legacy_connection.execute("PRAGMA user_version").fetchone()[0] == 1
+        assert legacy_connection.execute(
+            "SELECT COUNT(*) FROM canonical_jobs"
+        ).fetchone()[0] == 1
+        assert legacy_connection.execute(
+            "SELECT COUNT(*) FROM job_postings"
+        ).fetchone()[0] == 1
+    finally:
+        legacy_connection.close()
+
+
+def test_source_tags_migration_failure_rolls_back_all_changes() -> None:
+    legacy_connection = connect_database(":memory:")
+
+    try:
+        legacy_connection.executescript(schema_without_source_tags())
+        canonical_job_id = str(uuid4())
+        posting_id = str(uuid4())
+        raw_job = RawJob(
+            source_provider="greenhouse",
+            source_scope="example-company",
+            external_id="12345",
+            source_url="https://example.com/jobs/12345",
+            fetched_at=datetime(2026, 8, 17, 10, 0, tzinfo=UTC),
+            payload={"title": "Python Developer"},
+        )
+        observation_hash = calculate_observation_hash(raw_job)
+        insert_canonical_job(legacy_connection, canonical_job_id)
+        insert_job_posting(
+            legacy_connection,
+            posting_id=posting_id,
+            canonical_job_id=canonical_job_id,
+            salary_currency="US",
+            latest_observation_hash=observation_hash,
+        )
+        insert_raw_job(
+            legacy_connection,
+            posting_id=posting_id,
+            raw_job=raw_job,
+        )
+        legacy_connection.commit()
+
+        canonical_rows_before = [
+            dict(row)
+            for row in legacy_connection.execute("SELECT * FROM canonical_jobs")
+        ]
+        posting_rows_before = [
+            dict(row)
+            for row in legacy_connection.execute("SELECT * FROM job_postings")
+        ]
+        raw_rows_before = [
+            dict(row) for row in legacy_connection.execute("SELECT * FROM raw_jobs")
+        ]
+        columns_before = [
+            tuple(row)
+            for row in legacy_connection.execute("PRAGMA table_info(job_postings)")
+        ]
+        foreign_keys_before = [
+            tuple(row)
+            for row in legacy_connection.execute("PRAGMA foreign_key_list(raw_jobs)")
+        ]
+        user_version_before = legacy_connection.execute(
+            "PRAGMA user_version"
+        ).fetchone()[0]
+
+        with pytest.raises(ValueError, match="salary_currency"):
+            initialize_database(legacy_connection)
+
+        columns_after = [
+            tuple(row)
+            for row in legacy_connection.execute("PRAGMA table_info(job_postings)")
+        ]
+        foreign_keys_after = [
+            tuple(row)
+            for row in legacy_connection.execute("PRAGMA foreign_key_list(raw_jobs)")
+        ]
+        assert user_version_before == 0
+        assert legacy_connection.execute("PRAGMA user_version").fetchone()[0] == 0
+        assert columns_after == columns_before
+        assert all(column[1] != "source_tags_json" for column in columns_after)
+        assert foreign_keys_after == foreign_keys_before
+        assert legacy_connection.execute("PRAGMA foreign_key_check").fetchall() == []
+        assert [
+            dict(row)
+            for row in legacy_connection.execute("SELECT * FROM canonical_jobs")
+        ] == canonical_rows_before
+        assert [
+            dict(row)
+            for row in legacy_connection.execute("SELECT * FROM job_postings")
+        ] == posting_rows_before
+        assert [
+            dict(row) for row in legacy_connection.execute("SELECT * FROM raw_jobs")
+        ] == raw_rows_before
+        assert posting_rows_before[0]["id"] == posting_id
+        assert posting_rows_before[0]["canonical_job_id"] == canonical_job_id
+        assert posting_rows_before[0]["content_hash"] == VALID_HASH_A
+        assert raw_rows_before[0]["job_posting_id"] == posting_id
+        assert legacy_connection.in_transaction is False
+    finally:
+        legacy_connection.close()
+
+
+def test_first_identical_collection_after_source_tags_migration_is_idempotent(
+) -> None:
+    legacy_connection = connect_database(":memory:")
+
+    try:
+        legacy_connection.executescript(schema_without_source_tags())
+        canonical_job_id = str(uuid4())
+        posting_id = str(uuid4())
+        first_raw_job = RawJob(
+            source_provider="greenhouse",
+            source_scope="example-company",
+            external_id="12345",
+            source_url="https://example.com/jobs/12345",
+            fetched_at=datetime(2026, 8, 17, 10, 0, tzinfo=UTC),
+            payload={"title": "Python Developer"},
+        )
+        observation_hash = calculate_observation_hash(first_raw_job)
+        insert_canonical_job(legacy_connection, canonical_job_id)
+        insert_job_posting(
+            legacy_connection,
+            posting_id=posting_id,
+            canonical_job_id=canonical_job_id,
+            latest_observation_hash=observation_hash,
+        )
+        insert_raw_job(
+            legacy_connection,
+            posting_id=posting_id,
+            raw_job=first_raw_job,
+        )
+        legacy_connection.commit()
+
+        initialize_database(legacy_connection)
+
+        migrated_row = legacy_connection.execute(
+            """
+            SELECT id, canonical_job_id, content_hash, last_seen_at
+            FROM job_postings
+            """
+        ).fetchone()
+        migrated_raw_count = legacy_connection.execute(
+            "SELECT COUNT(*) FROM raw_jobs"
+        ).fetchone()[0]
+        repeated_raw_job = first_raw_job.model_copy(
+            update={
+                "id": uuid4(),
+                "fetched_at": datetime(2026, 8, 18, 10, 0, tzinfo=UTC),
+            }
+        )
+        posting = NormalizedJobPosting(
+            source_provider="greenhouse",
+            source_scope="example-company",
+            external_id="12345",
+            source_url="https://example.com/jobs/12345",
+            title="Python Developer",
+        )
+
+        result = SQLiteJobRepository(legacy_connection).persist_observation(
+            repeated_raw_job,
+            posting,
+        )
+
+        current_row = legacy_connection.execute(
+            """
+            SELECT id, canonical_job_id, content_hash, last_seen_at
+            FROM job_postings
+            """
+        ).fetchone()
+        assert str(result.job_posting_id) == migrated_row["id"] == posting_id
+        assert (
+            str(result.canonical_job_id)
+            == migrated_row["canonical_job_id"]
+            == canonical_job_id
+        )
+        assert result.canonical_created is False
+        assert result.posting_created is False
+        assert result.raw_observation_created is False
+        assert result.raw_job_id is None
+        assert legacy_connection.execute(
+            "SELECT COUNT(*) FROM canonical_jobs"
+        ).fetchone()[0] == 1
+        assert legacy_connection.execute(
+            "SELECT COUNT(*) FROM job_postings"
+        ).fetchone()[0] == 1
+        assert legacy_connection.execute(
+            "SELECT COUNT(*) FROM raw_jobs"
+        ).fetchone()[0] == migrated_raw_count == 1
+        assert current_row["content_hash"] == migrated_row["content_hash"]
+        assert current_row["content_hash"] == calculate_content_hash(posting)
+        assert migrated_row["last_seen_at"] == "2026-08-17T10:00:00.000000Z"
+        assert current_row["last_seen_at"] == "2026-08-18T10:00:00.000000Z"
     finally:
         legacy_connection.close()
 

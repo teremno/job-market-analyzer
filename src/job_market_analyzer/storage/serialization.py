@@ -7,7 +7,11 @@ from decimal import Decimal
 from enum import Enum
 from typing import Any
 
-from job_market_analyzer.models import NormalizedJobPosting, RawJob
+from job_market_analyzer.models import (
+    NormalizedJobPosting,
+    RawJob,
+    normalize_source_tags,
+)
 
 SQLiteValue = str | int | None
 
@@ -43,6 +47,23 @@ def serialize_raw_payload(payload: dict[str, Any]) -> str:
     """Serialize a JSON-like source payload deterministically for storage."""
 
     return _serialize_json(payload)
+
+
+def serialize_source_tags(source_tags: tuple[str, ...]) -> str:
+    """Serialize normalized source tags as compact canonical JSON."""
+
+    return _serialize_json(list(source_tags))
+
+
+def deserialize_source_tags(value: str) -> tuple[str, ...]:
+    """Deserialize persisted source tags into their normalized domain form."""
+
+    parsed = json.loads(value)
+    if not isinstance(parsed, list):
+        raise TypeError("source_tags_json must contain a JSON array")
+    if any(not isinstance(tag, str) for tag in parsed):
+        raise TypeError("source_tags_json array items must be strings")
+    return normalize_source_tags(parsed)
 
 
 def calculate_observation_hash(raw_job: RawJob) -> str:
@@ -87,6 +108,7 @@ def serialize_normalized_posting(
         "salary_text": posting.salary_text,
         "source_provider": posting.source_provider,
         "source_scope": posting.source_scope,
+        "source_tags_json": serialize_source_tags(posting.source_tags),
         "source_updated_at": _serialize_optional_datetime(posting.source_updated_at),
         "source_url": _serialize_optional_url(posting.source_url),
         "title": posting.title,

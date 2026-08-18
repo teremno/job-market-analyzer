@@ -48,6 +48,8 @@ def test_normalizer_maps_representative_remote_ok_payload() -> None:
     assert posting.title == "Python Developer"
     assert posting.company_name == "Example Company"
     assert posting.description_text == "Build reliable APIs.\nPython\nHTTP"
+    assert posting.source_tags == ("full time", "python")
+    assert raw_job.payload["tags"] == ["python", "full time"]
     assert posting.location_text == "Worldwide"
     assert posting.is_remote is True
     assert posting.remote_scope is RemoteScope.WORLDWIDE
@@ -75,6 +77,7 @@ def test_normalizer_keeps_missing_optional_fields_empty() -> None:
     assert posting.title == "QA Engineer"
     assert posting.company_name is None
     assert posting.description_text is None
+    assert posting.source_tags == ()
     assert posting.location_text is None
     assert posting.application_url is None
     assert posting.is_remote is True
@@ -102,10 +105,26 @@ def test_normalizer_accepts_explicit_null_optional_fields() -> None:
 
     assert posting.company_name is None
     assert posting.description_text is None
+    assert posting.source_tags == ()
     assert posting.location_text is None
     assert posting.application_url is None
     assert posting.employment_type is None
     assert posting.published_at is None
+
+
+def test_normalizer_ignores_only_malformed_optional_tag_elements() -> None:
+    posting = normalize_remote_ok_job(
+        make_raw_job(
+            {
+                "id": "101",
+                "position": "Developer",
+                "tags": [" full-time ", 123, "Python", "Python"],
+            }
+        )
+    )
+
+    assert posting.source_tags == ("full-time", "Python")
+    assert posting.employment_type is EmploymentType.FULL_TIME
 
 
 def test_normalizer_excludes_script_content() -> None:

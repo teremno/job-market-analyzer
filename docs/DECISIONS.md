@@ -392,3 +392,32 @@ User accounts, authentication, permissions, billing, hosted infrastructure, and 
 Configuration and secrets must remain external to source code so that different users and deployment environments can run the application safely.
 
 Storage, collectors, analysis logic, and application services should be designed so that they can be reused by multiple interfaces without duplication.
+
+---
+
+## ADR-008: Source-observed tags are normalized intelligence inputs
+
+Date: 2026-08-18
+
+Status: Accepted
+
+### Decision
+
+`NormalizedJobPosting` and `JobPosting` contain `source_tags` as an immutable, deterministic tuple of source-observed labels.
+
+Tag normalization:
+
+- accepts only string elements from source arrays;
+- trims and collapses whitespace;
+- drops blank and exact duplicate values;
+- preserves source spelling and case;
+- sorts values deterministically;
+- ignores malformed optional elements without discarding an otherwise valid vacancy.
+
+Tags are stored as canonical JSON and participate in the normalized posting `content_hash`. Existing postings are migrated to the empty tuple and rehashed through the current normalized-state serializer.
+
+### Boundaries
+
+`source_tags` are not canonical skills, role classifications, translated labels, or alias-normalized technologies. Future deterministic analyzers may consume title, description, and `source_tags`, but must emit separate versioned derived records with evidence.
+
+The original `RawJob.payload` remains the authoritative source observation and is not modified by tag normalization.

@@ -80,6 +80,7 @@ def make_posting(
     salary_min: Decimal | None = None,
     salary_max: Decimal | None = None,
     published_at: datetime | None = None,
+    source_tags: object = (),
 ) -> NormalizedJobPosting:
     return NormalizedJobPosting(
         source_provider=source_provider,
@@ -90,6 +91,7 @@ def make_posting(
         title=title,
         company_name="Example Company",
         description_text="Build reliable Python services.",
+        source_tags=source_tags,
         location_text="Remote - Europe",
         is_remote=True,
         remote_scope=RemoteScope.REGION,
@@ -233,15 +235,22 @@ def test_stale_c_arrives_after_b_without_regressing_current_state(
         fetched_at=datetime(2026, 8, 18, 11, 0, tzinfo=UTC),
         payload={"version": "C"},
     )
-    posting_b = make_posting(title="State B")
+    posting_b = make_posting(title="State B", source_tags=("current",))
 
-    repository.persist_observation(raw_a, make_posting(title="State A"))
+    repository.persist_observation(
+        raw_a,
+        make_posting(title="State A", source_tags=("first",)),
+    )
     repository.persist_observation(raw_b, posting_b)
-    repository.persist_observation(raw_c, make_posting(title="State C"))
+    repository.persist_observation(
+        raw_c,
+        make_posting(title="State C", source_tags=("stale",)),
+    )
 
     posting_row = connection.execute(
         """
-        SELECT title, last_seen_at, content_hash, latest_observation_hash
+        SELECT title, source_tags_json, last_seen_at, content_hash,
+               latest_observation_hash
         FROM job_postings
         """
     ).fetchone()
@@ -253,6 +262,7 @@ def test_stale_c_arrives_after_b_without_regressing_current_state(
     ]
 
     assert posting_row["title"] == "State B"
+    assert posting_row["source_tags_json"] == '["current"]'
     assert posting_row["last_seen_at"] == "2026-08-18T12:00:00.000000Z"
     assert posting_row["content_hash"] == calculate_content_hash(posting_b)
     assert posting_row["latest_observation_hash"] == calculate_observation_hash(
@@ -332,6 +342,64 @@ def test_new_normalized_state_updates_posting_and_content_hash(
     assert row["title"] == "Senior Python Developer"
     assert row["content_hash"] == calculate_content_hash(second_posting)
     assert row["content_hash"] != calculate_content_hash(first_posting)
+
+
+def test_tag_change_updates_same_posting_and_creates_new_raw_observation(
+    connection: sqlite3.Connection,
+    repository: SQLiteJobRepository,
+) -> None:
+    first_raw = make_raw_job(payload={"title": "Developer", "tags": ["python"]})
+    first_posting = make_posting(source_tags=("python",))
+    first = repository.persist_observation(first_raw, first_posting)
+    second_raw = make_raw_job(
+        fetched_at=SECOND_FETCH,
+        payload={"title": "Developer", "tags": ["python", "docker"]},
+    )
+    second_posting = make_posting(source_tags=("python", "docker"))
+
+    second = repository.persist_observation(second_raw, second_posting)
+
+    row = connection.execute(
+        "SELECT canonical_job_id, source_tags_json, content_hash FROM job_postings"
+    ).fetchone()
+    assert second.job_posting_id == first.job_posting_id
+    assert second.canonical_job_id == first.canonical_job_id
+    assert second.posting_created is False
+    assert second.canonical_created is False
+    assert second.raw_observation_created is True
+    assert count_rows(connection, "canonical_jobs") == 1
+    assert count_rows(connection, "job_postings") == 1
+    assert count_rows(connection, "raw_jobs") == 2
+    assert row["source_tags_json"] == '["docker","python"]'
+    assert row["content_hash"] == calculate_content_hash(second_posting)
+    assert row["content_hash"] != calculate_content_hash(first_posting)
+
+
+def test_semantically_unchanged_tag_order_keeps_content_hash(
+    connection: sqlite3.Connection,
+    repository: SQLiteJobRepository,
+) -> None:
+    first_posting = make_posting(source_tags=["Python", "Docker"])
+    repository.persist_observation(
+        make_raw_job(payload={"tags": ["Python", "Docker"]}),
+        first_posting,
+    )
+    second_posting = make_posting(source_tags=["Docker", "Python", "Python"])
+
+    repository.persist_observation(
+        make_raw_job(
+            fetched_at=SECOND_FETCH,
+            payload={"tags": ["Docker", "Python", "Python"]},
+        ),
+        second_posting,
+    )
+
+    row = connection.execute(
+        "SELECT source_tags_json, content_hash FROM job_postings"
+    ).fetchone()
+    assert row["source_tags_json"] == '["Docker","Python"]'
+    assert row["content_hash"] == calculate_content_hash(first_posting)
+    assert row["content_hash"] == calculate_content_hash(second_posting)
 
 
 def test_stale_changed_observation_preserves_provenance_without_state_regression(

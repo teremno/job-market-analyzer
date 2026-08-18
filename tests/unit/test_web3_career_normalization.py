@@ -60,6 +60,8 @@ def test_normalizer_maps_representative_web3_career_payload() -> None:
     assert posting.title == "Solidity Engineer"
     assert posting.company_name == "Chain Labs"
     assert posting.description_text == "Build secure contracts.\nRemote role"
+    assert posting.source_tags == ("full-time", "solidity")
+    assert raw_job.payload["tags"] == ["solidity", "full-time"]
     assert posting.location_text == "Europe only"
     assert posting.is_remote is True
     assert posting.remote_scope is RemoteScope.UNSPECIFIED
@@ -84,6 +86,7 @@ def test_normalizer_keeps_explicit_null_optional_fields_empty() -> None:
                 "city": None,
                 "country": None,
                 "description": None,
+                "tags": None,
                 "url": None,
                 "remote": None,
                 "is_remote": None,
@@ -101,6 +104,7 @@ def test_normalizer_keeps_explicit_null_optional_fields_empty() -> None:
     assert posting.company_name is None
     assert posting.source_url is None
     assert posting.description_text is None
+    assert posting.source_tags == ()
     assert posting.location_text is None
     assert posting.is_remote is None
     assert posting.remote_scope is None
@@ -111,6 +115,21 @@ def test_normalizer_keeps_explicit_null_optional_fields_empty() -> None:
     assert posting.salary_currency is None
     assert posting.salary_period is None
     assert posting.published_at is None
+
+
+def test_normalizer_ignores_only_malformed_optional_tag_elements() -> None:
+    posting = normalize_web3_career_job(
+        make_raw_job(
+            {
+                "id": "101",
+                "title": "Protocol Engineer",
+                "tags": [" Solidity ", None, "智能 合约", "Solidity"],
+            }
+        )
+    )
+
+    assert posting.source_tags == ("Solidity", "智能 合约")
+    assert posting.employment_type is None
 
 
 def test_normalizer_preserves_application_url_when_source_url_is_missing() -> None:

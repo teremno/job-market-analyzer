@@ -13,6 +13,7 @@ from job_market_analyzer.models import (
     NormalizedJobPosting,
     RawJob,
     RemoteScope,
+    normalize_source_tags,
 )
 from job_market_analyzer.normalization.jobs import NormalizationError, html_to_text
 
@@ -60,6 +61,7 @@ def normalize_web3_career_job(raw_job: RawJob) -> NormalizedJobPosting:
         title=title,
         company_name=company_name,
         description_text=html_to_text(description_html),
+        source_tags=normalize_source_tags(payload.get("tags")),
         location_text=location_text,
         is_remote=is_remote,
         remote_scope=_remote_scope(payload, location_text, is_remote),

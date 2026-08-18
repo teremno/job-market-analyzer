@@ -257,6 +257,7 @@ class SQLiteJobRepository:
                 title,
                 company_name,
                 description_text,
+                source_tags_json,
                 location_text,
                 is_remote,
                 remote_scope,
@@ -274,7 +275,7 @@ class SQLiteJobRepository:
                 latest_observation_hash
             )
             VALUES (
-                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
             )
             """,
             (
@@ -288,6 +289,7 @@ class SQLiteJobRepository:
                 posting_values["title"],
                 posting_values["company_name"],
                 posting_values["description_text"],
+                posting_values["source_tags_json"],
                 posting_values["location_text"],
                 posting_values["is_remote"],
                 posting_values["remote_scope"],
@@ -323,6 +325,7 @@ class SQLiteJobRepository:
                 title = ?,
                 company_name = ?,
                 description_text = ?,
+                source_tags_json = ?,
                 location_text = ?,
                 is_remote = ?,
                 remote_scope = ?,
@@ -345,6 +348,7 @@ class SQLiteJobRepository:
                 posting_values["title"],
                 posting_values["company_name"],
                 posting_values["description_text"],
+                posting_values["source_tags_json"],
                 posting_values["location_text"],
                 posting_values["is_remote"],
                 posting_values["remote_scope"],

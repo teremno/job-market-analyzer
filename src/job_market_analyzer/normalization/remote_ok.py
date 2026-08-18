@@ -13,6 +13,7 @@ from job_market_analyzer.models import (
     NormalizedJobPosting,
     RawJob,
     RemoteScope,
+    normalize_source_tags,
 )
 from job_market_analyzer.normalization.jobs import NormalizationError, html_to_text
 
@@ -47,6 +48,7 @@ def normalize_remote_ok_job(raw_job: RawJob) -> NormalizedJobPosting:
         field_name="description",
     )
     application_url = _application_url(raw_job, payload.get("apply_url"))
+    source_tags = normalize_source_tags(payload.get("tags"))
 
     return NormalizedJobPosting(
         source_provider=raw_job.source_provider,
@@ -57,10 +59,11 @@ def normalize_remote_ok_job(raw_job: RawJob) -> NormalizedJobPosting:
         title=title,
         company_name=company_name,
         description_text=html_to_text(description_html),
+        source_tags=source_tags,
         location_text=location_text,
         is_remote=True,
         remote_scope=_remote_scope(location_text),
-        employment_type=_employment_type(payload.get("tags")),
+        employment_type=_employment_type(source_tags),
         salary_text=None,
         salary_min=None,
         salary_max=None,
@@ -136,14 +139,7 @@ def _remote_scope(location_text: str | None) -> RemoteScope:
     return RemoteScope.UNSPECIFIED
 
 
-def _employment_type(value: object) -> EmploymentType | None:
-    if value is None:
-        return None
-    if not isinstance(value, list) or any(not isinstance(tag, str) for tag in value):
-        raise RemoteOKNormalizationError(
-            "Remote OK payload field 'tags' must be a list of strings"
-        )
-
+def _employment_type(value: tuple[str, ...]) -> EmploymentType | None:
     mappings = {
         "contract": EmploymentType.CONTRACT,
         "freelance": EmploymentType.FREELANCE,

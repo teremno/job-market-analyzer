@@ -9,6 +9,7 @@ from job_market_analyzer.models import (
     CanonicalJob,
     EmploymentType,
     JobPosting,
+    NormalizedJobPosting,
     RemoteScope,
     SalaryPeriod,
 )
@@ -53,6 +54,45 @@ def test_job_posting_accepts_valid_data() -> None:
 
     assert posting.remote_scope is RemoteScope.REGION
     assert posting.employment_type is EmploymentType.CONTRACT
+
+
+@pytest.mark.parametrize(
+    ("source_tags", "expected"),
+    [
+        (None, ()),
+        ([], ()),
+        ("Python", ()),
+        ({"name": "Python"}, ()),
+        (["   ", "\t"], ()),
+        ([" Python ", "Python", "Web\t3", 123], ("Python", "Web 3")),
+        (["Солідність", "数据", "Солідність"], ("Солідність", "数据")),
+        (["zeta", "Alpha", "alpha"], ("Alpha", "alpha", "zeta")),
+    ],
+)
+def test_normalized_posting_canonicalizes_source_observed_tags(
+    source_tags: object,
+    expected: tuple[str, ...],
+) -> None:
+    posting = NormalizedJobPosting(
+        source_provider="remote_ok",
+        source_scope="global",
+        external_id="12345",
+        title="Developer",
+        source_tags=source_tags,
+    )
+
+    assert posting.source_tags == expected
+
+
+def test_normalized_posting_defaults_source_tags_to_empty_tuple() -> None:
+    posting = NormalizedJobPosting(
+        source_provider="remote_ok",
+        source_scope="global",
+        external_id="12345",
+        title="Developer",
+    )
+
+    assert posting.source_tags == ()
 
 
 def test_job_posting_rejects_invalid_salary_range() -> None:

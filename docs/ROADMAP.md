@@ -18,8 +18,8 @@ This roadmap is directional. It describes meaningful product milestones, not a r
 | Repeated-observation same-source deduplication | ✅ | Identical observations reuse the posting and do not duplicate raw JSON |
 | Remote OK integration | ✅ | Offline tests plus successful real one-shot collection |
 | Remote OK repeated-run validation | ✅ | Second live run created no duplicate posting or raw observation |
-| Web3.career offline integration | ✅ | Code committed; collector, normalizer, token protection, and SQLite integration tested |
-| Web3.career controlled live smoke | 🟡 | Next milestone; live ingestion is not yet claimed complete |
+| Web3.career integration | ✅ | Offline tests plus successful real one-shot and repeated-run collection validation |
+| Normalized source-tag intelligence input | 🟡 | Implemented and tested in the current review checkpoint; skill extraction is not implemented |
 
 ## Visual Direction
 
@@ -47,11 +47,11 @@ flowchart LR
 - ✅ Remote OK offline integration and live one-shot CLI.
 - ✅ Real Remote OK first-run and second-run dedup smoke checks.
 - ✅ Web3.career offline collector, normalization, source terms, token-log protection, and SQLite integration.
+- ✅ Real Web3.career first-run and repeated-run dedup smoke checks.
 
 ### Current / next
 
-- 🟡 Run a controlled Web3.career live smoke with a user-provided token.
-- 🟡 Confirm real response compatibility, persistence counts, attribution fields, and repeated-run behavior before marking live ingestion complete.
+- 🟡 Review and finalize the normalized `source_tags` input contract before deterministic skill extraction.
 
 ### Planned foundation work
 
@@ -62,6 +62,7 @@ flowchart LR
 
 ## Phase 2 — Data Intelligence
 
+- 🟡 Normalized source-observed tags persisted as deterministic analyzer input; these are not canonical skills.
 - ⬜ Role and company normalization.
 - ⬜ Geography and remote-restriction normalization.
 - ⬜ Salary normalization with explicit disclosed, estimated, and derived provenance.
@@ -80,6 +81,8 @@ flowchart LR
 - ⬜ Source coverage and duplicate analysis.
 
 Analytics should normally count `CanonicalJob` records while retaining source postings for provenance and comparison.
+
+This removes duplicates only where postings already share a `CanonicalJob`. Complete cross-source canonical linking is not implemented yet, so current analytics must not claim complete cross-source deduplication.
 
 ## Phase 4 — Personal Intelligence
 

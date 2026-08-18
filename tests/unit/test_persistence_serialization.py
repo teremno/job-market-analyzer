@@ -16,8 +16,10 @@ from job_market_analyzer.models import (
 from job_market_analyzer.storage.serialization import (
     calculate_content_hash,
     calculate_observation_hash,
+    deserialize_source_tags,
     serialize_decimal,
     serialize_raw_payload,
+    serialize_source_tags,
     serialize_utc_datetime,
 )
 
@@ -134,6 +136,37 @@ def test_raw_payload_json_rejects_arbitrary_objects() -> None:
         serialize_raw_payload({"value": object()})
 
 
+@pytest.mark.parametrize(
+    ("source_tags", "serialized"),
+    [
+        ((), "[]"),
+        (("Docker", "Python"), '["Docker","Python"]'),
+        (("Солідність", "数据"), '["Солідність","数据"]'),
+    ],
+)
+def test_source_tags_round_trip_as_canonical_json(
+    source_tags: tuple[str, ...],
+    serialized: str,
+) -> None:
+    assert serialize_source_tags(source_tags) == serialized
+    assert deserialize_source_tags(serialized) == source_tags
+
+
+@pytest.mark.parametrize(
+    ("serialized", "expected_error"),
+    [
+        ("{}", "must contain a JSON array"),
+        ('["Python",1]', "array items must be strings"),
+    ],
+)
+def test_deserialize_source_tags_rejects_corrupted_persisted_state(
+    serialized: str,
+    expected_error: str,
+) -> None:
+    with pytest.raises(TypeError, match=expected_error):
+        deserialize_source_tags(serialized)
+
+
 def test_observation_hash_is_lowercase_sha256() -> None:
     observation_hash = calculate_observation_hash(make_raw_job())
 
@@ -199,6 +232,23 @@ def test_content_hash_changes_with_persisted_normalized_field() -> None:
     second = make_normalized_posting(title="Senior Python Developer")
 
     assert calculate_content_hash(first) != calculate_content_hash(second)
+
+
+def test_content_hash_is_stable_for_semantically_equal_source_tags() -> None:
+    first = make_normalized_posting(source_tags=[" Python ", "Docker", "Python"])
+    second = make_normalized_posting(source_tags=["Docker", "Python"])
+
+    assert first.source_tags == second.source_tags == ("Docker", "Python")
+    assert calculate_content_hash(first) == calculate_content_hash(second)
+
+
+def test_content_hash_changes_with_normalized_source_tags() -> None:
+    without_docker = make_normalized_posting(source_tags=["Python"])
+    with_docker = make_normalized_posting(source_tags=["Python", "Docker"])
+
+    assert calculate_content_hash(without_docker) != calculate_content_hash(
+        with_docker
+    )
 
 
 def test_content_hash_normalizes_supported_persistence_types() -> None:
