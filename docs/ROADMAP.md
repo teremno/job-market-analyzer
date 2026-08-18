@@ -19,7 +19,8 @@ This roadmap is directional. It describes meaningful product milestones, not a r
 | Remote OK integration | ✅ | Offline tests plus successful real one-shot collection |
 | Remote OK repeated-run validation | ✅ | Second live run created no duplicate posting or raw observation |
 | Web3.career integration | ✅ | Offline tests plus successful real one-shot and repeated-run collection validation |
-| Normalized source-tag intelligence input | 🟡 | Implemented and tested in the current review checkpoint; skill extraction is not implemented |
+| Normalized source-tag intelligence input | ✅ | Committed normalized analyzer input contract with migration and regression coverage |
+| Skill Taxonomy v1 / deterministic extractor | 🟡 | Pure taxonomy-backed evidence extraction implemented and awaiting checkpoint review; persistence is not implemented |
 
 ## Visual Direction
 
@@ -51,7 +52,7 @@ flowchart LR
 
 ### Current / next
 
-- 🟡 Review and finalize the normalized `source_tags` input contract before deterministic skill extraction.
+- 🟡 Review and finalize Skill Taxonomy v1 and the deterministic extractor before designing derived-data persistence.
 
 ### Planned foundation work
 
@@ -62,11 +63,12 @@ flowchart LR
 
 ## Phase 2 — Data Intelligence
 
-- 🟡 Normalized source-observed tags persisted as deterministic analyzer input; these are not canonical skills.
+- ✅ Normalized source-observed tags persisted as deterministic analyzer input; these are not canonical skills.
+- 🟡 Skill Taxonomy v1 and pure deterministic extraction with structured mention evidence.
+- ⬜ Persist versioned derived skill evidence and analyzer-run metadata after the extraction contract is reviewed.
 - ⬜ Role and company normalization.
 - ⬜ Geography and remote-restriction normalization.
 - ⬜ Salary normalization with explicit disclosed, estimated, and derived provenance.
-- ⬜ Skill taxonomy and deterministic extraction where reliable.
 - ⬜ Seniority detection.
 - ⬜ Vacancy lifecycle and historical state.
 - ⬜ Data-quality scoring only where a clear interpretation and use case justify it.

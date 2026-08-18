@@ -421,3 +421,33 @@ Tags are stored as canonical JSON and participate in the normalized posting `con
 `source_tags` are not canonical skills, role classifications, translated labels, or alias-normalized technologies. Future deterministic analyzers may consume title, description, and `source_tags`, but must emit separate versioned derived records with evidence.
 
 The original `RawJob.payload` remains the authoritative source observation and is not modified by tag normalization.
+
+---
+
+## ADR-009: Skill extraction starts with a versioned deterministic taxonomy
+
+Date: 2026-08-18
+
+Status: Accepted
+
+### Decision
+
+Skill taxonomy version `1` is an analyzer-curated immutable Python data structure. Taxonomy v1 is curated and intentionally incomplete. A pure extractor consumes normalized posting `title`, `description_text`, and `source_tags` and returns immutable structured `SkillEvidence`.
+
+Every accepted alias has a stable rule ID. Matching uses Unicode-aware boundaries, punctuation-aware aliases, and explicit contextual guards for ambiguous terms. Output order and evidence deduplication are deterministic. The same canonical skill may produce at most one evidence record per input field so title, description, and tag provenance remain distinct. The single taxonomy/extractor version covers the full deterministic extraction semantics: aliases, boundaries, contextual guards, and match behavior. Any future change that alters those semantics must advance the version once derived output is persisted.
+
+Each evidence record identifies:
+
+- canonical skill code and display name;
+- evidence field;
+- matched alias;
+- short evidence text;
+- stable rule ID;
+- exact or contextual match kind;
+- mention kind.
+
+The initial mention kind is `mentioned`. A mention must not be presented as proof that a skill is required, preferred, or essential. Absence of evidence means only that no current v1 rule matched; it is not proof that the vacancy does not mention or require the skill in reality.
+
+### Boundaries
+
+The extractor does not use AI, LLMs, embeddings, networking, or persistence. It does not infer unknown source tags or cloud-provider skills from related service names. An exact source-tag alias may bypass prose-only contextual guards because source tags are structured source observations, while unknown tags still produce no skill evidence. Derived skill tables, analyzer runs, roles, companies, analytics, and confidence/requirement classification remain later checkpoints.

@@ -22,7 +22,11 @@ JobPosting
 ↓
 CanonicalJob
 ↓
-Later structured extraction and analytics
+Pure deterministic intelligence extraction
+↓
+In-memory SkillEvidence
+↓
+Later derived-data persistence and analytics
 
 ## Core Models
 
@@ -95,7 +99,13 @@ Collection runs fail loudly for source-wide HTTP or feed-shape errors. A malform
 
 ## Later Analysis
 
-Later deterministic analyzers may use the normalized posting title, description, and source-observed tags as inputs. `source_tags` must not be treated as extracted skills without taxonomy matching and evidence. Later derived records may cover skills, seniority, role classification, salary interpretation, remote geography, and AI-assisted work potential. Derived data must retain its input entity, extractor identity/version, input hash, creation time, method, and confidence instead of silently modifying CanonicalJob.
+The first intelligence component is a pure deterministic skill extractor. It consumes only normalized `JobPosting.title`, `JobPosting.description_text`, and `JobPosting.source_tags`. It applies the analyzer-curated skill taxonomy version `1` and returns immutable `SkillEvidence` records with the canonical skill, source field, matched alias, short evidence snippet, stable rule ID, match kind, and mention kind. Taxonomy v1 is curated and intentionally incomplete.
+
+Evidence currently means only that a skill was `mentioned`. It does not claim that the skill is required, preferred, mastered, or central to the vacancy. Absence of `SkillEvidence` means only that the current extractor did not identify a matching v1 rule; it does not prove that the vacancy does not mention or require the skill in reality. Source tags go through the same taxonomy rules as title and description text; unknown tags are not converted into skills. Contextual guards are bypassed for an exact source-tag alias because a tag is structured source-observed evidence rather than free prose.
+
+The extractor has no database, network, AI, LLM, or embedding dependency. Deterministic evidence is not persisted in this checkpoint. A later persistence design must retain the input entity and hash, taxonomy/extractor version, creation time, method, and evidence instead of silently modifying `JobPosting` or `CanonicalJob`.
+
+Later derived records may also cover seniority, role classification, salary interpretation, remote geography, and AI-assisted work potential. These remain outside the current checkpoint.
 
 Canonical analytics remove duplication only when multiple postings already share one `CanonicalJob`. Complete cross-source canonical linking is not implemented yet, so current data must not be described as fully deduplicated across sources.
 
