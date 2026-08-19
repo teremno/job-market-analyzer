@@ -10,7 +10,7 @@ from job_market_analyzer.intelligence.models import (
     SkillEvidence,
 )
 
-SKILL_TAXONOMY_VERSION = "1"
+SKILL_TAXONOMY_VERSION = "2"
 
 
 class ContextRule(StrEnum):
@@ -27,6 +27,13 @@ class ContextRule(StrEnum):
     HARDHAT_WEB3 = "hardhat_web3"
     JAVA_LANGUAGE = "java_language"
     VUE_FRAMEWORK = "vue_framework"
+    KAFKA_STREAMING = "kafka_streaming"
+    PROMETHEUS_MONITORING = "prometheus_monitoring"
+    SNOWFLAKE_DATA = "snowflake_data"
+    COSMOS_BLOCKCHAIN = "cosmos_blockchain"
+    FIGMA_DESIGN = "figma_design"
+    SOLANA_TECHNICAL = "solana_technical"
+    BASH_SHELL = "bash_shell"
 
 
 @dataclass(frozen=True, slots=True)
@@ -103,6 +110,14 @@ SKILL_TAXONOMY: tuple[SkillDefinition, ...] = (
             _contextual("azure.azure", "Azure", ContextRule.AZURE_CLOUD),
         ),
     ),
+    SkillDefinition(
+        "bash",
+        "Bash",
+        (
+            _exact("bash.bash_shell", "Bash shell", case_sensitive=True),
+            _contextual("bash.bash", "Bash", ContextRule.BASH_SHELL),
+        ),
+    ),
     SkillDefinition("c", "C", (_contextual("c.c", "C", ContextRule.C_LANGUAGE, case_sensitive=True),)),
     SkillDefinition(
         "cicd",
@@ -113,6 +128,18 @@ SKILL_TAXONOMY: tuple[SkillDefinition, ...] = (
             _exact("cicd.ci_slash_cd_spaced", "CI / CD"),
             _exact("cicd.ci_cd", "CI/CD"),
             _exact("cicd.cicd", "CICD"),
+        ),
+    ),
+    SkillDefinition(
+        "cosmos",
+        "Cosmos",
+        (
+            _exact("cosmos.cosmos_sdk", "Cosmos SDK"),
+            _contextual(
+                "cosmos.cosmos",
+                "Cosmos",
+                ContextRule.COSMOS_BLOCKCHAIN,
+            ),
         ),
     ),
     SkillDefinition(
@@ -129,6 +156,14 @@ SKILL_TAXONOMY: tuple[SkillDefinition, ...] = (
         (
             _exact("csharp.c_sharp", "C Sharp"),
             _exact("csharp.csharp", "C#"),
+        ),
+    ),
+    SkillDefinition(
+        "css",
+        "CSS",
+        (
+            _exact("css.css3", "CSS3", case_sensitive=True),
+            _exact("css.css", "CSS", case_sensitive=True),
         ),
     ),
     SkillDefinition("defi", "DeFi", (_exact("defi.defi", "DeFi"), _exact("defi.decentralized_finance", "decentralized finance"))),
@@ -153,6 +188,14 @@ SKILL_TAXONOMY: tuple[SkillDefinition, ...] = (
         ),
     ),
     SkillDefinition(
+        "evm",
+        "EVM",
+        (
+            _exact("evm.ethereum_virtual_machine", "Ethereum Virtual Machine"),
+            _exact("evm.evm", "EVM", case_sensitive=True),
+        ),
+    ),
+    SkillDefinition(
         "express",
         "Express",
         (
@@ -161,6 +204,18 @@ SKILL_TAXONOMY: tuple[SkillDefinition, ...] = (
         ),
     ),
     SkillDefinition("fastapi", "FastAPI", (_exact("fastapi.fastapi", "FastAPI"),)),
+    SkillDefinition(
+        "figma",
+        "Figma",
+        (
+            _exact("figma.figma_ai", "Figma AI"),
+            _contextual(
+                "figma.figma",
+                "Figma",
+                ContextRule.FIGMA_DESIGN,
+            ),
+        ),
+    ),
     SkillDefinition(
         "flask",
         "Flask",
@@ -197,6 +252,7 @@ SKILL_TAXONOMY: tuple[SkillDefinition, ...] = (
             _contextual("go.go", "Go", ContextRule.GO_LANGUAGE),
         ),
     ),
+    SkillDefinition("grafana", "Grafana", (_exact("grafana.grafana", "Grafana"),)),
     SkillDefinition("graphql", "GraphQL", (_exact("graphql.graphql", "GraphQL"),)),
     SkillDefinition(
         "hardhat",
@@ -204,6 +260,14 @@ SKILL_TAXONOMY: tuple[SkillDefinition, ...] = (
         (
             _exact("hardhat.hardhat_framework", "Hardhat framework"),
             _contextual("hardhat.hardhat", "Hardhat", ContextRule.HARDHAT_WEB3),
+        ),
+    ),
+    SkillDefinition(
+        "html",
+        "HTML",
+        (
+            _exact("html.html5", "HTML5", case_sensitive=True),
+            _exact("html.html", "HTML", case_sensitive=True),
         ),
     ),
     SkillDefinition(
@@ -221,6 +285,19 @@ SKILL_TAXONOMY: tuple[SkillDefinition, ...] = (
         ),
     ),
     SkillDefinition(
+        "kafka",
+        "Apache Kafka",
+        (
+            _exact("kafka.apache_kafka", "Apache Kafka"),
+            _exact("kafka.kafka_streams", "Kafka Streams"),
+            _contextual(
+                "kafka.kafka",
+                "Kafka",
+                ContextRule.KAFKA_STREAMING,
+            ),
+        ),
+    ),
+    SkillDefinition(
         "kubernetes",
         "Kubernetes",
         (
@@ -228,6 +305,7 @@ SKILL_TAXONOMY: tuple[SkillDefinition, ...] = (
             _exact("kubernetes.k8s", "K8s"),
         ),
     ),
+    SkillDefinition("linux", "Linux", (_exact("linux.linux", "Linux"),)),
     SkillDefinition("mongodb", "MongoDB", (_exact("mongodb.mongodb", "MongoDB"), _exact("mongodb.mongo", "Mongo"))),
     SkillDefinition("mysql", "MySQL", (_exact("mysql.mysql", "MySQL"),)),
     SkillDefinition(
@@ -263,6 +341,18 @@ SKILL_TAXONOMY: tuple[SkillDefinition, ...] = (
             _exact("postgresql.postgres", "Postgres"),
         ),
     ),
+    SkillDefinition(
+        "prometheus",
+        "Prometheus",
+        (
+            _exact("prometheus.prometheus_monitoring", "Prometheus monitoring"),
+            _contextual(
+                "prometheus.prometheus",
+                "Prometheus",
+                ContextRule.PROMETHEUS_MONITORING,
+            ),
+        ),
+    ),
     SkillDefinition("pytest", "pytest", (_exact("pytest.pytest", "pytest"), _exact("pytest.py_dot_test", "py.test"), _exact("pytest.py_test", "py test"))),
     SkillDefinition("python", "Python", (_exact("python.python", "Python"),)),
     SkillDefinition("pytorch", "PyTorch", (_exact("pytorch.pytorch", "PyTorch"),)),
@@ -274,6 +364,11 @@ SKILL_TAXONOMY: tuple[SkillDefinition, ...] = (
             _exact("react.reactjs", "ReactJS"),
             _contextual("react.react", "React", ContextRule.REACT_FRAMEWORK),
         ),
+    ),
+    SkillDefinition(
+        "react_native",
+        "React Native",
+        (_exact("react_native.react_native", "React Native"),),
     ),
     SkillDefinition("redis", "Redis", (_exact("redis.redis", "Redis"),)),
     SkillDefinition(
@@ -290,6 +385,31 @@ SKILL_TAXONOMY: tuple[SkillDefinition, ...] = (
         "rust",
         "Rust",
         (_contextual("rust.rust", "Rust", ContextRule.RUST_LANGUAGE),),
+    ),
+    SkillDefinition(
+        "snowflake",
+        "Snowflake",
+        (
+            _exact("snowflake.snowflake_data_cloud", "Snowflake Data Cloud"),
+            _exact("snowflake.snowflake_warehouse", "Snowflake warehouse"),
+            _contextual(
+                "snowflake.snowflake",
+                "Snowflake",
+                ContextRule.SNOWFLAKE_DATA,
+            ),
+        ),
+    ),
+    SkillDefinition(
+        "solana",
+        "Solana",
+        (
+            _exact("solana.solana_sdk", "Solana SDK"),
+            _contextual(
+                "solana.solana",
+                "Solana",
+                ContextRule.SOLANA_TECHNICAL,
+            ),
+        ),
     ),
     SkillDefinition("solidity", "Solidity", (_exact("solidity.solidity", "Solidity"),)),
     SkillDefinition(
@@ -516,6 +636,20 @@ def _context_allows(
         )
     if context_rule is ContextRule.VUE_FRAMEWORK:
         return _has_framework_context(before, after)
+    if context_rule is ContextRule.KAFKA_STREAMING:
+        return _has_kafka_context(window)
+    if context_rule is ContextRule.PROMETHEUS_MONITORING:
+        return _has_prometheus_context(window)
+    if context_rule is ContextRule.SNOWFLAKE_DATA:
+        return _has_snowflake_context(window)
+    if context_rule is ContextRule.COSMOS_BLOCKCHAIN:
+        return _has_cosmos_context(window)
+    if context_rule is ContextRule.FIGMA_DESIGN:
+        return _has_figma_context(window)
+    if context_rule is ContextRule.SOLANA_TECHNICAL:
+        return _has_solana_context(window)
+    if context_rule is ContextRule.BASH_SHELL:
+        return _has_bash_context(window)
     return False
 
 
@@ -607,6 +741,91 @@ def _has_web3_tool_context(
             r"(?:ethereum|solidity)\s+smart\s+contracts?"
             r"[^.!?\n]{0,60}\b(?:using|with)\b[^.!?\n]{0,40}$",
             before,
+        )
+    )
+
+
+def _has_kafka_context(window: str) -> bool:
+    if re.search(r"\bFranz\s+Kafka\b", window, re.IGNORECASE):
+        return False
+    return bool(
+        re.search(
+            r"\b(?:streaming|event\s+streams?|message\s+broker|middleware|"
+            r"tech\s+stack|spring\s*boot|k8s|kubernetes|redis|mongodb|mysql)\b",
+            window,
+            re.IGNORECASE,
+        )
+    )
+
+
+def _has_prometheus_context(window: str) -> bool:
+    return bool(
+        re.search(
+            r"\b(?:monitoring|observability|metrics?|grafana|middleware|"
+            r"tech\s+stack|spring\s*boot|k8s|kubernetes|redis)\b",
+            window,
+            re.IGNORECASE,
+        )
+    )
+
+
+def _has_snowflake_context(window: str) -> bool:
+    return bool(
+        re.search(
+            r"\b(?:data\s+engineer|data\s+warehouse|analytics|sql|dbt|"
+            r"bigquery|databricks|airflow|cloud|tech\s+stack)\b",
+            window,
+            re.IGNORECASE,
+        )
+    )
+
+
+def _has_cosmos_context(window: str) -> bool:
+    return bool(
+        re.search(
+            r"\b(?:blockchain|web3|nodes?|chains?|sdk)\b",
+            window,
+            re.IGNORECASE,
+        )
+    )
+
+
+def _has_figma_context(window: str) -> bool:
+    return bool(
+        re.search(
+            r"(?:\b(?:use|using|fluent\s+in|proficient\s+with)\s+figma\b|"
+            r"\bfigma\s+(?:ai|design(?:er)?)\b|"
+            r"\btooling\s+such\s+as\s+figma\b|"
+            r"\bdesign\b[^.!?\n]{0,60}\bfigma\b)",
+            window,
+            re.IGNORECASE,
+        )
+    )
+
+
+def _has_solana_context(window: str) -> bool:
+    if re.search(r"\bSolana\s+Foundation\b", window, re.IGNORECASE):
+        return False
+    return bool(
+        re.search(
+            r"(?:\b(?:experience|familiarity)\b[^.!?\n]{0,70}\bsolana\b|"
+            r"\bsolana\b[^.!?\n]{0,70}\b(?:experience|indexer|sdk|"
+            r"development|programming|smart\s+contracts?)\b|"
+            r"\b(?:developer|engineer|indexer)\b[^.!?\n]{0,50}\(?\bsolana\b|"
+            r"\bsolana\b[^.!?\n]{0,50}\b(?:developer|engineer|indexer)\b)",
+            window,
+            re.IGNORECASE,
+        )
+    )
+
+
+def _has_bash_context(window: str) -> bool:
+    return bool(
+        re.search(
+            r"\b(?:shell|script(?:s|ed|ing)?|automation|terminal|"
+            r"command[ -]line|cli|devops|sre)\b",
+            window,
+            re.IGNORECASE,
         )
     )
 

@@ -155,8 +155,8 @@ def test_repository_persists_one_run_and_exact_evidence_round_trip(
     assert dict(run) == {
         "job_posting_id": str(posting_id),
         "analyzer_kind": "skills",
-        "taxonomy_version": "1",
-        "extractor_version": "1",
+        "taxonomy_version": SKILL_TAXONOMY_VERSION,
+        "extractor_version": SKILL_TAXONOMY_VERSION,
         "input_hash": key.input_hash,
         "created_at": "2026-08-18T12:00:00.000000Z",
     }

@@ -23,7 +23,7 @@ def skill_codes(
     )
 
 
-def test_taxonomy_v1_has_unique_stable_contracts() -> None:
+def test_taxonomy_v2_has_unique_stable_contracts() -> None:
     skill_codes_in_taxonomy = [skill.code for skill in SKILL_TAXONOMY]
     rule_ids = [
         alias.rule_id
@@ -31,8 +31,8 @@ def test_taxonomy_v1_has_unique_stable_contracts() -> None:
         for alias in skill.aliases
     ]
 
-    assert SKILL_TAXONOMY_VERSION == "1"
-    assert len(SKILL_TAXONOMY) == 47
+    assert SKILL_TAXONOMY_VERSION == "2"
+    assert len(SKILL_TAXONOMY) == 60
     assert skill_codes_in_taxonomy == sorted(skill_codes_in_taxonomy)
     assert len(skill_codes_in_taxonomy) == len(set(skill_codes_in_taxonomy))
     assert len(rule_ids) == len(set(rule_ids))
@@ -64,6 +64,124 @@ def test_supported_aliases_map_to_canonical_skills(
     assert evidence[0].skill_code == skill_code
     assert evidence[0].rule_id == rule_id
     assert evidence[0].matched_alias == text
+
+
+@pytest.mark.parametrize(
+    ("text", "expected_code"),
+    [
+        ("Bash shell", "bash"),
+        ("Cosmos SDK", "cosmos"),
+        ("CSS3", "css"),
+        ("EVM", "evm"),
+        ("Figma AI", "figma"),
+        ("Grafana", "grafana"),
+        ("HTML5", "html"),
+        ("Apache Kafka", "kafka"),
+        ("Kafka Streams", "kafka"),
+        ("Linux", "linux"),
+        ("Prometheus monitoring", "prometheus"),
+        ("React Native", "react_native"),
+        ("Snowflake Data Cloud", "snowflake"),
+        ("Snowflake warehouse", "snowflake"),
+        ("Solana SDK", "solana"),
+    ],
+)
+def test_taxonomy_v2_direct_aliases(
+    text: str,
+    expected_code: str,
+) -> None:
+    assert skill_codes("", text) == (expected_code,)
+
+
+@pytest.mark.parametrize(
+    ("text", "expected_code"),
+    [
+        ("Bash scripting", "bash"),
+        ("Blockchain nodes built with Cosmos", "cosmos"),
+        ("Kafka or similar streaming platforms", "kafka"),
+        ("Monitoring and observability with Prometheus", "prometheus"),
+        ("Data warehouse workloads on Snowflake", "snowflake"),
+        ("You are fluent in Figma for product design", "figma"),
+        ("Principal Security Engineer working on Solana", "solana"),
+    ],
+)
+def test_taxonomy_v2_contextual_aliases_require_technical_context(
+    text: str,
+    expected_code: str,
+) -> None:
+    evidence = extract_skills("", text, ())
+
+    assert expected_code in {item.skill_code for item in evidence}
+    assert next(
+        item for item in evidence if item.skill_code == expected_code
+    ).match_kind is MatchKind.CONTEXTUAL
+
+
+@pytest.mark.parametrize(
+    ("text", "excluded_code"),
+    [
+        ("Franz Kafka wrote novels in German", "kafka"),
+        ("Prometheus is a figure in Greek mythology", "prometheus"),
+        ("Paper snowflake decorations for winter", "snowflake"),
+        ("Study the cosmos through a telescope", "cosmos"),
+        ("Please bash the old box before recycling it", "bash"),
+        ("Bash the old box before recycling it", "bash"),
+        ("The cascading style of leadership matters", "css"),
+        ("The fig machine arrived today", "figma"),
+        ("Use a native reaction to the environment", "react_native"),
+        ("Trusted by Meta, Figma, and Autodesk", "figma"),
+        ("Track the current Solana price", "solana"),
+        (
+            "We advance the adoption and security of the Solana network",
+            "solana",
+        ),
+        (
+            "Solana Foundation is seeking a Senior IT Security Engineer",
+            "solana",
+        ),
+    ],
+)
+def test_taxonomy_v2_ambiguous_or_partial_prose_is_rejected(
+    text: str,
+    excluded_code: str,
+) -> None:
+    assert excluded_code not in skill_codes("", text)
+
+
+def test_taxonomy_v2_contextual_exact_source_tags_remain_direct_evidence() -> None:
+    evidence = extract_skills("", None, ("Cosmos", "Kafka", "Prometheus", "Snowflake"))
+
+    assert {item.skill_code for item in evidence} == {
+        "cosmos",
+        "kafka",
+        "prometheus",
+        "snowflake",
+    }
+    assert all(item.evidence_field is EvidenceField.TAG for item in evidence)
+    assert all(item.match_kind is MatchKind.EXACT_ALIAS for item in evidence)
+
+
+def test_taxonomy_v2_longer_aliases_do_not_infer_contained_skills() -> None:
+    assert skill_codes("", "Ethereum Virtual Machine and React Native") == (
+        "evm",
+        "react_native",
+    )
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("Bash scripting", ("bash",)),
+        ("EVM", ("evm",)),
+        ("Kafka Streams", ("kafka",)),
+        ("React Native", ("react_native",)),
+    ],
+)
+def test_taxonomy_v2_direct_mentions_do_not_infer_related_skills(
+    text: str,
+    expected: tuple[str, ...],
+) -> None:
+    assert skill_codes("", text) == expected
 
 
 def test_sql_does_not_match_inside_postgresql_or_nosql() -> None:
