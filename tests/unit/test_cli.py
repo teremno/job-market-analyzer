@@ -1,4 +1,6 @@
+import io
 import sqlite3
+import sys
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -7,8 +9,10 @@ import pytest
 
 from job_market_analyzer import cli
 from job_market_analyzer.collectors.base import CollectedJobs
-from job_market_analyzer.models import RawJob
+from job_market_analyzer.models import NormalizedJobPosting, RawJob
 from job_market_analyzer.storage.sqlite import connect_database as real_connect_database
+from job_market_analyzer.storage.sqlite import initialize_database
+from job_market_analyzer.storage.sqlite_repository import SQLiteJobRepository
 
 FETCHED_AT = datetime(2026, 8, 18, 12, 0, tzinfo=UTC)
 FAKE_WEB3_TOKEN = "offline-test-token"
@@ -102,6 +106,40 @@ def install_tracking_connection(
     return connections
 
 
+def seed_skill_posting(
+    database_path: Path,
+    external_id: str,
+    *,
+    title: str,
+    description: str | None,
+    tags: tuple[str, ...],
+) -> None:
+    with real_connect_database(database_path) as connection:
+        initialize_database(connection)
+        posting = NormalizedJobPosting(
+            source_provider="remote_ok",
+            source_scope="global",
+            external_id=external_id,
+            source_url=f"https://example.test/jobs/{external_id}",
+            title=title,
+            company_name=f"Company {external_id}",
+            description_text=description,
+            source_tags=tags,
+            is_remote=True,
+        )
+        SQLiteJobRepository(connection).persist_observation(
+            RawJob(
+                source_provider=posting.source_provider,
+                source_scope=posting.source_scope,
+                external_id=posting.external_id,
+                source_url=posting.source_url,
+                fetched_at=FETCHED_AT,
+                payload={"RAW_PAYLOAD_SECRET": external_id},
+            ),
+            posting,
+        )
+
+
 def test_cli_help_lists_manual_collection_commands(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
@@ -112,7 +150,192 @@ def test_cli_help_lists_manual_collection_commands(
     assert error.value.code == 0
     assert "collect-remote-ok" in captured.out
     assert "collect-web3-career" in captured.out
+    assert "analyze-skills" in captured.out
     assert captured.err == ""
+
+
+def test_analyze_skills_requires_explicit_database_path(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    with pytest.raises(SystemExit) as error:
+        cli.main(["analyze-skills"])
+
+    captured = capsys.readouterr()
+    assert error.value.code == 2
+    assert "--database" in captured.err
+
+
+@pytest.mark.parametrize("limit", ["0", "-1"])
+def test_analyze_skills_rejects_non_positive_limit(
+    limit: str,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    with pytest.raises(SystemExit) as error:
+        cli.main(
+            ["analyze-skills", "--database", "jobs.sqlite3", "--limit", limit]
+        )
+
+    captured = capsys.readouterr()
+    assert error.value.code == 2
+    assert "must be greater than zero" in captured.err
+
+
+def test_analyze_skills_rejects_missing_database_without_creating_it(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    database_path = tmp_path / "missing.sqlite3"
+
+    exit_code = cli.main(
+        ["analyze-skills", "--database", str(database_path)]
+    )
+
+    captured = capsys.readouterr()
+    assert exit_code == 1
+    assert captured.out == ""
+    assert "SQLite database file does not exist" in captured.err
+    assert str(database_path) in captured.err
+    assert database_path.exists() is False
+
+
+def test_analyze_skills_runs_once_is_idempotent_and_prints_safe_bounded_summary(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    database_path = tmp_path / "jobs.sqlite3"
+    description_marker = "FULL_DESCRIPTION_MUST_NOT_BE_PRINTED"
+    seed_skill_posting(
+        database_path,
+        "b",
+        title="Python Developer",
+        description=f"Python {'x' * 200} {description_marker}",
+        tags=("Python", "backend"),
+    )
+    seed_skill_posting(
+        database_path,
+        "a",
+        title="Customer Support Specialist",
+        description="Help customers.",
+        tags=("support",),
+    )
+    seed_skill_posting(
+        database_path,
+        "c",
+        title="Rust Developer",
+        description="Write software in Rust.",
+        tags=("Rust",),
+    )
+    connections = install_tracking_connection(monkeypatch)
+    real_service = cli.run_skill_smoke
+    passed_limits: list[int] = []
+
+    def service_spy(*args: object, limit: int, **kwargs: object):
+        passed_limits.append(limit)
+        return real_service(*args, limit=limit, **kwargs)
+
+    monkeypatch.setattr(cli, "run_skill_smoke", service_spy)
+
+    first_exit_code = cli.main(
+        [
+            "analyze-skills",
+            "--database",
+            str(database_path),
+            "--limit",
+            "2",
+        ]
+    )
+    first_output = capsys.readouterr()
+    second_exit_code = cli.main(
+        [
+            "analyze-skills",
+            "--database",
+            str(database_path),
+            "--limit",
+            "2",
+        ]
+    )
+    second_output = capsys.readouterr()
+
+    assert first_exit_code == 0
+    assert second_exit_code == 0
+    assert passed_limits == [2, 2]
+    assert all(connection.closed for connection in connections)
+    assert "Postings considered: 2" in first_output.out
+    assert "New analysis runs: 2" in first_output.out
+    assert "Zero-skill runs: 1" in first_output.out
+    assert "Evidence records created: 3" in first_output.out
+    assert "Skill: Python" in first_output.out
+    assert "New analysis runs: 0" in second_output.out
+    assert "Existing analysis runs reused: 2" in second_output.out
+    assert "Evidence records created: 0" in second_output.out
+    assert "support: 1 posting(s)" in second_output.out
+    assert "Rust Developer" not in first_output.out
+    assert description_marker not in first_output.out
+    assert "RAW_PAYLOAD_SECRET" not in first_output.out
+    assert first_output.err == ""
+    assert second_output.err == ""
+
+
+def test_analyze_skills_returns_nonzero_for_systemic_error_and_closes_database(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    database_path = tmp_path / "jobs.sqlite3"
+    with real_connect_database(database_path) as connection:
+        initialize_database(connection)
+    connections = install_tracking_connection(monkeypatch)
+
+    def fail_repository(*args: object, **kwargs: object) -> None:
+        raise RuntimeError("repository unavailable")
+
+    monkeypatch.setattr(
+        cli.SQLiteJobRepository,
+        "list_job_postings",
+        fail_repository,
+    )
+
+    exit_code = cli.main(
+        [
+            "analyze-skills",
+            "--database",
+            str(database_path),
+        ]
+    )
+
+    captured = capsys.readouterr()
+    assert exit_code == 1
+    assert captured.out == ""
+    assert "Skill analysis failed: RuntimeError: repository unavailable" in captured.err
+    assert connections[0].closed is True
+
+
+def test_analyze_skills_replaces_unencodable_console_evidence(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    database_path = tmp_path / "jobs.sqlite3"
+    seed_skill_posting(
+        database_path,
+        "unicode",
+        title="Python Developer",
+        description="Use Python\x00 daily.",
+        tags=(),
+    )
+    output_bytes = io.BytesIO()
+    output = io.TextIOWrapper(output_bytes, encoding="cp1251")
+    monkeypatch.setattr(sys, "stdout", output)
+
+    exit_code = cli.main(
+        ["analyze-skills", "--database", str(database_path)]
+    )
+    output.flush()
+    rendered = output_bytes.getvalue().decode("cp1251")
+
+    assert exit_code == 0
+    assert "Skill analysis completed" in rendered
+    assert "Evidence: Use Python? daily." in rendered
 
 
 def test_collect_remote_ok_requires_explicit_database_path(

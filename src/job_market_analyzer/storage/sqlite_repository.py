@@ -3,7 +3,7 @@
 import sqlite3
 from uuid import UUID, uuid4
 
-from job_market_analyzer.models import NormalizedJobPosting, RawJob
+from job_market_analyzer.models import JobPosting, NormalizedJobPosting, RawJob
 from job_market_analyzer.storage.repository import (
     PersistResult,
     SourceIdentityMismatchError,
@@ -12,6 +12,7 @@ from job_market_analyzer.storage.serialization import (
     SQLiteValue,
     calculate_content_hash,
     calculate_observation_hash,
+    deserialize_source_tags,
     serialize_normalized_posting,
     serialize_raw_payload,
     serialize_utc_datetime,
@@ -34,6 +35,48 @@ class SQLiteJobRepository:
             )
 
         self._connection = connection
+
+    def list_job_postings(self, *, limit: int) -> tuple[JobPosting, ...]:
+        """Read current postings with stable source-identity ordering."""
+
+        if limit < 1:
+            raise ValueError("limit must be greater than zero")
+
+        rows = self._connection.execute(
+            """
+            SELECT
+                id,
+                canonical_job_id,
+                source_provider,
+                source_scope,
+                external_id,
+                source_url,
+                application_url,
+                title,
+                company_name,
+                description_text,
+                source_tags_json,
+                location_text,
+                is_remote,
+                remote_scope,
+                employment_type,
+                salary_text,
+                salary_min,
+                salary_max,
+                salary_currency,
+                salary_period,
+                published_at,
+                source_updated_at,
+                first_seen_at,
+                last_seen_at,
+                content_hash
+            FROM job_postings
+            ORDER BY source_provider, source_scope, external_id, id
+            LIMIT ?
+            """,
+            (limit,),
+        ).fetchall()
+        return tuple(self._deserialize_job_posting(row) for row in rows)
 
     def persist_observation(
         self,
@@ -400,6 +443,14 @@ class SQLiteJobRepository:
                 raw_values["payload_json"],
             ),
         )
+
+    @staticmethod
+    def _deserialize_job_posting(row: sqlite3.Row) -> JobPosting:
+        values = dict(row)
+        values["source_tags"] = deserialize_source_tags(
+            values.pop("source_tags_json")
+        )
+        return JobPosting.model_validate(values)
 
     @staticmethod
     def _validate_source_identity(

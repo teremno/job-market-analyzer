@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from typing import Protocol
 from uuid import UUID
 
-from job_market_analyzer.models import NormalizedJobPosting, RawJob
+from job_market_analyzer.models import JobPosting, NormalizedJobPosting, RawJob
 
 
 class SourceIdentityMismatchError(ValueError):
@@ -65,4 +65,13 @@ class JobRepository(Protocol):
 
         - roll back the entire operation on failure.
         """
+        ...
+
+
+class JobPostingReader(Protocol):
+    """Read current durable source postings for application services."""
+
+    def list_job_postings(self, *, limit: int) -> tuple[JobPosting, ...]:
+        """Return a bounded, deterministically ordered current posting set."""
+
         ...

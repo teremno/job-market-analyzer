@@ -22,13 +22,21 @@ from job_market_analyzer.collectors.web3_career import (
     Web3CareerCollector,
 )
 from job_market_analyzer.models import NormalizedJobPosting, RawJob
+from job_market_analyzer.intelligence.skills import SKILL_TAXONOMY_VERSION
 from job_market_analyzer.normalization.remote_ok import normalize_remote_ok_job
 from job_market_analyzer.normalization.web3_career import normalize_web3_career_job
 from job_market_analyzer.services.collection import (
     CollectionSummary,
     collect_and_persist_jobs,
 )
+from job_market_analyzer.services.skill_smoke import (
+    SkillSmokeSummary,
+    run_skill_smoke,
+)
 from job_market_analyzer.storage.sqlite import connect_database, initialize_database
+from job_market_analyzer.storage.sqlite_intelligence_repository import (
+    SQLiteSkillIntelligenceRepository,
+)
 from job_market_analyzer.storage.sqlite_repository import SQLiteJobRepository
 
 DatabaseTotals = tuple[int, int, int]
@@ -40,6 +48,7 @@ JobNormalizer = Callable[[RawJob], NormalizedJobPosting]
 def main(argv: Sequence[str] | None = None) -> int:
     """Parse CLI arguments and return a process exit code."""
 
+    _configure_console_streams()
     parser = _build_parser()
     arguments = parser.parse_args(argv)
 
@@ -47,6 +56,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return collect_remote_ok(arguments.database)
     if arguments.command == "collect-web3-career":
         return collect_web3_career(arguments.database)
+    if arguments.command == "analyze-skills":
+        return analyze_skills(arguments.database, limit=arguments.limit)
 
     parser.error(f"Unsupported command: {arguments.command}")
 
@@ -76,6 +87,37 @@ def collect_web3_career(database_path: Path) -> int:
         normalizer=normalize_web3_career_job,
         secret_env_name=WEB3_CAREER_TOKEN_ENV,
     )
+
+
+def analyze_skills(database_path: Path, *, limit: int) -> int:
+    """Run bounded deterministic skill analysis over current SQLite postings."""
+
+    try:
+        if not database_path.is_file():
+            raise FileNotFoundError(
+                f"SQLite database file does not exist: {database_path}"
+            )
+        with closing(connect_database(database_path)) as connection:
+            initialize_database(connection)
+            posting_reader = SQLiteJobRepository(connection)
+            intelligence_repository = SQLiteSkillIntelligenceRepository(
+                connection
+            )
+            summary = run_skill_smoke(
+                posting_reader,
+                intelligence_repository,
+                limit=limit,
+            )
+    except Exception as exc:  # noqa: BLE001 - CLI boundary converts failures to exit 1
+        print(
+            "Skill analysis failed: "
+            f"{type(exc).__name__}: {_short_message(exc)}",
+            file=sys.stderr,
+        )
+        return 1
+
+    _print_skill_summary(summary)
+    return 0
 
 
 def _collect_once(
@@ -158,7 +200,44 @@ def _build_parser() -> argparse.ArgumentParser:
         metavar="PATH",
         help="SQLite database path to create or reuse.",
     )
+    analyze_parser = subparsers.add_parser(
+        "analyze-skills",
+        help=(
+            "Analyze current SQLite postings once with Skill Taxonomy v"
+            f"{SKILL_TAXONOMY_VERSION}."
+        ),
+    )
+    analyze_parser.add_argument(
+        "--database",
+        required=True,
+        type=Path,
+        metavar="PATH",
+        help="Existing SQLite database path to initialize or reuse.",
+    )
+    analyze_parser.add_argument(
+        "--limit",
+        default=100,
+        type=_positive_int,
+        metavar="N",
+        help="Maximum current postings to analyze (default: 100).",
+    )
     return parser
+
+
+def _positive_int(value: str) -> int:
+    parsed = int(value)
+    if parsed < 1:
+        raise argparse.ArgumentTypeError("must be greater than zero")
+    return parsed
+
+
+def _configure_console_streams() -> None:
+    """Keep local CLI output usable when Windows encoding lacks a character."""
+
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None:
+            reconfigure(errors="replace")
 
 
 def _read_database_report(
@@ -249,6 +328,63 @@ def _print_summary(
                 "  Application URL: "
                 f"{_redact_sensitive(application_url, sensitive_values)}"
             )
+
+
+def _print_skill_summary(summary: SkillSmokeSummary) -> None:
+    print("Skill analysis completed")
+    print()
+    print(f"Postings considered: {summary.postings_considered}")
+    print(f"New analysis runs: {summary.new_analysis_runs}")
+    print(
+        "Existing analysis runs reused: "
+        f"{summary.existing_analysis_runs_reused}"
+    )
+    print(f"Evidence records created: {summary.evidence_created}")
+    print(f"Zero-skill runs: {summary.zero_skill_runs}")
+    print("Failed: 0")
+
+    postings_without_skills = (
+        summary.postings_considered - summary.postings_with_skills
+    )
+    coverage = (
+        100 * summary.postings_with_skills / summary.postings_considered
+        if summary.postings_considered
+        else 0.0
+    )
+    print()
+    print("Posting-level skill coverage:")
+    print(f"Postings with at least one skill: {summary.postings_with_skills}")
+    print(f"Postings with zero skills: {postings_without_skills}")
+    print(f"Coverage: {coverage:.1f}%")
+
+    print()
+    print("Top extracted skills (posting-level):")
+    if summary.top_skills:
+        for item in summary.top_skills[:10]:
+            print(f"- {item.name}: {item.postings} posting(s)")
+    else:
+        print("- none")
+
+    print()
+    print("Unrecognized source tags (posting-level):")
+    if summary.unrecognized_source_tags:
+        for item in summary.unrecognized_source_tags[:10]:
+            print(f"- {item.tag}: {item.postings} posting(s)")
+    else:
+        print("- none")
+
+    print()
+    print("Evidence samples (max 10):")
+    if not summary.evidence_samples:
+        print("- none")
+        return
+    for sample in summary.evidence_samples:
+        print(f"- Skill: {sample.skill_name}")
+        print(f"  Field: {sample.evidence_field}")
+        print(f"  Matched alias: {sample.matched_alias}")
+        print(f"  Job: {sample.job_title}")
+        print(f"  Company: {sample.company_name or 'n/a'}")
+        print(f"  Evidence: {sample.evidence_text}")
 
 
 def _print_failures(
