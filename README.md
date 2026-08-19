@@ -28,7 +28,7 @@ External source
 
 `RawJob` preserves the original source observation. `JobPosting` is the durable posting on one source, while `CanonicalJob` groups postings that represent the same real-world vacancy.
 
-Repeated observations from the same source update one JobPosting. Cross-source duplicates remain separate JobPostings linked to one CanonicalJob, so provenance is preserved while analytics can count the vacancy once.
+Repeated observations from the same source update one `JobPosting`. Cross-source duplicates remain separate postings; once a future high-confidence linker associates them with one `CanonicalJob`, provenance remains available while canonical analytics can count the vacancy once. Automatic cross-source linking is not implemented yet.
 
 Persistence is deterministic: timestamps use a fixed UTC format, JSON keys are sorted, Decimal values never pass through binary floats, and persistence owns both raw `observation_hash` and normalized `content_hash` values.
 
@@ -83,3 +83,19 @@ job-market-analyzer collect-web3-career --database ./web3-career-smoke.sqlite3
 ```
 
 Never commit the token or store it in tracked files. The command reads it only from `WEB3_CAREER_API_TOKEN`, performs one authenticated API collection run, initializes or reuses the selected database, prints a token-safe summary and at most five vacancies, then exits. Repeated runs reuse the same database and its existing deduplication/upsert behavior.
+
+## Manual one-shot skill analysis
+
+Analyze a bounded set of current durable postings already stored in SQLite:
+
+```bash
+job-market-analyzer analyze-skills --database ./job-market.sqlite3 --limit 100
+```
+
+`--database` is required, must identify an existing SQLite file, and `--limit` defaults to `100`. A missing path fails without creating an empty database. The command reads current `JobPosting` rows in deterministic source-identity order, runs the active deterministic Skill Taxonomy v2 extractor once for each selected posting, persists versioned analysis runs and evidence, prints posting-level coverage and bounded samples, then exits. It makes no network requests and does not start a scheduler or background process.
+
+Repeated runs reuse identical analysis runs and create no duplicate evidence. If a posting's skill-analysis input changes, the command creates a new versioned run while preserving previous derived evidence for reproducibility.
+
+The current summary is posting-level smoke coverage, not final deduplicated market analytics. Cross-source canonical linking remains incomplete, so these counts must not be interpreted as unique real-world vacancy demand.
+
+Taxonomy v1 evidence remains preserved in historical analysis runs. See [Skill Taxonomy Validation Report](docs/SKILL_TAXONOMY_REPORT.md) for the local Remote OK/Web3.career validation, v2 rationale, measured coverage, and limitations.

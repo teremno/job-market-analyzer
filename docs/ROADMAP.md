@@ -21,7 +21,9 @@ This roadmap is directional. It describes meaningful product milestones, not a r
 | Web3.career integration | ✅ | Offline tests plus successful real one-shot and repeated-run collection validation |
 | Normalized source-tag intelligence input | ✅ | Committed normalized analyzer input contract with migration and regression coverage |
 | Skill Taxonomy v1 / deterministic extractor | ✅ | Committed pure taxonomy-backed extraction with direct mention evidence |
-| Versioned skill persistence / recomputation | 🟡 | Derived SQLite analysis runs and evidence implemented in the current review checkpoint |
+| Data-driven Skill Taxonomy v2 | ✅ | Bounded additions and ambiguity guards validated against local Remote OK and Web3.career data |
+| Versioned skill persistence / recomputation | ✅ | Derived SQLite analysis runs and evidence are implemented and regression-tested |
+| Manual real-data skill validation | ✅ | V1 and v2 analyzed twice against both local 100-posting smoke databases with integrity checks |
 
 ## Visual Direction
 
@@ -53,7 +55,7 @@ flowchart LR
 
 ### Current / next
 
-- 🟡 Review versioned skill-intelligence persistence and recomputation before adding new intelligence domains.
+- 🟡 Review [the bounded role-classification design](ROLE_CLASSIFICATION_DESIGN.md) before approving any implementation.
 
 ### Planned foundation work
 
@@ -66,8 +68,12 @@ flowchart LR
 
 - ✅ Normalized source-observed tags persisted as deterministic analyzer input; these are not canonical skills.
 - ✅ Skill Taxonomy v1 and pure deterministic extraction with structured mention evidence.
-- 🟡 Versioned, recomputable skill analysis runs with dedicated input hashes and persisted direct mention evidence.
-- ⬜ Role and company normalization.
+- ✅ Data-driven Skill Taxonomy v2 with bounded direct mentions and contextual false-positive guards.
+- ✅ Versioned, recomputable skill analysis runs with dedicated input hashes and persisted direct mention evidence.
+- ✅ Manual real-data validation of skill coverage and evidence on local Remote OK and Web3.career datasets.
+- ✅ Role-classification design proposal using local title evidence; no role implementation or schema exists.
+- ⬜ Role classification implementation.
+- ⬜ Company normalization.
 - ⬜ Geography and remote-restriction normalization.
 - ⬜ Salary normalization with explicit disclosed, estimated, and derived provenance.
 - ⬜ Seniority detection.

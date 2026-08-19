@@ -480,6 +480,28 @@ Initialization rejects unsupported future schema versions before DDL, rejects pa
 
 ### Boundaries
 
-The trusted internal analysis service expects its caller to provide the current persisted `JobPosting` state. The current `JobRepository` does not return a reloaded durable posting, and the service does not verify the supplied object against SQLite. A stale object can therefore create a historical run for stale inputs. Production collection-to-analysis orchestration must first introduce an explicit durable read or verification boundary. The service does not analyze `RawJob`, perform collection, schedule work, or provide batch/CLI execution. Persisted evidence still means only `mentioned`, never required, preferred, proficient, or employer-verified.
+The trusted internal analysis service expects its caller to provide the current persisted `JobPosting` state. A source-independent `JobPostingReader` contract now supports the bounded manual CLI by reconstructing current SQLite rows through persisted deserialization and domain validation. Future automatic orchestration must use that durable boundary rather than stale collector objects. The service does not analyze `RawJob`, perform collection, or schedule work. Persisted evidence still means only `mentioned`, never required, preferred, proficient, or employer-verified.
 
 Future analytics may join `job_skills` through `analysis_runs` and `job_postings` to `canonical_job_id`, and should count distinct canonical jobs where appropriate. Complete cross-source canonical linking is not implemented, so those future counts cannot yet claim complete cross-source deduplication.
+
+---
+
+## ADR-011: Taxonomy v2 is a bounded real-data revision
+
+Date: 2026-08-19
+
+Status: Accepted
+
+### Decision
+
+Local validation used 100 persisted Remote OK postings and 100 persisted Web3.career postings. Taxonomy v1 runs remain immutable historical evidence. Changes to canonical skills, aliases, and contextual matching advance the single taxonomy/extractor semantics version to `2`; no second versioning mechanism is introduced.
+
+V2 adds 13 locally observed canonical skills: Bash, Cosmos, CSS, EVM, Figma, Grafana, HTML, Apache Kafka, Linux, Prometheus, React Native, Snowflake, and Solana. Ambiguous bare mentions for Bash, Cosmos, Figma, Kafka, Prometheus, Snowflake, and Solana require explicit technical context in prose but remain exact direct evidence when supplied as a whole source tag. Safe compound aliases such as `Bash shell`, `Kafka Streams`, and `Snowflake warehouse` remain direct evidence. V2 keeps direct-mention semantics and does not infer parent, dependency, or requirement relationships.
+
+Broad `Blockchain`, `Web3`, and `Bitcoin` terms are deliberately not added in this revision. They occurred frequently but often described the employer, industry, product, finance, marketing, or editorial context rather than a concrete skill. Higher raw coverage is not sufficient justification for accepting those false-positive risks.
+
+### Consequences
+
+The same unchanged posting input can have coexisting v1 and v2 `analysis_runs`. Repeating v2 reuses its run and evidence. Local posting-level coverage changed from 15% to 16% for Remote OK and from 62% to 67% for Web3.career; this is validation evidence, not complete market analytics or proof that v2 is universally better.
+
+The two local databases were collected before normalized `source_tags` existed and migrated with empty tag tuples, so this validation cannot measure real source-tag recognition. The Remote OK sample also contains non-vacancy, placeholder, non-English, and apparently mismatched/boilerplate descriptions. Those data-quality limitations must remain visible in reporting rather than be hidden with source-specific extractor rules.
