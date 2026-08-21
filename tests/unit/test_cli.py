@@ -156,7 +156,71 @@ def test_cli_help_lists_manual_collection_commands(
     assert "collect-we-work-remotely" in captured.out
     assert "analyze-skills" in captured.out
     assert "analyze-roles" in captured.out
+    assert "serve" in captured.out
     assert captured.err == ""
+
+
+def test_serve_requires_database_and_valid_port(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    with pytest.raises(SystemExit) as missing_database:
+        cli.main(["serve"])
+    assert missing_database.value.code == 2
+    assert "--database" in capsys.readouterr().err
+
+    with pytest.raises(SystemExit) as invalid_port:
+        cli.main(["serve", "--database", "jobs.sqlite3", "--port", "70000"])
+    assert invalid_port.value.code == 2
+    assert "must be between 1 and 65535" in capsys.readouterr().err
+
+    with pytest.raises(SystemExit) as public_host:
+        cli.main(["serve", "--database", "jobs.sqlite3", "--host", "0.0.0.0"])
+    assert public_host.value.code == 2
+    assert "must be a loopback host" in capsys.readouterr().err
+
+
+def test_serve_dispatches_validated_app_with_local_defaults(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    database_path = tmp_path / "jobs.sqlite3"
+    fake_app = object()
+    captured: dict[str, object] = {}
+
+    def app_factory(path: Path) -> object:
+        captured["database"] = path
+        return fake_app
+
+    def run_server(app: object, *, host: str, port: int) -> None:
+        captured.update(app=app, host=host, port=port)
+
+    monkeypatch.setattr(cli, "create_app", app_factory)
+    monkeypatch.setattr(cli.uvicorn, "run", run_server)
+
+    exit_code = cli.main(["serve", "--database", str(database_path)])
+
+    assert exit_code == 0
+    assert captured == {
+        "database": database_path,
+        "app": fake_app,
+        "host": "127.0.0.1",
+        "port": 8000,
+    }
+
+
+def test_serve_missing_database_is_nonzero_and_path_safe(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    database_path = tmp_path / "private" / "missing.sqlite3"
+
+    exit_code = cli.main(["serve", "--database", str(database_path)])
+
+    captured = capsys.readouterr()
+    assert exit_code == 1
+    assert captured.out == ""
+    assert "Existing readable SQLite database" in captured.err
+    assert str(database_path) not in captured.err
 
 
 @pytest.mark.parametrize(

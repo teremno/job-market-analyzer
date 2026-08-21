@@ -101,6 +101,31 @@ def connect_database(
     return connection
 
 
+def connect_read_only_database(
+    database_path: DatabasePath,
+) -> sqlite3.Connection:
+    """Open an existing SQLite file without allowing writes or file creation."""
+
+    resolved_path = Path(database_path).resolve(strict=True)
+    if not resolved_path.is_file():
+        raise FileNotFoundError("SQLite database path is not a file")
+
+    connection = sqlite3.connect(
+        f"{resolved_path.as_uri()}?mode=ro",
+        uri=True,
+        check_same_thread=False,
+    )
+    try:
+        connection.row_factory = sqlite3.Row
+        connection.execute("PRAGMA foreign_keys = ON")
+        connection.execute("PRAGMA busy_timeout = 5000")
+        connection.execute("PRAGMA query_only = ON")
+    except Exception:
+        connection.close()
+        raise
+    return connection
+
+
 def initialize_database(
     connection: sqlite3.Connection,
 ) -> None:

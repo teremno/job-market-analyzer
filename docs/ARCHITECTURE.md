@@ -28,6 +28,10 @@ Pure deterministic intelligence extraction
 ↓
 Read-only posting-level analytics repository
 ↓
+Local read-only HTTP API
+↓
+Dashboard v0 (next sprint)
+↓
 Later high-confidence canonical-job analytics
 
 ## Core Models
@@ -123,6 +127,25 @@ The contract covers overview, deterministic paginated posting search, role detai
 skill detail/co-occurrence, and source dataset summaries. Stable role/skill codes are
 filter identity; current English names are replaceable display labels. Details are in
 `docs/ANALYTICS_QUERY_CONTRACT.md`.
+
+## Local API Boundary
+
+The local Dashboard API is a thin FastAPI adapter over `AnalyticsRepository`. HTTP
+handlers validate bounded query/path input, invoke repository methods, and map the
+immutable DTOs into explicit Pydantic response models. They contain no SQL, current-
+run selection, historical filtering, or distinct-count logic.
+
+The `serve` CLI requires an existing current-schema database, accepts only loopback
+bind hosts, and defaults to `127.0.0.1:8000`. Startup opens SQLite with `mode=ro`, validates schema v3 without
+migration, and stores only the validated path as application configuration. Every
+request creates its own read-only, `query_only` connection and closes it after the
+response; no SQLite connection is shared across request threads.
+
+The API exposes only GET endpoints under `/api`. Posting responses exclude full
+descriptions and RawJob payloads. Errors have stable codes, generic public messages,
+and request IDs without SQL or filesystem paths. Local Dashboard origins on ports
+3000 are explicitly allowlisted; authentication and hosted exposure remain postponed.
+The HTTP contract is documented in `docs/API_CONTRACT.md`.
 
 ## Collectors
 

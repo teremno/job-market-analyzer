@@ -593,3 +593,43 @@ The first local API can map stable endpoints directly to the analytics contract.
 Codes remain language-neutral while English labels are replaceable presentation data.
 Salary, seniority, normalized geography, fuzzy linking, public HTTP, and frontend work
 remain separate future milestones.
+
+---
+
+## ADR-016: Dashboard v0 uses a local read-only FastAPI adapter
+
+Date: 2026-08-21
+
+Status: Accepted for the current uncommitted implementation checkpoint.
+
+### Decision
+
+Expose `AnalyticsRepository` through a minimal FastAPI application and the existing
+`job-market-analyzer serve` CLI. The server requires an existing current-schema
+SQLite path, binds `127.0.0.1:8000` by default, validates without migration, and opens
+one `mode=ro` plus `query_only` connection per request. Explicit Pydantic response
+models form the HTTP contract; API handlers do not reproduce analytics joins or
+current-intelligence semantics.
+
+The API contains only bounded GET routes for health, overview, jobs, role detail,
+skill detail, and source summaries. Errors use stable codes, generic messages, and a
+request ID. Development CORS allowlists only the two localhost port-3000 origins and
+does not allow credentials.
+
+### Alternatives rejected
+
+- Flask would require more handwritten validation and OpenAPI plumbing for no MVP
+  benefit.
+- A generic REST/ORM layer would duplicate the committed query boundary.
+- A global SQLite connection is unsafe across request threads.
+- Opening SQLite normally could create a typo-path database or mutate journal/schema
+  state, contradicting the read-only contract.
+- Authentication, rate limiting, Redis, caching, cursor pagination, and hosted
+  deployment are unnecessary for this bounded localhost-only sprint.
+
+### Consequences
+
+Dashboard v0 can consume a stable local JSON API immediately. FastAPI and minimal
+Uvicorn are runtime dependencies; HTTPX2 is development-only for current TestClient
+compatibility. OpenAPI remains enabled locally. Cross-source deduplication, frontend,
+accounts, public exposure, and hosted concurrency remain future work.

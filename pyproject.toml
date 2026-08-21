@@ -8,12 +8,15 @@ version = "0.1.0"
 description = "Collect and analyze remote job market data."
 requires-python = ">=3.13"
 dependencies = [
+    "fastapi>=0.141",
     "httpx>=0.28",
     "pydantic>=2.10",
+    "uvicorn>=0.52",
 ]
 
 [project.optional-dependencies]
 dev = [
+    "httpx2>=2.9",
     "pytest>=8.3",
     "ruff>=0.9",
 ]

@@ -2,6 +2,7 @@
 
 import argparse
 import asyncio
+import ipaddress
 import os
 import sqlite3
 import sys
@@ -9,7 +10,11 @@ from collections.abc import Callable, Sequence
 from contextlib import closing
 from pathlib import Path
 
+import uvicorn
+
 from job_market_analyzer.collectors.base import CollectionFailure, JobCollector
+from job_market_analyzer.api import create_app
+from job_market_analyzer.api.dependencies import DatabaseConfigurationError
 from job_market_analyzer.collectors.himalayas import (
     HIMALAYAS_SOURCE_PROVIDER,
     HIMALAYAS_SOURCE_SCOPE,
@@ -100,6 +105,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         return analyze_skills(arguments.database, limit=arguments.limit)
     if arguments.command == "analyze-roles":
         return analyze_roles(arguments.database, limit=arguments.limit)
+    if arguments.command == "serve":
+        return serve(
+            arguments.database,
+            host=arguments.host,
+            port=arguments.port,
+        )
 
     parser.error(f"Unsupported command: {arguments.command}")
 
@@ -238,6 +249,19 @@ def analyze_roles(database_path: Path, *, limit: int) -> int:
         return 1
 
     _print_role_summary(summary)
+    return 0
+
+
+def serve(database_path: Path, *, host: str, port: int) -> int:
+    """Run the local read-only API against one existing SQLite database."""
+
+    try:
+        app = create_app(database_path)
+    except DatabaseConfigurationError as exc:
+        print(f"API server failed: {exc}", file=sys.stderr)
+        return 1
+
+    uvicorn.run(app, host=host, port=port)
     return 0
 
 
@@ -380,6 +404,30 @@ def _build_parser() -> argparse.ArgumentParser:
         metavar="N",
         help="Maximum current postings to analyze (default: 100).",
     )
+    serve_parser = subparsers.add_parser(
+        "serve",
+        help="Run the local read-only Dashboard v0 API.",
+    )
+    serve_parser.add_argument(
+        "--database",
+        required=True,
+        type=Path,
+        metavar="PATH",
+        help="Existing current-schema SQLite database path.",
+    )
+    serve_parser.add_argument(
+        "--host",
+        default="127.0.0.1",
+        type=_loopback_host,
+        help="Bind host (default: 127.0.0.1).",
+    )
+    serve_parser.add_argument(
+        "--port",
+        default=8000,
+        type=_port,
+        metavar="N",
+        help="Bind port from 1 to 65535 (default: 8000).",
+    )
     return parser
 
 
@@ -388,6 +436,26 @@ def _positive_int(value: str) -> int:
     if parsed < 1:
         raise argparse.ArgumentTypeError("must be greater than zero")
     return parsed
+
+
+def _port(value: str) -> int:
+    parsed = int(value)
+    if not 1 <= parsed <= 65535:
+        raise argparse.ArgumentTypeError("must be between 1 and 65535")
+    return parsed
+
+
+def _loopback_host(value: str) -> str:
+    normalized = value.strip().lower()
+    if normalized == "localhost":
+        return normalized
+    try:
+        address = ipaddress.ip_address(normalized)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("must be a loopback host") from exc
+    if not address.is_loopback:
+        raise argparse.ArgumentTypeError("must be a loopback host")
+    return normalized
 
 
 def _configure_console_streams() -> None:

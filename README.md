@@ -140,3 +140,44 @@ job-market-analyzer analyze-roles --database ./job-market.sqlite3 --limit 100
 Unknown is a successful exact-version analysis with zero `RoleEvidence`, not a failure. Repeating the command with unchanged title, description, and analyzer version reuses every exact run without duplicating evidence. A changed role input creates a historical run; company, salary, location, tags, and other non-role changes do not.
 
 The output is a manual development validation over source postings. It is not fully canonical-deduplicated market analytics because complete cross-source canonical linking is not implemented. See [Role Persistence Validation Report](docs/ROLE_PERSISTENCE_VALIDATION_REPORT.md) for the bounded local persisted-data results and limitations.
+
+## Local Dashboard API
+
+Run the read-only local API against an existing current-schema SQLite database:
+
+```bash
+job-market-analyzer serve --database ./jobs.sqlite3
+```
+
+The database path is required and must already exist. The server binds
+`127.0.0.1:8000` by default, rejects non-loopback bind hosts, and never creates,
+migrates, or writes the selected
+database. Open `http://127.0.0.1:8000/docs` for local OpenAPI documentation. The API
+base path is `/api`, with these Dashboard v0 endpoints:
+
+- `GET /api/health`
+- `GET /api/overview`
+- `GET /api/jobs`
+- `GET /api/roles/{role_code}`
+- `GET /api/skills/{skill_code}`
+- `GET /api/sources`
+
+To build one useful local database, run all six collection commands against the same
+path, then run both deterministic analyzers:
+
+```bash
+job-market-analyzer collect-remote-ok --database ./jobs.sqlite3
+job-market-analyzer collect-web3-career --database ./jobs.sqlite3
+job-market-analyzer collect-himalayas --database ./jobs.sqlite3
+job-market-analyzer collect-jobicy --database ./jobs.sqlite3
+job-market-analyzer collect-remotive --database ./jobs.sqlite3
+job-market-analyzer collect-we-work-remotely --database ./jobs.sqlite3
+job-market-analyzer analyze-skills --database ./jobs.sqlite3 --limit 10000
+job-market-analyzer analyze-roles --database ./jobs.sqlite3 --limit 10000
+```
+
+Web3.career still reads its token only from `WEB3_CAREER_API_TOKEN`; never commit or
+print that value. Collection commands perform real network requests, while analysis
+and API serving are local. Current API counts remain posting-level because complete
+cross-source canonical linking is not implemented. See
+[Local API Contract](docs/API_CONTRACT.md) for exact response and error semantics.
