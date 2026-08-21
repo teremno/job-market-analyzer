@@ -30,7 +30,7 @@ Read-only posting-level analytics repository
 ↓
 Local read-only HTTP API
 ↓
-Dashboard v0 (next sprint)
+Browser Dashboard v0
 ↓
 Later high-confidence canonical-job analytics
 
@@ -146,6 +146,26 @@ descriptions and RawJob payloads. Errors have stable codes, generic public messa
 and request IDs without SQL or filesystem paths. Local Dashboard origins on ports
 3000 are explicitly allowlisted; authentication and hosted exposure remain postponed.
 The HTTP contract is documented in `docs/API_CONTRACT.md`.
+
+## Local Dashboard Boundary
+
+The browser product is isolated in `web/` and does not enter the Python package or
+SQLite process. Next.js App Router server components call the local GET-only API
+through one typed, timeout-bounded client. The only client component owns active
+navigation state; Jobs filters use native URL query parameters, so refresh,
+bookmarks, and browser history preserve the selected source, role, skill, text, and
+page.
+
+Frontend types mirror the explicit API response models and retain `role_code`,
+`skill_code`, and `source_provider` as identity. Presentation helpers format labels
+and dates without changing source data. Pages contain no SQL, taxonomy rules,
+database paths, source tokens, descriptions, or raw payload rendering. External
+vacancy links use a new browsing context with `noopener noreferrer`.
+
+The dashboard is a local read-only consumer, not another application service. It
+does not add frontend proxy routes, write APIs, authentication, global state, a chart
+library, or a component framework. Product scope and local operation are documented
+in `docs/DASHBOARD_V0.md`.
 
 ## Collectors
 

@@ -48,6 +48,7 @@ LOCAL_DASHBOARD_ORIGINS = (
 DatabaseSession = Annotated[ApiDatabaseSession, Depends(get_database_session)]
 Limit = Annotated[int, Query(ge=1, le=100)]
 Offset = Annotated[int, Query(ge=0, le=1_000_000)]
+TopLimit = Annotated[int, Query(ge=1, le=100)]
 NonBlankString = Annotated[str, AfterValidator(_strip_non_blank)]
 SourceFilter = Annotated[
     NonBlankString | None,
@@ -199,8 +200,13 @@ def create_app(database_path: Path) -> FastAPI:
         response_model=AnalyticsOverviewResponse,
         summary="Get posting-level market overview",
     )
-    def overview(session: DatabaseSession) -> AnalyticsOverviewResponse:
-        return AnalyticsOverviewResponse.from_dto(session.analytics.get_overview())
+    def overview(
+        session: DatabaseSession,
+        top_limit: TopLimit = 10,
+    ) -> AnalyticsOverviewResponse:
+        return AnalyticsOverviewResponse.from_dto(
+            session.analytics.get_overview(top_limit=top_limit)
+        )
 
     @app.get(
         "/api/jobs",

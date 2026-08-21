@@ -33,8 +33,9 @@ This roadmap is directional. It describes meaningful product milestones, not a r
 | Manual persisted role validation | ✅ | One-shot CLI and two-pass disposable-copy validation are committed |
 | Multi-source expansion | ✅ | Six supported sources; 218 new live-validated postings across four credential-free feeds |
 | Dashboard v0 internal analytics/query layer | ✅ | Read-only exact-current overview, posting search, role/skill detail, and source summaries |
-| Local read-only Dashboard API | 🟡 | Implemented and locally tested; awaiting commit checkpoint |
-| Browser Dashboard v0 | ⬜ | NEXT: Overview, Jobs, Roles, Skills, and Sources screens |
+| Local read-only Dashboard API | ✅ | Committed loopback-only FastAPI adapter over posting-level analytics |
+| Browser Dashboard v0 | 🟡 | Implemented and browser-validated on real persisted data; awaiting commit checkpoint |
+| Unified personal-use dataset + product audit | ⬜ | NEXT: collect all six sources into one database and prioritize from observed product gaps |
 
 ## Visual Direction
 
@@ -43,8 +44,9 @@ flowchart LR
     P1["✅ Phase 1<br/>Data Foundation"] --> P2["✅ Phase 2<br/>Core Intelligence"]
     P2 --> P3["🟡 Phase 3<br/>Posting Analytics"]
     P3 --> P4["⬜ Phase 4<br/>Personal Intelligence"]
-    P3 --> LA["🟡 Local read-only API"]
-    LA --> P6["⬜ NEXT<br/>Dashboard v0"]
+    P3 --> LA["✅ Local read-only API"]
+    LA --> P6["🟡 Dashboard v0"]
+    P6 --> UA["⬜ NEXT<br/>Unified dataset + product audit"]
     P3 --> P5["⬜ Phase 5<br/>Hosted Backend"]
     P5 --> P6
     P5 --> P7["⬜ Phase 7<br/>Integrations"]
@@ -71,8 +73,9 @@ flowchart LR
 
 ### Current / next
 
-- 🟡 Commit the implemented local read-only API checkpoint.
-- ⬜ NEXT: build the browser-visible Dashboard v0 directly on this API.
+- 🟡 Commit the browser-visible Dashboard v0 checkpoint.
+- ⬜ NEXT: populate one six-source personal database and perform the documented
+  product audit before selecting another intelligence layer.
 
 ### Planned foundation work
 
@@ -138,7 +141,7 @@ This track remains research until its methods are validated. It must not be pres
 
 ## Phase 5 — Product API / Hosted Backend
 
-- 🟡 Local read-only FastAPI boundary for Dashboard v0, with existing schema v3,
+- ✅ Local read-only FastAPI boundary for Dashboard v0, with existing schema v3,
   explicit database selection, bounded GET routes, and per-request connections.
 - ⬜ PostgreSQL when dataset size or hosted concurrency justifies migration.
 - ⬜ Hosted deployment, authentication, and multi-user API policy when required.
@@ -150,13 +153,16 @@ The local open-source mode must remain supported.
 
 ## Phase 6 — Web Product
 
-- ⬜ Visual dashboard and vacancy browser.
+- 🟡 Dashboard v0: Overview, vacancy browser, URL-backed combined filters,
+  role/skill detail, source coverage, and explicit local API error states.
 - ⬜ Role, skill, and salary explorers.
 - ⬜ Regional and remote-restriction filters.
 - ⬜ Historical charts and personal roadmap views.
 - ⬜ Internationalization and user-selected presentation language.
 
-Next.js/React is a likely direction, not a permanent architectural commitment. An equivalent frontend may be selected when implementation begins.
+Next.js/React is the implemented local Dashboard v0 direction, not a permanent hosted
+architecture commitment. The next step is real personal-use auditing, not another
+invisible backend layer.
 
 ## Phase 7 — Integrations
 

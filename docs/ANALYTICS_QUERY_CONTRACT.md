@@ -185,9 +185,9 @@ before adding a covering index, materialization, or FTS.
 - No normalized seniority, salary, or geography is required for Dashboard v0.
 - No claim of global job-market representativeness is made.
 
-## Next API mapping
+## Current API mapping
 
-The next sprint can map this contract without new analytics logic:
+The local read-only API maps this contract without duplicating analytics logic:
 
 - `GET /api/overview` → `get_overview()`;
 - `GET /api/jobs` → `list_postings()`;

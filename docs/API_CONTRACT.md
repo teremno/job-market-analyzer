@@ -61,6 +61,11 @@ Returns `posting_count`, `source_count`, role and skill three-state counts,
 `postings_by_source`, `top_roles`, and `top_skills`. Role/skill/source codes remain
 first-class identity fields. Aggregate counts are distinct posting counts.
 
+The optional `top_limit` query parameter is an integer from 1 to 100 and defaults to
+10. Dashboard list and filter views request 100 so every observed role and skill in
+the bounded active taxonomies can be selected without loading every posting or
+duplicating taxonomy metadata in the frontend.
+
 ### `GET /api/jobs`
 
 Query parameters:
@@ -126,12 +131,11 @@ Startup validation and endpoints do not change database bytes.
 
 Development CORS allows only `http://localhost:3000` and
 `http://127.0.0.1:3000`, only GET, and no credentials. Other origins receive no CORS
-allow header. This is sufficient for the next local Dashboard v0 sprint without a
-wildcard policy.
+allow header. This supports the local Dashboard v0 without a wildcard policy.
 
 ## Limitations and next consumer
 
 There is no authentication, hosted exposure, rate limiter, cache, cursor pagination,
-frontend, salary/seniority/geography normalization, or fuzzy canonical linker. API
-overhead is intentionally small relative to SQLite analytics. The next sprint is the
-browser Dashboard v0 with Overview, Jobs, Roles, Skills, and Sources screens.
+salary/seniority/geography normalization, or fuzzy canonical linker. API overhead is
+intentionally small relative to SQLite analytics. The browser Dashboard v0 consumes
+this contract through Overview, Jobs, Roles, Skills, and Sources screens.

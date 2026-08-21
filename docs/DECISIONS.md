@@ -600,7 +600,7 @@ remain separate future milestones.
 
 Date: 2026-08-21
 
-Status: Accepted for the current uncommitted implementation checkpoint.
+Status: Accepted and committed.
 
 ### Decision
 
@@ -633,3 +633,44 @@ Dashboard v0 can consume a stable local JSON API immediately. FastAPI and minima
 Uvicorn are runtime dependencies; HTTPX2 is development-only for current TestClient
 compatibility. OpenAPI remains enabled locally. Cross-source deduplication, frontend,
 accounts, public exposure, and hosted concurrency remain future work.
+
+---
+
+## ADR-017: Dashboard v0 is a separate server-rendered Next.js consumer
+
+Date: 2026-08-21
+
+Status: Accepted for the current uncommitted implementation checkpoint.
+
+### Decision
+
+Place the browser application in `web/` with its own npm dependency boundary. Use
+Next.js 16 App Router, React, TypeScript, server components, one small client
+navigation component, native forms and URL query parameters, and hand-written CSS.
+The frontend calls only the local read-only API through a typed client with a
+five-second timeout and runtime response guards.
+
+Add one compatible API query parameter, `GET /api/overview?top_limit=1..100`, so the
+Jobs, Roles, and Skills screens can obtain all observed filter identities without
+fetching every posting or duplicating backend taxonomies. The default remains 10.
+
+### Alternatives rejected
+
+- A client-side state framework adds lifecycle and synchronization work that URL
+  state and server rendering already solve.
+- A frontend proxy or duplicated Node API hides local configuration and adds another
+  HTTP boundary without product value.
+- Copying role and skill taxonomies into TypeScript would create drifting identities.
+- Fetching every posting to discover filter options violates bounded list behavior.
+- A chart or component library is unnecessary for summary cards, tables, and CSS
+  coverage bars.
+
+### Consequences
+
+The Python package remains independently installable and the frontend has no access
+to SQLite or collection credentials. Dashboard navigation is refresh-safe and
+bookmarkable. Backend unavailability and invalid API responses are visible without
+stack traces. Counts remain explicitly posting-level, skill text says mentioned or
+co-mentioned rather than required, and source dates describe dataset freshness rather
+than uptime. Salary, seniority, geography, canonical linking, accounts, deployment,
+and saved user state remain postponed until personal-use evidence justifies them.

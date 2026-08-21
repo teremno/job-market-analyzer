@@ -198,6 +198,21 @@ def test_overview_preserves_posting_level_analytics(api_client: TestClient) -> N
     }
 
 
+def test_overview_accepts_bounded_top_limit_for_frontend_filter_options(
+    api_client: TestClient,
+) -> None:
+    response = api_client.get("/api/overview", params={"top_limit": 100})
+
+    assert response.status_code == 200
+    assert len(response.json()["top_roles"]) == 2
+    assert len(response.json()["top_skills"]) == 3
+    limited = api_client.get("/api/overview", params={"top_limit": 1})
+    assert len(limited.json()["top_roles"]) == 1
+    assert len(limited.json()["top_skills"]) == 1
+    assert api_client.get("/api/overview", params={"top_limit": 0}).status_code == 422
+    assert api_client.get("/api/overview", params={"top_limit": 101}).status_code == 422
+
+
 def test_jobs_pagination_and_bounded_projection(api_client: TestClient) -> None:
     first = api_client.get("/api/jobs", params={"limit": 2})
     second = api_client.get("/api/jobs", params={"limit": 2, "offset": 2})

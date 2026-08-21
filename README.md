@@ -141,12 +141,42 @@ Unknown is a successful exact-version analysis with zero `RoleEvidence`, not a f
 
 The output is a manual development validation over source postings. It is not fully canonical-deduplicated market analytics because complete cross-source canonical linking is not implemented. See [Role Persistence Validation Report](docs/ROLE_PERSISTENCE_VALIDATION_REPORT.md) for the bounded local persisted-data results and limitations.
 
-## Local Dashboard API
+## Local Dashboard
+
+Dashboard v0 is a local browser product for posting-level analytics. It provides
+Overview, Jobs, Roles, Skills, and Sources pages without exposing descriptions, raw
+payloads, database paths, or write operations.
+
+### A. Populate one database
+
+From the repository root in Windows PowerShell, run every collector against the same
+path. These commands make real source requests:
+
+```powershell
+job-market-analyzer collect-remote-ok --database .\job-market.sqlite3
+job-market-analyzer collect-web3-career --database .\job-market.sqlite3
+job-market-analyzer collect-himalayas --database .\job-market.sqlite3
+job-market-analyzer collect-jobicy --database .\job-market.sqlite3
+job-market-analyzer collect-remotive --database .\job-market.sqlite3
+job-market-analyzer collect-we-work-remotely --database .\job-market.sqlite3
+```
+
+Web3.career reads `WEB3_CAREER_API_TOKEN` only from the environment. Never commit,
+paste into frontend configuration, or print that value.
+
+### B. Analyze the persisted postings
+
+```powershell
+job-market-analyzer analyze-skills --database .\job-market.sqlite3 --limit 10000
+job-market-analyzer analyze-roles --database .\job-market.sqlite3 --limit 10000
+```
+
+### C. Start the backend
 
 Run the read-only local API against an existing current-schema SQLite database:
 
-```bash
-job-market-analyzer serve --database ./jobs.sqlite3
+```powershell
+job-market-analyzer serve --database .\job-market.sqlite3
 ```
 
 The database path is required and must already exist. The server binds
@@ -162,22 +192,22 @@ base path is `/api`, with these Dashboard v0 endpoints:
 - `GET /api/skills/{skill_code}`
 - `GET /api/sources`
 
-To build one useful local database, run all six collection commands against the same
-path, then run both deterministic analyzers:
+### D. Start the frontend
 
-```bash
-job-market-analyzer collect-remote-ok --database ./jobs.sqlite3
-job-market-analyzer collect-web3-career --database ./jobs.sqlite3
-job-market-analyzer collect-himalayas --database ./jobs.sqlite3
-job-market-analyzer collect-jobicy --database ./jobs.sqlite3
-job-market-analyzer collect-remotive --database ./jobs.sqlite3
-job-market-analyzer collect-we-work-remotely --database ./jobs.sqlite3
-job-market-analyzer analyze-skills --database ./jobs.sqlite3 --limit 10000
-job-market-analyzer analyze-roles --database ./jobs.sqlite3 --limit 10000
+Open a second PowerShell window:
+
+```powershell
+cd web
+npm install
+npm run dev
 ```
 
-Web3.career still reads its token only from `WEB3_CAREER_API_TOKEN`; never commit or
-print that value. Collection commands perform real network requests, while analysis
-and API serving are local. Current API counts remain posting-level because complete
-cross-source canonical linking is not implemented. See
-[Local API Contract](docs/API_CONTRACT.md) for exact response and error semantics.
+The frontend defaults to `http://127.0.0.1:8000`. Copy `web/.env.example` to a local
+`.env.local` only when a different loopback API URL is needed.
+
+### E. Open the product
+
+Open `http://localhost:3000`. Current counts remain **source postings**, not globally
+unique jobs, because complete cross-source canonical linking is not implemented.
+See [Dashboard v0](docs/DASHBOARD_V0.md) for product scope and troubleshooting and
+[Local API Contract](docs/API_CONTRACT.md) for exact HTTP semantics.
