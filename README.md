@@ -99,3 +99,17 @@ Repeated runs reuse identical analysis runs and create no duplicate evidence. If
 The current summary is posting-level smoke coverage, not final deduplicated market analytics. Cross-source canonical linking remains incomplete, so these counts must not be interpreted as unique real-world vacancy demand.
 
 Taxonomy v1 evidence remains preserved in historical analysis runs. See [Skill Taxonomy Validation Report](docs/SKILL_TAXONOMY_REPORT.md) for the local Remote OK/Web3.career validation, v2 rationale, measured coverage, and limitations.
+
+## Manual one-shot role analysis
+
+Analyze a bounded set of current durable postings already stored in SQLite:
+
+```bash
+job-market-analyzer analyze-roles --database ./job-market.sqlite3 --limit 100
+```
+
+`--database` is required, must identify an existing SQLite file, and `--limit` defaults to `100`. The command reads current `JobPosting` rows in deterministic `(source_provider, source_scope, external_id, id)` order, runs Role Taxonomy v1, persists versioned role runs and evidence, prints posting-level coverage plus bounded evidence, Unknown, and multi-label samples, then exits. It performs no collection or network request.
+
+Unknown is a successful exact-version analysis with zero `RoleEvidence`, not a failure. Repeating the command with unchanged title, description, and analyzer version reuses every exact run without duplicating evidence. A changed role input creates a historical run; company, salary, location, tags, and other non-role changes do not.
+
+The output is a manual development validation over source postings. It is not fully canonical-deduplicated market analytics because complete cross-source canonical linking is not implemented. See [Role Persistence Validation Report](docs/ROLE_PERSISTENCE_VALIDATION_REPORT.md) for the bounded local persisted-data results and limitations.

@@ -25,7 +25,8 @@ This roadmap is directional. It describes meaningful product milestones, not a r
 | Versioned skill persistence / recomputation | ✅ | Derived SQLite analysis runs and evidence are implemented and regression-tested |
 | Manual real-data skill validation | ✅ | V1 and v2 analyzed twice against both local 100-posting smoke databases with integrity checks |
 | Role Classification V1 | ✅ | Committed pure deterministic classifier with bounded 200-posting local validation |
-| Versioned role persistence / recomputation | 🟡 | Implemented and locally regression-tested in the current uncommitted worktree; awaiting review |
+| Versioned role persistence / recomputation | ✅ | Committed schema v3, repository, exact identity, and analyzer-kind protections |
+| Manual persisted role validation | 🟡 | One-shot CLI and two-pass validation on disposable copies are implemented in the current uncommitted worktree; awaiting review |
 
 ## Visual Direction
 
@@ -57,7 +58,7 @@ flowchart LR
 
 ### Current / next
 
-- 🟡 Review the current versioned role-persistence checkpoint.
+- 🟡 Review the manual persisted role-validation checkpoint.
 
 ### Planned foundation work
 
@@ -74,7 +75,8 @@ flowchart LR
 - ✅ Versioned, recomputable skill analysis runs with dedicated input hashes and persisted direct mention evidence.
 - ✅ Manual real-data validation of skill coverage and evidence on local Remote OK and Web3.career datasets.
 - ✅ Role Classification V1 pure implementation and bounded local read-only validation.
-- 🟡 Persisted versioned role analysis and recomputation implemented locally; review and commit remain pending.
+- ✅ Persisted versioned role analysis and recomputation with role/skill isolation.
+- 🟡 Manual one-shot persisted role validation and bounded real-data report; review and commit remain pending.
 - ⬜ Company normalization.
 - ⬜ Geography and remote-restriction normalization.
 - ⬜ Salary normalization with explicit disclosed, estimated, and derived provenance.

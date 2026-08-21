@@ -23,6 +23,7 @@ from job_market_analyzer.collectors.web3_career import (
 )
 from job_market_analyzer.models import NormalizedJobPosting, RawJob
 from job_market_analyzer.intelligence.skills import SKILL_TAXONOMY_VERSION
+from job_market_analyzer.intelligence.roles import ROLE_TAXONOMY_VERSION
 from job_market_analyzer.normalization.remote_ok import normalize_remote_ok_job
 from job_market_analyzer.normalization.web3_career import normalize_web3_career_job
 from job_market_analyzer.services.collection import (
@@ -33,8 +34,13 @@ from job_market_analyzer.services.skill_smoke import (
     SkillSmokeSummary,
     run_skill_smoke,
 )
+from job_market_analyzer.services.role_smoke import (
+    RoleSmokeSummary,
+    run_role_smoke,
+)
 from job_market_analyzer.storage.sqlite import connect_database, initialize_database
 from job_market_analyzer.storage.sqlite_intelligence_repository import (
+    SQLiteRoleIntelligenceRepository,
     SQLiteSkillIntelligenceRepository,
 )
 from job_market_analyzer.storage.sqlite_repository import SQLiteJobRepository
@@ -58,6 +64,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return collect_web3_career(arguments.database)
     if arguments.command == "analyze-skills":
         return analyze_skills(arguments.database, limit=arguments.limit)
+    if arguments.command == "analyze-roles":
+        return analyze_roles(arguments.database, limit=arguments.limit)
 
     parser.error(f"Unsupported command: {arguments.command}")
 
@@ -117,6 +125,33 @@ def analyze_skills(database_path: Path, *, limit: int) -> int:
         return 1
 
     _print_skill_summary(summary)
+    return 0
+
+
+def analyze_roles(database_path: Path, *, limit: int) -> int:
+    """Run bounded deterministic role analysis over current SQLite postings."""
+
+    try:
+        if not database_path.is_file():
+            raise FileNotFoundError(
+                f"SQLite database file does not exist: {database_path}"
+            )
+        with closing(connect_database(database_path)) as connection:
+            initialize_database(connection)
+            summary = run_role_smoke(
+                SQLiteJobRepository(connection),
+                SQLiteRoleIntelligenceRepository(connection),
+                limit=limit,
+            )
+    except Exception as exc:  # noqa: BLE001 - CLI boundary converts failures to exit 1
+        print(
+            "Role analysis failed: "
+            f"{type(exc).__name__}: {_short_message(exc)}",
+            file=sys.stderr,
+        )
+        return 1
+
+    _print_role_summary(summary)
     return 0
 
 
@@ -215,6 +250,27 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Existing SQLite database path to initialize or reuse.",
     )
     analyze_parser.add_argument(
+        "--limit",
+        default=100,
+        type=_positive_int,
+        metavar="N",
+        help="Maximum current postings to analyze (default: 100).",
+    )
+    role_parser = subparsers.add_parser(
+        "analyze-roles",
+        help=(
+            "Analyze current SQLite postings once with Role Taxonomy v"
+            f"{ROLE_TAXONOMY_VERSION}."
+        ),
+    )
+    role_parser.add_argument(
+        "--database",
+        required=True,
+        type=Path,
+        metavar="PATH",
+        help="Existing SQLite database path to initialize or reuse.",
+    )
+    role_parser.add_argument(
         "--limit",
         default=100,
         type=_positive_int,
@@ -382,6 +438,71 @@ def _print_skill_summary(summary: SkillSmokeSummary) -> None:
         print(f"- Skill: {sample.skill_name}")
         print(f"  Field: {sample.evidence_field}")
         print(f"  Matched alias: {sample.matched_alias}")
+        print(f"  Job: {sample.job_title}")
+        print(f"  Company: {sample.company_name or 'n/a'}")
+        print(f"  Evidence: {sample.evidence_text}")
+
+
+def _print_role_summary(summary: RoleSmokeSummary) -> None:
+    print("Role analysis completed")
+    print()
+    print("Posting-level role coverage:")
+    print(f"Postings considered: {summary.postings_considered}")
+    print(f"New analysis runs: {summary.new_analysis_runs}")
+    print(
+        "Existing analysis runs reused: "
+        f"{summary.existing_analysis_runs_reused}"
+    )
+    print(f"Evidence records created: {summary.evidence_created}")
+    print(f"Classified postings: {summary.classified_postings}")
+    print(f"Unknown postings: {summary.unknown_postings}")
+    print(f"Multi-label postings: {summary.multi_label_postings}")
+    print("Failed: 0")
+    coverage = (
+        100 * summary.classified_postings / summary.postings_considered
+        if summary.postings_considered
+        else 0.0
+    )
+    print(f"Coverage: {coverage:.1f}%")
+
+    print()
+    print("Top extracted roles (distinct postings):")
+    if summary.top_roles:
+        for item in summary.top_roles[:10]:
+            print(
+                f"- {item.code} ({item.name}): {item.postings} posting(s)"
+            )
+    else:
+        print("- none")
+
+    print()
+    print("Multi-label examples (max 10):")
+    if summary.multi_label_samples:
+        for sample in summary.multi_label_samples:
+            print(f"- Job: {sample.job_title}")
+            print(f"  Company: {sample.company_name or 'n/a'}")
+            print(f"  Roles: {', '.join(sample.role_codes)}")
+    else:
+        print("- none")
+
+    print()
+    print("Unknown examples (max 10):")
+    if summary.unknown_samples:
+        for sample in summary.unknown_samples:
+            print(f"- Job: {sample.job_title}")
+            print(f"  Company: {sample.company_name or 'n/a'}")
+    else:
+        print("- none")
+
+    print()
+    print("Evidence samples (max 10):")
+    if not summary.evidence_samples:
+        print("- none")
+        return
+    for sample in summary.evidence_samples:
+        print(f"- Role: {sample.role_code} ({sample.role_name})")
+        print(f"  Field: {sample.evidence_field}")
+        print(f"  Matched: {sample.matched_text}")
         print(f"  Job: {sample.job_title}")
         print(f"  Company: {sample.company_name or 'n/a'}")
         print(f"  Evidence: {sample.evidence_text}")

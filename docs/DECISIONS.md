@@ -528,7 +528,7 @@ Role persistence, input hashing, recomputation, and database migration require a
 
 ## ADR-013: Persist role classification as versioned derived intelligence
 
-**Status:** Accepted for the current uncommitted checkpoint.
+**Status:** Accepted and committed.
 
 This decision supersedes ADR-012 only where it postponed persistence; the committed pure classifier semantics remain unchanged. Role Classification V1 remains a pure classifier, while a separate service and repository persist its immutable result. Roles reuse the generic `analysis_runs` identity `(job_posting_id, analyzer_kind, taxonomy_version, extractor_version, input_hash)` with `analyzer_kind = roles`. The current single semantics version is stored honestly as both taxonomy and extractor version. A dedicated role hash contains only `title` and `description_text`; absent, empty, and whitespace-only descriptions share one canonical absence representation.
 
@@ -537,3 +537,21 @@ Schema v3 adds `roles` and `job_roles` without rebuilding or backfilling source,
 `roles.code` is stable language-neutral identity. The global reference keeps its first persisted display name, avoiding recomputation-order label changes. `job_roles.role_name` is the historical presentation snapshot and retrieval never substitutes the current global label. Evidence also stores field, matched text, evidence snippet, rule ID, and match kind; taxonomy regexes and aliases remain code-owned.
 
 The service accepts trusted current persisted `JobPosting` state. A stale supplied object can create a valid historical run for stale inputs, so automatic orchestration must reload current durable state first. Role persistence does not implement current/latest-run selection, role demand analytics, seniority, domain classification, salary, companies, or multilingual extraction.
+
+---
+
+## ADR-014: Manual role validation uses exact current-input runs
+
+Date: 2026-08-21
+
+Status: Accepted for the current uncommitted validation checkpoint.
+
+### Decision
+
+The manual `analyze-roles` CLI reads a bounded deterministic set of current durable `JobPosting` records and delegates every posting to `analyze_job_roles()`. Its statistics and samples use only the exact `analysis_run_id` returned or reused for the current role input hash and active version. It does not introduce a latest-by-time query or analyze `RawJob` observations.
+
+Unknown is a successful persisted run with zero role evidence. Role counts are distinct-posting counts; evidence, Unknown, and multi-label output is deterministic and bounded. Systemic extraction, repository, initialization, and schema errors abort with a non-zero exit. An existing database path is mandatory so a typo cannot silently create an empty analysis database.
+
+### Consequences
+
+The command is a one-shot development and validation workflow, not scheduling or production orchestration. Repeated unchanged runs are idempotent, while changed title, description, or analyzer version creates a historical run. Output remains posting-level and cannot claim complete cross-source canonical deduplication. No network, token, raw payload, or full description is part of this workflow.

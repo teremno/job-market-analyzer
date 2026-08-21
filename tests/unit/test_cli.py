@@ -151,6 +151,7 @@ def test_cli_help_lists_manual_collection_commands(
     assert "collect-remote-ok" in captured.out
     assert "collect-web3-career" in captured.out
     assert "analyze-skills" in captured.out
+    assert "analyze-roles" in captured.out
     assert captured.err == ""
 
 
@@ -336,6 +337,139 @@ def test_analyze_skills_replaces_unencodable_console_evidence(
     assert exit_code == 0
     assert "Skill analysis completed" in rendered
     assert "Evidence: Use Python? daily." in rendered
+
+
+def test_analyze_roles_requires_explicit_database_and_positive_limit(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    with pytest.raises(SystemExit) as missing_database:
+        cli.main(["analyze-roles"])
+    assert missing_database.value.code == 2
+    assert "--database" in capsys.readouterr().err
+
+    with pytest.raises(SystemExit) as invalid_limit:
+        cli.main(
+            ["analyze-roles", "--database", "jobs.sqlite3", "--limit", "0"]
+        )
+    assert invalid_limit.value.code == 2
+    assert "must be greater than zero" in capsys.readouterr().err
+
+
+def test_analyze_roles_rejects_missing_database_without_creating_it(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    database_path = tmp_path / "missing.sqlite3"
+
+    exit_code = cli.main(["analyze-roles", "--database", str(database_path)])
+
+    captured = capsys.readouterr()
+    assert exit_code == 1
+    assert captured.out == ""
+    assert "SQLite database file does not exist" in captured.err
+    assert database_path.exists() is False
+
+
+def test_analyze_roles_runs_once_reuses_and_prints_bounded_safe_summary(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    database_path = tmp_path / "jobs.sqlite3"
+    seed_skill_posting(
+        database_path,
+        "a",
+        title="Backend / Platform Engineer",
+        description="FULL_DESCRIPTION_MUST_NOT_BE_PRINTED",
+        tags=(),
+    )
+    seed_skill_posting(
+        database_path,
+        "b",
+        title="Software Engineer",
+        description=None,
+        tags=(),
+    )
+    connections = install_tracking_connection(monkeypatch)
+
+    first = cli.main(
+        ["analyze-roles", "--database", str(database_path), "--limit", "2"]
+    )
+    first_output = capsys.readouterr()
+    second = cli.main(
+        ["analyze-roles", "--database", str(database_path), "--limit", "2"]
+    )
+    second_output = capsys.readouterr()
+
+    assert first == second == 0
+    assert all(connection.closed for connection in connections)
+    assert "Role analysis completed" in first_output.out
+    assert "Postings considered: 2" in first_output.out
+    assert "New analysis runs: 2" in first_output.out
+    assert "Classified postings: 1" in first_output.out
+    assert "Unknown postings: 1" in first_output.out
+    assert "Multi-label postings: 1" in first_output.out
+    assert "Evidence records created: 2" in first_output.out
+    assert "Roles: backend, devops_platform" in first_output.out
+    assert "FULL_DESCRIPTION_MUST_NOT_BE_PRINTED" not in first_output.out
+    assert "RAW_PAYLOAD_SECRET" not in first_output.out
+    assert "New analysis runs: 0" in second_output.out
+    assert "Existing analysis runs reused: 2" in second_output.out
+    assert "Evidence records created: 0" in second_output.out
+    assert first_output.err == second_output.err == ""
+
+
+def test_analyze_roles_systemic_failure_is_nonzero_and_closes_database(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    database_path = tmp_path / "jobs.sqlite3"
+    with real_connect_database(database_path) as connection:
+        initialize_database(connection)
+    connections = install_tracking_connection(monkeypatch)
+
+    def fail_repository(*args: object, **kwargs: object) -> None:
+        raise RuntimeError("repository unavailable")
+
+    monkeypatch.setattr(
+        cli.SQLiteJobRepository,
+        "list_job_postings",
+        fail_repository,
+    )
+
+    exit_code = cli.main(["analyze-roles", "--database", str(database_path)])
+
+    captured = capsys.readouterr()
+    assert exit_code == 1
+    assert captured.out == ""
+    assert "Role analysis failed: RuntimeError: repository unavailable" in captured.err
+    assert connections[0].closed is True
+
+
+def test_analyze_roles_replaces_unencodable_console_evidence(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    database_path = tmp_path / "jobs.sqlite3"
+    seed_skill_posting(
+        database_path,
+        "unicode",
+        title="Security Engineer – Infrastructure 🚀",
+        description=None,
+        tags=(),
+    )
+    output_bytes = io.BytesIO()
+    output = io.TextIOWrapper(output_bytes, encoding="cp1251")
+    monkeypatch.setattr(sys, "stdout", output)
+
+    exit_code = cli.main(["analyze-roles", "--database", str(database_path)])
+    output.flush()
+    rendered = output_bytes.getvalue().decode("cp1251")
+
+    assert exit_code == 0
+    assert "Role analysis completed" in rendered
+    assert "Security Engineer – Infrastructure ?" in rendered
 
 
 def test_collect_remote_ok_requires_explicit_database_path(

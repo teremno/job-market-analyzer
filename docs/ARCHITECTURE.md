@@ -131,6 +131,8 @@ The pure classifier remains independent of persistence, source-specific logic, n
 
 The role service is a trusted internal boundary for a current persisted `JobPosting`, not `RawJob`. A stale in-memory posting can intentionally create a historical run for stale inputs, so future collection orchestration must reload through the durable current-posting reader before analysis. This persistence is recomputable input evidence, not final role-demand or market analytics. Later derived records may separately cover seniority, salary interpretation, remote geography, and AI-assisted work potential.
 
+The manual `analyze-roles` command reuses `JobPostingReader` and processes its deterministic bounded current-posting order. For each posting it calls `analyze_job_roles()` and computes the command summary only from the exact returned or reused `analysis_run_id`; it does not guess a current run from `created_at`. Unknown is counted from an exact run with zero retrieved evidence, top roles count distinct postings, and evidence, Unknown, and multi-label previews are capped at ten. Any extractor, schema, or repository error aborts the command with a non-zero exit. This is a one-shot local validation boundary with no collection, network access, scheduler, or generic latest-run query.
+
 Canonical analytics remove duplication only when multiple postings already share one `CanonicalJob`. Complete cross-source canonical linking is not implemented yet, so current data must not be described as fully deduplicated across sources.
 
 ## Engineering Principles
