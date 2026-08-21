@@ -26,7 +26,9 @@ Pure deterministic intelligence extraction
 ├─ SkillEvidence → versioned analysis_runs + job_skills
 └─ RoleEvidence → versioned analysis_runs + job_roles
 ↓
-Later canonical-job analytics
+Read-only posting-level analytics repository
+↓
+Later high-confidence canonical-job analytics
 
 ## Core Models
 
@@ -95,6 +97,32 @@ Replaceable skill and role intelligence is stored separately in:
 `SkillIntelligenceRepository` and `RoleIntelligenceRepository` are separate from `JobRepository`. Each repository atomically commits one analysis run, its reference rows, and its analyzer-specific evidence. Database constraints prevent skill evidence from attaching to role runs and role evidence from attaching to skill runs on both insert and reassignment. The five fields that define an analysis-run identity are immutable after insertion, preventing existing evidence from being reinterpreted under another analyzer or input identity. Derived rows may cascade when their `JobPosting` is deleted; source/domain rows never depend on derived intelligence.
 
 SQLite initialization reads `PRAGMA user_version` before application DDL. Versions newer than the supported schema fail without mutation. Committed v1 is structurally validated before the additive v2 skill migration; valid v2 is structurally validated before the additive v3 role migration. Unexpected partial intelligence objects are rejected, and current v3 must pass critical table, column, key, index, trigger, constraint, and foreign-key checks. Migration creates no role-analysis backfill.
+
+## Internal Analytics Boundary
+
+`AnalyticsRepository` is a separate read-only boundary for Dashboard v0; it does not
+extend or overload the write-oriented `JobRepository` or intelligence repositories.
+Its SQLite implementation uses bounded, parameterized aggregate/list queries and
+returns immutable DTOs rather than `sqlite3.Row`, connections, descriptions, or raw
+payloads. No additional service layer exists yet because the repository already owns
+the complete storage-independent query contract and there is no separate application
+policy to orchestrate.
+
+Dashboard v0 analytics count durable source postings by default. Field names say
+`posting_count`, and results do not claim complete cross-source deduplication. The
+posting list carries `canonical_job_id` for provenance/future grouping, but no fuzzy
+linking or misleading global unique-job total is introduced.
+
+Current intelligence is resolved by exact analyzer kind, active taxonomy/extractor
+version, and the current posting input hash. Historical runs are never selected by
+creation time. An exact run with no evidence is analyzed-zero (Unknown for roles),
+while no exact compatible run is not-analyzed. Role and skill aggregates count each
+posting once even when several evidence rows exist.
+
+The contract covers overview, deterministic paginated posting search, role detail,
+skill detail/co-occurrence, and source dataset summaries. Stable role/skill codes are
+filter identity; current English names are replaceable display labels. Details are in
+`docs/ANALYTICS_QUERY_CONTRACT.md`.
 
 ## Collectors
 

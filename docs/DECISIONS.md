@@ -544,7 +544,7 @@ The service accepts trusted current persisted `JobPosting` state. A stale suppli
 
 Date: 2026-08-21
 
-Status: Accepted for the current uncommitted validation checkpoint.
+Status: Accepted and committed.
 
 ### Decision
 
@@ -555,3 +555,41 @@ Unknown is a successful persisted run with zero role evidence. Role counts are d
 ### Consequences
 
 The command is a one-shot development and validation workflow, not scheduling or production orchestration. Repeated unchanged runs are idempotent, while changed title, description, or analyzer version creates a historical run. Output remains posting-level and cannot claim complete cross-source canonical deduplication. No network, token, raw payload, or full description is part of this workflow.
+
+---
+
+## ADR-015: Dashboard v0 analytics are read-only and posting-level
+
+Date: 2026-08-21
+
+Status: Accepted
+
+### Decision
+
+Add a separate `AnalyticsRepository` read boundary with immutable UI-independent
+DTOs and a direct SQLite implementation. Dashboard v0 queries count current durable
+`JobPosting` rows. They resolve current role and skill intelligence only by exact
+analyzer kind, active taxonomy/extractor version, and the current analyzer input hash;
+creation-time ordering is not current-state identity.
+
+An exact run with evidence is `analyzed_with_results`, an exact run without evidence
+is `analyzed_zero`, and absence of an exact run is `not_analyzed`. Aggregates count
+distinct postings. List/search inputs are bounded and parameterized, and list DTOs do
+not expose descriptions or raw source payloads.
+
+### Alternatives rejected
+
+- `MAX(created_at)` would silently select stale or incompatible history.
+- Adding analytics methods to `JobRepository` would mix write persistence and product
+  queries.
+- Materialized analytics tables, schema v4, FTS, ORM, and a generic query framework
+  are unnecessary at the measured local scale.
+- Default canonical counts would imply deduplication that current cross-source linking
+  cannot guarantee.
+
+### Consequences
+
+The first local API can map stable endpoints directly to the analytics contract.
+Codes remain language-neutral while English labels are replaceable presentation data.
+Salary, seniority, normalized geography, fuzzy linking, public HTTP, and frontend work
+remain separate future milestones.

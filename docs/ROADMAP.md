@@ -32,13 +32,14 @@ This roadmap is directional. It describes meaningful product milestones, not a r
 | Versioned role persistence / recomputation | ✅ | Committed schema v3, repository, exact identity, and analyzer-kind protections |
 | Manual persisted role validation | ✅ | One-shot CLI and two-pass disposable-copy validation are committed |
 | Multi-source expansion | ✅ | Six supported sources; 218 new live-validated postings across four credential-free feeds |
+| Dashboard v0 internal analytics/query layer | ✅ | Read-only exact-current overview, posting search, role/skill detail, and source summaries |
 
 ## Visual Direction
 
 ```mermaid
 flowchart LR
     P1["✅ Phase 1<br/>Data Foundation"] --> P2["✅ Phase 2<br/>Core Intelligence"]
-    P2 --> P3["⬜ Phase 3<br/>Market Analytics"]
+    P2 --> P3["🟡 Phase 3<br/>Posting Analytics"]
     P3 --> P4["⬜ Phase 4<br/>Personal Intelligence"]
     P3 --> P5["⬜ Phase 5<br/>Product API / Hosted Backend"]
     P5 --> P6["⬜ Phase 6<br/>Web Product"]
@@ -66,8 +67,8 @@ flowchart LR
 
 ### Current / next
 
-- 🟡 Build a minimal read-only analytics/query layer that can power the first local
-  personal dashboard without waiting for every future enrichment.
+- 🟡 Expose the internal analytics contract through the smallest local API
+  needed by Dashboard v0.
 
 ### Planned foundation work
 
@@ -97,8 +98,12 @@ flowchart LR
 
 ## Phase 3 — Market Analytics
 
-- ⬜ Demand by role and skill.
-- ⬜ Common skill and technology combinations.
+- ✅ Posting-level overview, deterministic vacancy list/search, role and skill detail,
+  skill co-occurrence, and source dataset summaries.
+- ✅ Exact-current analyzer resolution with historical-run exclusion and explicit
+  analyzed-zero/not-analyzed states.
+- ⬜ Canonical-deduplicated demand by role and skill after linking is trustworthy.
+- ⬜ Broader skill and technology combination analytics.
 - ⬜ Salary distributions with provenance-aware filtering.
 - ⬜ Geography, remote availability, and remote restrictions.
 - ⬜ Historical trends.
