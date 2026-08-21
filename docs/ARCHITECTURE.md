@@ -23,8 +23,8 @@ JobPosting
 CanonicalJob
 ↓
 Pure deterministic intelligence extraction
-↓
-Versioned analysis_runs + job_skills evidence
+├─ SkillEvidence → versioned analysis_runs + job_skills
+└─ RoleEvidence → pure result only; not persisted yet
 ↓
 Later canonical-job analytics
 
@@ -120,7 +120,9 @@ An `analysis_runs` row records analyzer kind, taxonomy version, extractor versio
 
 `analyze_job_skills()` remains a trusted internal service whose caller must supply current persisted state. The source-independent `JobPostingReader` contract and `SQLiteJobRepository.list_job_postings()` reconstruct bounded current `JobPosting` rows through persisted serialization and model validation before the manual one-shot service calls it. The manual CLI never analyzes `RawJob` directly and adds no scheduler or misleading latest-run API. Any future automatic collection-to-analysis orchestration must reuse this durable boundary rather than pass stale collector objects.
 
-Later derived records may also cover seniority, role classification, salary interpretation, remote geography, and AI-assisted work potential. These remain outside the current checkpoint.
+Role Classification V1 is a second pure intelligence boundary. It consumes only `title` and optional `description_text`, applies a versioned 19-role taxonomy, and returns immutable direct `RoleEvidence`. Title evidence has precedence; an explicit description role statement is consulted only when the title produces no role. Zero evidence represents Unknown, and directly supported compound titles may produce several roles. Role, seniority, and domain remain separate dimensions.
+
+The role classifier has no persistence, schema, repository, service, CLI, source-specific, network, AI, or `source_tags` dependency. Persisted role analysis, input hashing, and recomputation are deliberately postponed until the pure semantics have been reviewed. Later derived records may also cover seniority, salary interpretation, remote geography, and AI-assisted work potential.
 
 Canonical analytics remove duplication only when multiple postings already share one `CanonicalJob`. Complete cross-source canonical linking is not implemented yet, so current data must not be described as fully deduplicated across sources.
 

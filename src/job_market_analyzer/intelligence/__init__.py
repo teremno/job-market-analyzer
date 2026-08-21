@@ -13,6 +13,14 @@ from job_market_analyzer.intelligence.repository import (
     SkillAnalysisPersistResult,
     SkillIntelligenceRepository,
 )
+from job_market_analyzer.intelligence.roles import (
+    ROLE_CODES,
+    ROLE_TAXONOMY_VERSION,
+    RoleEvidence,
+    RoleEvidenceField,
+    RoleMatchKind,
+    extract_roles,
+)
 from job_market_analyzer.intelligence.skills import (
     SKILL_TAXONOMY,
     SKILL_TAXONOMY_VERSION,
@@ -27,6 +35,11 @@ __all__ = [
     "EvidenceField",
     "MatchKind",
     "MentionKind",
+    "ROLE_CODES",
+    "ROLE_TAXONOMY_VERSION",
+    "RoleEvidence",
+    "RoleEvidenceField",
+    "RoleMatchKind",
     "SkillAlias",
     "SKILL_ANALYZER_KIND",
     "SkillAnalysisKey",
@@ -36,4 +49,5 @@ __all__ = [
     "SkillIntelligenceRepository",
     "calculate_skill_input_hash",
     "extract_skills",
+    "extract_roles",
 ]

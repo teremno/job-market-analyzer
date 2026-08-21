@@ -505,3 +505,23 @@ Broad `Blockchain`, `Web3`, and `Bitcoin` terms are deliberately not added in th
 The same unchanged posting input can have coexisting v1 and v2 `analysis_runs`. Repeating v2 reuses its run and evidence. Local posting-level coverage changed from 15% to 16% for Remote OK and from 62% to 67% for Web3.career; this is validation evidence, not complete market analytics or proof that v2 is universally better.
 
 The two local databases were collected before normalized `source_tags` existed and migrated with empty tag tuples, so this validation cannot measure real source-tag recognition. The Remote OK sample also contains non-vacancy, placeholder, non-English, and apparently mismatched/boilerplate descriptions. Those data-quality limitations must remain visible in reporting rather than be hidden with source-specific extractor rules.
+
+---
+
+## ADR-012: Role Classification V1 is title-first and non-persistent
+
+Date: 2026-08-21
+
+Status: Accepted
+
+### Decision
+
+Role Classification V1 is a pure deterministic classifier with 19 stable role codes and immutable direct evidence. It evaluates title patterns first. Description fallback is allowed only when the title yields zero roles and only for an explicit role statement or header. Direct compound titles may emit several roles; otherwise no parent, sibling, seniority, or domain role is inferred. Zero evidence is the explicit Unknown result, not a synthetic taxonomy member.
+
+Role, seniority, and domain remain independent analysis dimensions. Source tags are not an input to this role version. The implementation has no persistence, schema, service, CLI, source-specific, network, or AI dependency.
+
+### Consequences
+
+The same title and description always produce the same ordered evidence. Conservative rules accept lower coverage rather than fabricate a role from generic engineering, domain, or incidental description language. The English-oriented taxonomy and local 200-posting validation are bounded evidence, not complete market analytics.
+
+Role persistence, input hashing, recomputation, and database migration require a later explicit decision after this pure contract is reviewed. Any future persisted semantics change must use a new version.
