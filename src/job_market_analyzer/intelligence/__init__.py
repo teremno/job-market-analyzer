@@ -1,6 +1,9 @@
 """Pure deterministic intelligence contracts and extractors."""
 
-from job_market_analyzer.intelligence.hashing import calculate_skill_input_hash
+from job_market_analyzer.intelligence.hashing import (
+    calculate_role_input_hash,
+    calculate_skill_input_hash,
+)
 from job_market_analyzer.intelligence.models import (
     EvidenceField,
     MatchKind,
@@ -8,7 +11,11 @@ from job_market_analyzer.intelligence.models import (
     SkillEvidence,
 )
 from job_market_analyzer.intelligence.repository import (
+    ROLE_ANALYZER_KIND,
     SKILL_ANALYZER_KIND,
+    RoleAnalysisKey,
+    RoleAnalysisPersistResult,
+    RoleIntelligenceRepository,
     SkillAnalysisKey,
     SkillAnalysisPersistResult,
     SkillIntelligenceRepository,
@@ -36,10 +43,14 @@ __all__ = [
     "MatchKind",
     "MentionKind",
     "ROLE_CODES",
+    "ROLE_ANALYZER_KIND",
     "ROLE_TAXONOMY_VERSION",
+    "RoleAnalysisKey",
+    "RoleAnalysisPersistResult",
     "RoleEvidence",
     "RoleEvidenceField",
     "RoleMatchKind",
+    "RoleIntelligenceRepository",
     "SkillAlias",
     "SKILL_ANALYZER_KIND",
     "SkillAnalysisKey",
@@ -48,6 +59,7 @@ __all__ = [
     "SkillEvidence",
     "SkillIntelligenceRepository",
     "calculate_skill_input_hash",
+    "calculate_role_input_hash",
     "extract_skills",
     "extract_roles",
 ]

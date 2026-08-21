@@ -525,3 +525,15 @@ Role, seniority, and domain remain independent analysis dimensions. Source tags 
 The same title and description always produce the same ordered evidence. Conservative rules accept lower coverage rather than fabricate a role from generic engineering, domain, or incidental description language. The English-oriented taxonomy and local 200-posting validation are bounded evidence, not complete market analytics.
 
 Role persistence, input hashing, recomputation, and database migration require a later explicit decision after this pure contract is reviewed. Any future persisted semantics change must use a new version.
+
+## ADR-013: Persist role classification as versioned derived intelligence
+
+**Status:** Accepted for the current uncommitted checkpoint.
+
+This decision supersedes ADR-012 only where it postponed persistence; the committed pure classifier semantics remain unchanged. Role Classification V1 remains a pure classifier, while a separate service and repository persist its immutable result. Roles reuse the generic `analysis_runs` identity `(job_posting_id, analyzer_kind, taxonomy_version, extractor_version, input_hash)` with `analyzer_kind = roles`. The current single semantics version is stored honestly as both taxonomy and extractor version. A dedicated role hash contains only `title` and `description_text`; absent, empty, and whitespace-only descriptions share one canonical absence representation.
+
+Schema v3 adds `roles` and `job_roles` without rebuilding or backfilling source, skill, or existing analysis data. Unknown is a successful `analysis_runs` row with zero evidence rows. Role and skill evidence remain in separate tables, with database triggers enforcing their analyzer kind on insert and evidence reassignment. The five analysis-run identity fields are immutable after insertion, so existing evidence cannot be silently reinterpreted by changing its posting, analyzer kind, version, or input hash. The SQLite repository uses `BEGIN IMMEDIATE`, parameterized writes, the generic run uniqueness constraint as the concurrency source of truth, and one atomic transaction for the run, role references, and evidence.
+
+`roles.code` is stable language-neutral identity. The global reference keeps its first persisted display name, avoiding recomputation-order label changes. `job_roles.role_name` is the historical presentation snapshot and retrieval never substitutes the current global label. Evidence also stores field, matched text, evidence snippet, rule ID, and match kind; taxonomy regexes and aliases remain code-owned.
+
+The service accepts trusted current persisted `JobPosting` state. A stale supplied object can create a valid historical run for stale inputs, so automatic orchestration must reload current durable state first. Role persistence does not implement current/latest-run selection, role demand analytics, seniority, domain classification, salary, companies, or multilingual extraction.

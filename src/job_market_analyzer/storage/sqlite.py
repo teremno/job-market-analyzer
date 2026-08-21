@@ -11,8 +11,29 @@ from job_market_analyzer.storage.serialization import (
 DatabasePath = str | Path
 SOURCE_TAGS_SCHEMA_VERSION = 1
 SKILL_INTELLIGENCE_SCHEMA_VERSION = 2
-CURRENT_SCHEMA_VERSION = SKILL_INTELLIGENCE_SCHEMA_VERSION
-_INTELLIGENCE_TABLES = frozenset({"analysis_runs", "job_skills", "skills"})
+ROLE_INTELLIGENCE_SCHEMA_VERSION = 3
+CURRENT_SCHEMA_VERSION = ROLE_INTELLIGENCE_SCHEMA_VERSION
+_SKILL_INTELLIGENCE_OBJECTS = frozenset(
+    {
+        "analysis_runs",
+        "idx_analysis_runs_posting_kind_created",
+        "idx_job_skills_skill_run",
+        "job_skills",
+        "skills",
+    }
+)
+_ROLE_INTELLIGENCE_OBJECTS = frozenset(
+    {
+        "idx_job_roles_role_run",
+        "job_roles",
+        "roles",
+        "trg_analysis_runs_identity_immutable",
+        "trg_job_roles_roles_kind",
+        "trg_job_roles_roles_kind_update",
+        "trg_job_skills_skills_kind",
+        "trg_job_skills_skills_kind_update",
+    }
+)
 
 
 class DatabaseSchemaError(RuntimeError):
@@ -44,6 +65,15 @@ def load_intelligence_schema() -> str:
         "intelligence_schema.sql"
     )
 
+    return schema_file.read_text(encoding="utf-8")
+
+
+def load_role_intelligence_schema() -> str:
+    """Load the additive SQLite schema for role intelligence."""
+
+    schema_file = resources.files("job_market_analyzer.storage").joinpath(
+        "role_intelligence_schema.sql"
+    )
     return schema_file.read_text(encoding="utf-8")
 
 
@@ -90,26 +120,34 @@ def initialize_database(
         )
 
     if initial_version == CURRENT_SCHEMA_VERSION:
-        _validate_v2_schema(connection)
+        _validate_v3_schema(connection)
         return
 
-    _validate_no_partial_intelligence_schema(connection, initial_version)
-
-    if initial_version == SOURCE_TAGS_SCHEMA_VERSION:
-        _validate_source_schema(connection, version=initial_version)
+    if initial_version == SKILL_INTELLIGENCE_SCHEMA_VERSION:
+        _validate_v2_schema(connection)
+        _validate_no_partial_role_schema(connection, initial_version)
     else:
-        _create_source_schema(connection)
+        _validate_no_partial_intelligence_schema(connection, initial_version)
 
-    if _requires_nullable_source_url_migration(connection):
-        _migrate_nullable_source_urls(connection)
-    if _requires_source_tags_migration(connection):
-        _migrate_source_tags(connection)
+        if initial_version == SOURCE_TAGS_SCHEMA_VERSION:
+            _validate_source_schema(connection, version=initial_version)
+        else:
+            _create_source_schema(connection)
 
-    _validate_source_schema(connection, version=SOURCE_TAGS_SCHEMA_VERSION)
-    if _requires_skill_intelligence_migration(connection):
-        _migrate_skill_intelligence(connection)
+        if _requires_nullable_source_url_migration(connection):
+            _migrate_nullable_source_urls(connection)
+        if _requires_source_tags_migration(connection):
+            _migrate_source_tags(connection)
 
-    _validate_v2_schema(connection)
+        _validate_source_schema(connection, version=SOURCE_TAGS_SCHEMA_VERSION)
+        if _requires_skill_intelligence_migration(connection):
+            _migrate_skill_intelligence(connection)
+        _validate_v2_schema(connection)
+
+    if _requires_role_intelligence_migration(connection):
+        _migrate_role_intelligence(connection)
+
+    _validate_v3_schema(connection)
 
 
 def _create_source_schema(connection: sqlite3.Connection) -> None:
@@ -129,12 +167,27 @@ def _validate_no_partial_intelligence_schema(
     connection: sqlite3.Connection,
     version: int,
 ) -> None:
-    unexpected = _table_names(connection) & _INTELLIGENCE_TABLES
+    unexpected = _schema_object_names(connection) & (
+        _SKILL_INTELLIGENCE_OBJECTS | _ROLE_INTELLIGENCE_OBJECTS
+    )
     if unexpected:
         names = ", ".join(sorted(unexpected))
         raise InconsistentDatabaseSchemaError(
             f"Database schema version {version} contains unexpected partial "
             f"intelligence tables: {names}"
+        )
+
+
+def _validate_no_partial_role_schema(
+    connection: sqlite3.Connection,
+    version: int,
+) -> None:
+    unexpected = _schema_object_names(connection) & _ROLE_INTELLIGENCE_OBJECTS
+    if unexpected:
+        names = ", ".join(sorted(unexpected))
+        raise InconsistentDatabaseSchemaError(
+            f"Database schema version {version} contains unexpected partial "
+            f"role-intelligence objects: {names}"
         )
 
 
@@ -234,13 +287,27 @@ def _validate_source_schema(
 
 def _validate_v2_schema(connection: sqlite3.Connection) -> None:
     version = _get_schema_version(connection)
-    if version != CURRENT_SCHEMA_VERSION:
+    if version != SKILL_INTELLIGENCE_SCHEMA_VERSION:
         raise InconsistentDatabaseSchemaError(
-            f"Expected database schema version {CURRENT_SCHEMA_VERSION}, got {version}"
+            "Expected database schema version "
+            f"{SKILL_INTELLIGENCE_SCHEMA_VERSION}, got {version}"
         )
 
     _validate_source_schema(connection, version=version)
     _validate_intelligence_schema(connection, version=version)
+
+
+def _validate_v3_schema(connection: sqlite3.Connection) -> None:
+    version = _get_schema_version(connection)
+    if version != ROLE_INTELLIGENCE_SCHEMA_VERSION:
+        raise InconsistentDatabaseSchemaError(
+            "Expected database schema version "
+            f"{ROLE_INTELLIGENCE_SCHEMA_VERSION}, got {version}"
+        )
+
+    _validate_source_schema(connection, version=version)
+    _validate_intelligence_schema(connection, version=version)
+    _validate_role_intelligence_schema(connection, version=version)
 
 
 def _validate_intelligence_schema(
@@ -363,11 +430,171 @@ def _validate_intelligence_schema(
     _require_no_foreign_key_violations(connection, version=version)
 
 
+def _validate_role_intelligence_schema(
+    connection: sqlite3.Connection,
+    *,
+    version: int,
+) -> None:
+    expected_columns = {
+        "roles": {"code", "display_name"},
+        "job_roles": {
+            "analysis_run_id",
+            "role_code",
+            "role_name",
+            "evidence_field",
+            "matched_text",
+            "evidence_text",
+            "rule_id",
+            "match_kind",
+        },
+    }
+    _require_tables(connection, set(expected_columns), version=version)
+    for table_name, columns in expected_columns.items():
+        _require_columns(
+            connection,
+            table_name,
+            columns,
+            version=version,
+            require_not_null=True,
+        )
+
+    _require_primary_key(connection, "roles", ("code",), version=version)
+    _require_table_sql_fragments(
+        connection,
+        "roles",
+        (
+            "length(trim(code)) > 0",
+            "length(trim(display_name)) > 0",
+        ),
+        version=version,
+    )
+    _require_primary_key(
+        connection,
+        "job_roles",
+        ("analysis_run_id", "role_code"),
+        version=version,
+    )
+    _require_foreign_key(
+        connection,
+        "job_roles",
+        from_column="analysis_run_id",
+        target_table="analysis_runs",
+        target_column="id",
+        on_delete="CASCADE",
+        version=version,
+    )
+    _require_foreign_key(
+        connection,
+        "job_roles",
+        from_column="role_code",
+        target_table="roles",
+        target_column="code",
+        on_delete="RESTRICT",
+        version=version,
+    )
+    _require_index_columns(
+        connection,
+        "idx_job_roles_role_run",
+        ("role_code", "analysis_run_id"),
+        version=version,
+    )
+    _require_table_sql_fragments(
+        connection,
+        "job_roles",
+        (
+            "evidence_field in ('title', 'description')",
+            "length(trim(role_name)) > 0",
+            "length(trim(matched_text)) > 0",
+            "length(trim(evidence_text)) > 0",
+            "length(trim(rule_id)) > 0",
+            "match_kind in ('title_pattern', 'description_statement')",
+        ),
+        version=version,
+    )
+    _require_trigger_sql_fragment(
+        connection,
+        "trg_analysis_runs_identity_immutable",
+        (
+            "before update of job_posting_id, analyzer_kind, taxonomy_version, "
+            "extractor_version, input_hash on analysis_runs",
+            "analysis run identity is immutable",
+        ),
+        version=version,
+    )
+    _require_trigger_sql_fragment(
+        connection,
+        "trg_job_roles_roles_kind",
+        (
+            "before insert on job_roles",
+            "where id = new.analysis_run_id",
+            "!= 'roles'",
+            "job_roles requires a roles analysis run",
+        ),
+        version=version,
+    )
+    _require_trigger_sql_fragment(
+        connection,
+        "trg_job_skills_skills_kind",
+        (
+            "before insert on job_skills",
+            "where id = new.analysis_run_id",
+            "!= 'skills'",
+            "job_skills requires a skills analysis run",
+        ),
+        version=version,
+    )
+    _require_trigger_sql_fragment(
+        connection,
+        "trg_job_roles_roles_kind_update",
+        (
+            "before update of analysis_run_id on job_roles",
+            "where id = new.analysis_run_id",
+            "!= 'roles'",
+            "job_roles requires a roles analysis run",
+        ),
+        version=version,
+    )
+    _require_trigger_sql_fragment(
+        connection,
+        "trg_job_skills_skills_kind_update",
+        (
+            "before update of analysis_run_id on job_skills",
+            "where id = new.analysis_run_id",
+            "!= 'skills'",
+            "job_skills requires a skills analysis run",
+        ),
+        version=version,
+    )
+    _require_evidence_analyzer_kind(
+        connection,
+        evidence_table="job_roles",
+        expected_kind="roles",
+        version=version,
+    )
+    _require_evidence_analyzer_kind(
+        connection,
+        evidence_table="job_skills",
+        expected_kind="skills",
+        version=version,
+    )
+    _require_no_foreign_key_violations(connection, version=version)
+
+
 def _table_names(connection: sqlite3.Connection) -> set[str]:
     return {
         row[0]
         for row in connection.execute(
             "SELECT name FROM sqlite_master WHERE type = 'table'"
+        )
+    }
+
+
+def _schema_object_names(connection: sqlite3.Connection) -> set[str]:
+    return {
+        row[0]
+        for row in connection.execute(
+            "SELECT name FROM sqlite_master "
+            "WHERE type IN ('table', 'index', 'trigger')"
         )
     }
 
@@ -534,6 +761,56 @@ def _require_table_sql_fragments(
         )
 
 
+def _require_trigger_sql_fragment(
+    connection: sqlite3.Connection,
+    trigger_name: str,
+    expected: str | tuple[str, ...],
+    *,
+    version: int,
+) -> None:
+    row = connection.execute(
+        "SELECT sql FROM sqlite_master WHERE type = 'trigger' AND name = ?",
+        (trigger_name,),
+    ).fetchone()
+    normalized_sql = " ".join(row["sql"].lower().split()) if row else ""
+    expected_fragments = (expected,) if isinstance(expected, str) else expected
+    missing = [
+        fragment for fragment in expected_fragments if fragment not in normalized_sql
+    ]
+    if missing:
+        raise InconsistentDatabaseSchemaError(
+            f"Database schema version {version} is missing trigger "
+            f"{trigger_name!r} with required semantics: {', '.join(missing)}"
+        )
+
+
+def _require_evidence_analyzer_kind(
+    connection: sqlite3.Connection,
+    *,
+    evidence_table: str,
+    expected_kind: str,
+    version: int,
+) -> None:
+    if evidence_table not in {"job_roles", "job_skills"}:
+        raise ValueError(f"Unsupported evidence table: {evidence_table!r}")
+    invalid = connection.execute(
+        f"""
+        SELECT 1
+        FROM {evidence_table}
+        JOIN analysis_runs
+          ON analysis_runs.id = {evidence_table}.analysis_run_id
+        WHERE analysis_runs.analyzer_kind != ?
+        LIMIT 1
+        """,
+        (expected_kind,),
+    ).fetchone()
+    if invalid is not None:
+        raise InconsistentDatabaseSchemaError(
+            f"Database schema version {version} table {evidence_table!r} "
+            f"contains evidence for a non-{expected_kind} analysis run"
+        )
+
+
 def _require_foreign_keys_enabled(
     connection: sqlite3.Connection,
     *,
@@ -550,7 +827,14 @@ def _require_no_foreign_key_violations(
     *,
     version: int,
 ) -> None:
-    if connection.execute("PRAGMA foreign_key_check").fetchone() is not None:
+    try:
+        violation = connection.execute("PRAGMA foreign_key_check").fetchone()
+    except sqlite3.DatabaseError as error:
+        raise InconsistentDatabaseSchemaError(
+            f"Database schema version {version} contains invalid foreign key "
+            f"structure: {error}"
+        ) from error
+    if violation is not None:
         raise InconsistentDatabaseSchemaError(
             f"Database schema version {version} contains foreign key violations"
         )
@@ -788,6 +1072,36 @@ def _migrate_skill_intelligence(connection: sqlite3.Connection) -> None:
         )
         connection.execute(
             f"PRAGMA user_version = {SKILL_INTELLIGENCE_SCHEMA_VERSION}"
+        )
+        connection.commit()
+    except Exception:
+        if connection.in_transaction:
+            connection.rollback()
+        raise
+
+
+def _requires_role_intelligence_migration(
+    connection: sqlite3.Connection,
+) -> bool:
+    return _get_schema_version(connection) < ROLE_INTELLIGENCE_SCHEMA_VERSION
+
+
+def _migrate_role_intelligence(connection: sqlite3.Connection) -> None:
+    """Create role-intelligence tables without backfilling existing postings."""
+
+    try:
+        connection.executescript(
+            f"""
+            BEGIN IMMEDIATE;
+            {load_role_intelligence_schema()}
+            """
+        )
+        _validate_role_intelligence_schema(
+            connection,
+            version=ROLE_INTELLIGENCE_SCHEMA_VERSION,
+        )
+        connection.execute(
+            f"PRAGMA user_version = {ROLE_INTELLIGENCE_SCHEMA_VERSION}"
         )
         connection.commit()
     except Exception:

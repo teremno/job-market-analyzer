@@ -1,4 +1,4 @@
-"""SQLite persistence for versioned, replaceable skill intelligence."""
+"""SQLite persistence for versioned, replaceable derived intelligence."""
 
 import sqlite3
 from datetime import datetime
@@ -11,40 +11,111 @@ from job_market_analyzer.intelligence.models import (
     SkillEvidence,
 )
 from job_market_analyzer.intelligence.repository import (
+    RoleAnalysisKey,
+    RoleAnalysisPersistResult,
     SkillAnalysisKey,
     SkillAnalysisPersistResult,
 )
+from job_market_analyzer.intelligence.roles import (
+    RoleEvidence,
+    RoleEvidenceField,
+    RoleMatchKind,
+)
 from job_market_analyzer.storage.serialization import serialize_utc_datetime
+
+AnalysisKey = SkillAnalysisKey | RoleAnalysisKey
+
+
+def _validate_connection(connection: sqlite3.Connection, repository_name: str) -> None:
+    if connection.row_factory is not sqlite3.Row:
+        raise ValueError(
+            f"{repository_name} requires connection.row_factory to be sqlite3.Row; "
+            "create the connection with connect_database()"
+        )
+
+
+def _key_values(key: AnalysisKey) -> tuple[str, str, str, str, str]:
+    return (
+        str(key.job_posting_id),
+        key.analyzer_kind,
+        key.taxonomy_version,
+        key.extractor_version,
+        key.input_hash,
+    )
+
+
+def _find_analysis_run_id(
+    connection: sqlite3.Connection,
+    key: AnalysisKey,
+) -> UUID | None:
+    row = connection.execute(
+        """
+        SELECT id
+        FROM analysis_runs
+        WHERE job_posting_id = ?
+          AND analyzer_kind = ?
+          AND taxonomy_version = ?
+          AND extractor_version = ?
+          AND input_hash = ?
+        """,
+        _key_values(key),
+    ).fetchone()
+    return None if row is None else UUID(row["id"])
+
+
+def _insert_analysis_run(
+    connection: sqlite3.Connection,
+    key: AnalysisKey,
+    *,
+    created_at: datetime,
+) -> tuple[UUID, bool]:
+    candidate_run_id = uuid4()
+    cursor = connection.execute(
+        """
+        INSERT INTO analysis_runs (
+            id,
+            job_posting_id,
+            analyzer_kind,
+            taxonomy_version,
+            extractor_version,
+            input_hash,
+            created_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT (
+            job_posting_id,
+            analyzer_kind,
+            taxonomy_version,
+            extractor_version,
+            input_hash
+        ) DO NOTHING
+        """,
+        (
+            str(candidate_run_id),
+            *_key_values(key),
+            serialize_utc_datetime(created_at),
+        ),
+    )
+    if cursor.rowcount != 0:
+        return candidate_run_id, True
+
+    existing_run_id = _find_analysis_run_id(connection, key)
+    if existing_run_id is None:
+        raise RuntimeError("analysis run conflict did not resolve to a row")
+    return existing_run_id, False
 
 
 class SQLiteSkillIntelligenceRepository:
     """Persist skill-analysis runs using one caller-owned SQLite connection."""
 
     def __init__(self, connection: sqlite3.Connection) -> None:
-        if connection.row_factory is not sqlite3.Row:
-            raise ValueError(
-                "SQLiteSkillIntelligenceRepository requires connection.row_factory "
-                "to be sqlite3.Row; create the connection with connect_database()"
-            )
-
+        _validate_connection(connection, type(self).__name__)
         self._connection = connection
 
     def find_analysis_run_id(self, key: SkillAnalysisKey) -> UUID | None:
         """Return an identical run ID without changing database state."""
 
-        row = self._connection.execute(
-            """
-            SELECT id
-            FROM analysis_runs
-            WHERE job_posting_id = ?
-              AND analyzer_kind = ?
-              AND taxonomy_version = ?
-              AND extractor_version = ?
-              AND input_hash = ?
-            """,
-            self._key_values(key),
-        ).fetchone()
-        return None if row is None else UUID(row["id"])
+        return _find_analysis_run_id(self._connection, key)
 
     def persist_skill_analysis(
         self,
@@ -60,47 +131,24 @@ class SQLiteSkillIntelligenceRepository:
                 "persist_skill_analysis requires a connection without an active transaction"
             )
 
-        created_at_value = serialize_utc_datetime(created_at)
-        candidate_run_id = uuid4()
         self._connection.execute("BEGIN IMMEDIATE")
 
         try:
-            cursor = self._connection.execute(
-                """
-                INSERT INTO analysis_runs (
-                    id,
-                    job_posting_id,
-                    analyzer_kind,
-                    taxonomy_version,
-                    extractor_version,
-                    input_hash,
-                    created_at
-                )
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT (
-                    job_posting_id,
-                    analyzer_kind,
-                    taxonomy_version,
-                    extractor_version,
-                    input_hash
-                ) DO NOTHING
-                """,
-                (str(candidate_run_id), *self._key_values(key), created_at_value),
+            analysis_run_id, analysis_created = _insert_analysis_run(
+                self._connection,
+                key,
+                created_at=created_at,
             )
-
-            if cursor.rowcount == 0:
-                existing_run_id = self.find_analysis_run_id(key)
-                if existing_run_id is None:
-                    raise RuntimeError("analysis run conflict did not resolve to a row")
+            if not analysis_created:
                 result = SkillAnalysisPersistResult(
-                    analysis_run_id=existing_run_id,
+                    analysis_run_id=analysis_run_id,
                     analysis_created=False,
                     evidence_created=0,
                 )
             else:
-                self._persist_evidence(candidate_run_id, evidence)
+                self._persist_evidence(analysis_run_id, evidence)
                 result = SkillAnalysisPersistResult(
-                    analysis_run_id=candidate_run_id,
+                    analysis_run_id=analysis_run_id,
                     analysis_created=True,
                     evidence_created=len(evidence),
                 )
@@ -209,12 +257,141 @@ class SQLiteSkillIntelligenceRepository:
             ),
         )
 
-    @staticmethod
-    def _key_values(key: SkillAnalysisKey) -> tuple[str, str, str, str, str]:
-        return (
-            str(key.job_posting_id),
-            key.analyzer_kind,
-            key.taxonomy_version,
-            key.extractor_version,
-            key.input_hash,
+
+class SQLiteRoleIntelligenceRepository:
+    """Persist role-analysis runs using one caller-owned SQLite connection."""
+
+    def __init__(self, connection: sqlite3.Connection) -> None:
+        _validate_connection(connection, type(self).__name__)
+        self._connection = connection
+
+    def find_analysis_run_id(self, key: RoleAnalysisKey) -> UUID | None:
+        """Return an identical run ID without changing database state."""
+
+        return _find_analysis_run_id(self._connection, key)
+
+    def persist_role_analysis(
+        self,
+        key: RoleAnalysisKey,
+        evidence: tuple[RoleEvidence, ...],
+        *,
+        created_at: datetime,
+    ) -> RoleAnalysisPersistResult:
+        """Persist a role run and its evidence in one transaction."""
+
+        if self._connection.in_transaction:
+            raise RuntimeError(
+                "persist_role_analysis requires a connection without an active transaction"
+            )
+
+        self._connection.execute("BEGIN IMMEDIATE")
+        try:
+            analysis_run_id, analysis_created = _insert_analysis_run(
+                self._connection,
+                key,
+                created_at=created_at,
+            )
+            if not analysis_created:
+                result = RoleAnalysisPersistResult(
+                    analysis_run_id=analysis_run_id,
+                    analysis_created=False,
+                    evidence_created=0,
+                )
+            else:
+                self._persist_evidence(analysis_run_id, evidence)
+                result = RoleAnalysisPersistResult(
+                    analysis_run_id=analysis_run_id,
+                    analysis_created=True,
+                    evidence_created=len(evidence),
+                )
+            self._connection.commit()
+        except BaseException:
+            if self._connection.in_transaction:
+                self._connection.rollback()
+            raise
+        return result
+
+    def get_role_evidence(
+        self,
+        analysis_run_id: UUID,
+    ) -> tuple[RoleEvidence, ...]:
+        """Reconstruct stored role evidence using historical label snapshots."""
+
+        rows = self._connection.execute(
+            """
+            SELECT
+                role_code,
+                role_name,
+                evidence_field,
+                matched_text,
+                evidence_text,
+                rule_id,
+                match_kind
+            FROM job_roles
+            WHERE analysis_run_id = ?
+            ORDER BY role_code, rule_id
+            """,
+            (str(analysis_run_id),),
+        ).fetchall()
+        return tuple(
+            RoleEvidence(
+                role_code=row["role_code"],
+                role_name=row["role_name"],
+                evidence_field=RoleEvidenceField(row["evidence_field"]),
+                matched_text=row["matched_text"],
+                evidence_text=row["evidence_text"],
+                rule_id=row["rule_id"],
+                match_kind=RoleMatchKind(row["match_kind"]),
+            )
+            for row in rows
+        )
+
+    def _persist_evidence(
+        self,
+        analysis_run_id: UUID,
+        evidence: tuple[RoleEvidence, ...],
+    ) -> None:
+        role_names: dict[str, str] = {}
+        for item in evidence:
+            previous_name = role_names.setdefault(item.role_code, item.role_name)
+            if previous_name != item.role_name:
+                raise ValueError(
+                    f"conflicting display names for role code {item.role_code!r}"
+                )
+
+        self._connection.executemany(
+            """
+            INSERT INTO roles (code, display_name)
+            VALUES (?, ?)
+            ON CONFLICT (code) DO NOTHING
+            """,
+            role_names.items(),
+        )
+        self._connection.executemany(
+            """
+            INSERT INTO job_roles (
+                analysis_run_id,
+                role_code,
+                role_name,
+                evidence_field,
+                matched_text,
+                evidence_text,
+                rule_id,
+                match_kind
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                (
+                    str(analysis_run_id),
+                    item.role_code,
+                    item.role_name,
+                    item.evidence_field.value,
+                    item.matched_text,
+                    item.evidence_text,
+                    item.rule_id,
+                    item.match_kind.value,
+                )
+                for item in evidence
+            ),
         )

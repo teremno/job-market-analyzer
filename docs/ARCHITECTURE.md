@@ -24,7 +24,7 @@ CanonicalJob
 ↓
 Pure deterministic intelligence extraction
 ├─ SkillEvidence → versioned analysis_runs + job_skills
-└─ RoleEvidence → pure result only; not persisted yet
+└─ RoleEvidence → versioned analysis_runs + job_roles
 ↓
 Later canonical-job analytics
 
@@ -82,16 +82,19 @@ The SQLite schema stores three authoritative source/domain tables:
 - `job_postings`;
 - `raw_jobs`.
 
-Replaceable skill intelligence is stored separately in:
+Replaceable skill and role intelligence is stored separately in:
 
 - `skills`, a small stable-code reference table;
 - `analysis_runs`, one row per posting, analyzer/version, and dedicated input hash;
 - `job_skills`, direct mention evidence owned by one analysis run, including the
   evidence-time skill display-name snapshot.
+- `roles`, a stable language-neutral role-code reference table;
+- `job_roles`, deterministic role evidence with an evidence-time role-name
+  snapshot.
 
-`SkillIntelligenceRepository` is separate from `JobRepository`. One analysis run, any required skill reference rows, and all `job_skills` evidence are committed atomically. Derived rows may cascade when their `JobPosting` is deleted; source/domain rows never depend on derived intelligence.
+`SkillIntelligenceRepository` and `RoleIntelligenceRepository` are separate from `JobRepository`. Each repository atomically commits one analysis run, its reference rows, and its analyzer-specific evidence. Database constraints prevent skill evidence from attaching to role runs and role evidence from attaching to skill runs on both insert and reassignment. The five fields that define an analysis-run identity are immutable after insertion, preventing existing evidence from being reinterpreted under another analyzer or input identity. Derived rows may cascade when their `JobPosting` is deleted; source/domain rows never depend on derived intelligence.
 
-SQLite initialization reads `PRAGMA user_version` before application DDL. Versions newer than the supported schema fail without mutation. Committed v1 is structurally validated before the additive v2 migration, unexpected partial intelligence tables are rejected, and an existing v2 database must pass critical table, column, key, index, constraint, and foreign-key checks instead of being silently repaired.
+SQLite initialization reads `PRAGMA user_version` before application DDL. Versions newer than the supported schema fail without mutation. Committed v1 is structurally validated before the additive v2 skill migration; valid v2 is structurally validated before the additive v3 role migration. Unexpected partial intelligence objects are rejected, and current v3 must pass critical table, column, key, index, trigger, constraint, and foreign-key checks. Migration creates no role-analysis backfill.
 
 ## Collectors
 
@@ -122,7 +125,11 @@ An `analysis_runs` row records analyzer kind, taxonomy version, extractor versio
 
 Role Classification V1 is a second pure intelligence boundary. It consumes only `title` and optional `description_text`, applies a versioned 19-role taxonomy, and returns immutable direct `RoleEvidence`. Title evidence has precedence; an explicit description role statement is consulted only when the title produces no role. Zero evidence represents Unknown, and directly supported compound titles may produce several roles. Role, seniority, and domain remain separate dimensions.
 
-The role classifier has no persistence, schema, repository, service, CLI, source-specific, network, AI, or `source_tags` dependency. Persisted role analysis, input hashing, and recomputation are deliberately postponed until the pure semantics have been reviewed. Later derived records may also cover seniority, salary interpretation, remote geography, and AI-assisted work potential.
+The pure classifier remains independent of persistence, source-specific logic, networking, AI, and `source_tags`. `analyze_job_roles()` hashes only `title` and the optional description, using the same no-description representation for `None`, empty, and whitespace-only values. It stores versioned historical runs through `RoleIntelligenceRepository`; the current single semantics version is recorded as both taxonomy and extractor version. An analyzed Unknown is an `analysis_runs` row with zero `job_roles`, which differs from a posting never analyzed.
+
+`roles.code` is stable identity and is not English-specific. Its first persisted display label is preserved. Every `job_roles` row stores the exact role-name snapshot and raw matched evidence emitted by that run, so a future label or language change cannot rewrite historical evidence. Aliases, regexes, and taxonomy rules remain code-owned. Identical version/input runs are reused; changed title, description, or version creates another historical run. Company, salary, location, tags, URLs, lifecycle timestamps, and skill output do not affect the role hash.
+
+The role service is a trusted internal boundary for a current persisted `JobPosting`, not `RawJob`. A stale in-memory posting can intentionally create a historical run for stale inputs, so future collection orchestration must reload through the durable current-posting reader before analysis. This persistence is recomputable input evidence, not final role-demand or market analytics. Later derived records may separately cover seniority, salary interpretation, remote geography, and AI-assisted work potential.
 
 Canonical analytics remove duplication only when multiple postings already share one `CanonicalJob`. Complete cross-source canonical linking is not implemented yet, so current data must not be described as fully deduplicated across sources.
 

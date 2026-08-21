@@ -13,8 +13,8 @@ from job_market_analyzer.storage.serialization import (
     serialize_utc_datetime,
 )
 from job_market_analyzer.storage.sqlite import (
+    CURRENT_SCHEMA_VERSION,
     InconsistentDatabaseSchemaError,
-    SKILL_INTELLIGENCE_SCHEMA_VERSION,
     UnsupportedDatabaseSchemaVersionError,
     connect_database,
     initialize_database,
@@ -168,10 +168,15 @@ def test_storage_initializes_required_tables(
         "canonical_jobs",
         "job_skills",
         "job_postings",
+        "job_roles",
         "raw_jobs",
+        "roles",
         "skills",
     }.issubset(tables)
-    assert connection.execute("PRAGMA user_version").fetchone()[0] == 2
+    assert (
+        connection.execute("PRAGMA user_version").fetchone()[0]
+        == CURRENT_SCHEMA_VERSION
+    )
 
 
 def test_storage_initialization_is_idempotent(
@@ -204,21 +209,25 @@ def test_storage_rejects_future_schema_without_mutating_database() -> None:
     future_connection = connect_database(":memory:")
 
     try:
-        future_connection.execute("PRAGMA user_version = 3")
+        future_connection.execute(f"PRAGMA user_version = {CURRENT_SCHEMA_VERSION + 1}")
         schema_before = future_connection.execute(
             "SELECT type, name, sql FROM sqlite_master ORDER BY type, name"
         ).fetchall()
 
         with pytest.raises(
             UnsupportedDatabaseSchemaVersionError,
-            match="newer than supported version 2",
+            match=f"newer than supported version {CURRENT_SCHEMA_VERSION}",
         ):
             initialize_database(future_connection)
 
-        assert future_connection.execute("PRAGMA user_version").fetchone()[0] == 3
+        assert (
+            future_connection.execute("PRAGMA user_version").fetchone()[0]
+            == CURRENT_SCHEMA_VERSION + 1
+        )
         assert future_connection.execute(
             "SELECT type, name, sql FROM sqlite_master ORDER BY type, name"
         ).fetchall() == schema_before
+        assert future_connection.in_transaction is False
     finally:
         future_connection.close()
 
@@ -421,7 +430,7 @@ def test_storage_migrates_source_tags_without_losing_rows() -> None:
         assert source_tags_columns[0][3] == 1
         assert (
             legacy_connection.execute("PRAGMA user_version").fetchone()[0]
-            == SKILL_INTELLIGENCE_SCHEMA_VERSION
+            == CURRENT_SCHEMA_VERSION
         )
         assert legacy_connection.execute(
             "SELECT COUNT(*) FROM canonical_jobs"
@@ -474,7 +483,7 @@ def test_storage_migrates_committed_v1_schema_to_skill_intelligence() -> None:
         assert {"analysis_runs", "job_skills", "skills"}.issubset(tables)
         assert (
             legacy_connection.execute("PRAGMA user_version").fetchone()[0]
-            == SKILL_INTELLIGENCE_SCHEMA_VERSION
+            == CURRENT_SCHEMA_VERSION
         )
         assert legacy_connection.execute(
             "SELECT id FROM canonical_jobs"
@@ -588,7 +597,10 @@ def test_skill_intelligence_migration_failure_rolls_back_and_retry_succeeds(
         )
         initialize_database(legacy_connection)
 
-        assert legacy_connection.execute("PRAGMA user_version").fetchone()[0] == 2
+        assert (
+            legacy_connection.execute("PRAGMA user_version").fetchone()[0]
+            == CURRENT_SCHEMA_VERSION
+        )
         assert {
             "analysis_runs",
             "job_skills",

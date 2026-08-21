@@ -24,7 +24,8 @@ This roadmap is directional. It describes meaningful product milestones, not a r
 | Data-driven Skill Taxonomy v2 | ✅ | Bounded additions and ambiguity guards validated against local Remote OK and Web3.career data |
 | Versioned skill persistence / recomputation | ✅ | Derived SQLite analysis runs and evidence are implemented and regression-tested |
 | Manual real-data skill validation | ✅ | V1 and v2 analyzed twice against both local 100-posting smoke databases with integrity checks |
-| Role Classification V1 | 🟡 | Pure implementation and read-only 200-posting validation complete in the current uncommitted worktree; awaiting review |
+| Role Classification V1 | ✅ | Committed pure deterministic classifier with bounded 200-posting local validation |
+| Versioned role persistence / recomputation | 🟡 | Implemented and locally regression-tested in the current uncommitted worktree; awaiting review |
 
 ## Visual Direction
 
@@ -56,7 +57,7 @@ flowchart LR
 
 ### Current / next
 
-- 🟡 Review [Role Classification V1](ROLE_CLASSIFICATION_DESIGN.md) and its [local validation report](ROLE_TAXONOMY_REPORT.md).
+- 🟡 Review the current versioned role-persistence checkpoint.
 
 ### Planned foundation work
 
@@ -72,8 +73,8 @@ flowchart LR
 - ✅ Data-driven Skill Taxonomy v2 with bounded direct mentions and contextual false-positive guards.
 - ✅ Versioned, recomputable skill analysis runs with dedicated input hashes and persisted direct mention evidence.
 - ✅ Manual real-data validation of skill coverage and evidence on local Remote OK and Web3.career datasets.
-- 🟡 Role Classification V1 pure implementation and local read-only validation; review and commit remain pending.
-- ⬜ Persisted versioned role analysis and recomputation, only after the pure contract is approved.
+- ✅ Role Classification V1 pure implementation and bounded local read-only validation.
+- 🟡 Persisted versioned role analysis and recomputation implemented locally; review and commit remain pending.
 - ⬜ Company normalization.
 - ⬜ Geography and remote-restriction normalization.
 - ⬜ Salary normalization with explicit disclosed, estimated, and derived provenance.
