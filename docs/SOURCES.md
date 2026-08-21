@@ -137,6 +137,200 @@ No Web3.career or Bondex code was copied. The integration was implemented from t
 
 ---
 
+### Himalayas
+
+Official API documentation and OpenAPI contract:
+https://himalayas.app/docs/remote-jobs-api
+
+JSON endpoint:
+https://himalayas.app/jobs/api
+
+Status: implemented, offline-tested, and live-validated twice on 2026-08-21.
+
+Authentication and cost: none. The documented public feed is free, cached for 24
+hours, limited to 20 jobs per request, and supports `limit`/`offset` pagination. The
+collector deliberately requests at most three pages (60 feed items).
+
+Attribution: identify Himalayas as the source and link to Himalayas. The integration
+preserves the source-native `guid`, which is also the public job URL.
+
+MVP identity:
+
+- `source_provider = "himalayas"`;
+- `source_scope = "global"`;
+- `external_id = guid` (source-native stable URL identifier).
+
+Normalized fields include title, company, HTML description, location and timezone
+restrictions, employment type, categories and parent categories, explicit structured
+salary fields, publication epoch, source URL, and `applicationLink` when present.
+The normalizer does not parse or invent salary. Overlapping pages can repeat an exact
+`guid`; the bounded collector keeps the first observation from that response and
+reports the skipped duplicate count in collection metadata.
+
+Live limitation: two of 52 validated postings lacked a location restriction. All 52
+had descriptions, company names, and source tags; 27 carried structured salary data.
+
+No Himalayas code was copied. The adapter was independently implemented from the
+documented response contract and validated public responses.
+
+---
+
+### Jobicy
+
+Official API documentation:
+https://github.com/Jobicy/remote-jobs-api
+
+JSON endpoint:
+https://jobicy.com/api/v2/remote-jobs
+
+Status: implemented, offline-tested, and live-validated twice on 2026-08-21.
+
+Authentication and cost: none. The documented `count` parameter supports 1–100
+records. Jobicy says API jobs are delayed by six hours, recommends polling no more
+than hourly, and restricts bulk republishing/resale; this project performs only one
+bounded request per manual command.
+
+Attribution: preserve the Jobicy job URL and identify Jobicy as the source when
+displaying its feed content.
+
+MVP identity:
+
+- `source_provider = "jobicy"`;
+- `source_scope = "global"`;
+- `external_id` uses the source-native `id`.
+
+Normalized fields include job title, company, HTML description, geographic region,
+job type, industry categories, explicit structured salary, publication timestamp,
+and Jobicy source URL. The public response does not expose a distinct verified direct
+application URL, so `application_url` remains `None` rather than copying the
+aggregator URL.
+
+Live limitation: all 50 validated records were complete for title, company,
+description, location, and tags, but none exposed a separate application link.
+Thirty carried structured salary data.
+
+No Jobicy code was copied. The adapter was independently implemented from its public
+API documentation and observed response contract.
+
+---
+
+### Remotive
+
+Official public API documentation and terms:
+https://remotive.com/remote-jobs/api
+
+JSON endpoint:
+https://remotive.com/api/remote-jobs
+
+Status: implemented, offline-tested, and live-validated twice on 2026-08-21.
+
+Authentication and cost: none. The manual collector makes one request with a bounded
+`limit`. Remotive states that public API jobs are delayed by 24 hours and that
+excessive requests may be blocked.
+
+Attribution requirements: credit Remotive as the source and link back to the exact
+Remotive job URL. The adapter preserves that URL as `source_url` and never substitutes
+an unattributed destination.
+
+MVP identity:
+
+- `source_provider = "remotive"`;
+- `source_scope = "global"`;
+- `external_id` uses the source-native `id`.
+
+Normalized fields include title, company, HTML description, candidate location,
+category and tags, job type, raw disclosed salary text, publication timestamp, and
+the attributed Remotive URL. Salary strings are deliberately not parsed into numbers,
+currency, or period. A separate verified application URL is not present in the feed.
+
+Live limitation: the bounded API response contained only 18 records despite a limit
+of 50. All 18 had company, description, location, and tags; 13 had non-empty salary
+text. The sample included some task/gig-style records alongside ordinary vacancies.
+
+No Remotive code was copied. The adapter was independently implemented from the
+official public API contract and terms.
+
+---
+
+### We Work Remotely
+
+Official RSS documentation:
+https://weworkremotely.com/remote-job-rss-feed
+
+Official RSS endpoint:
+https://weworkremotely.com/remote-jobs.rss
+
+Status: implemented, offline-tested, and live-validated twice on 2026-08-21.
+
+Authentication and cost: none for RSS. WWR's separate write/posting API requires a
+special token and is not used: https://weworkremotely.com/api
+
+Attribution requirements: identify We Work Remotely as the source and preserve the
+original WWR job link. The integration consumes only the official RSS document and
+does not scrape linked pages.
+
+MVP identity:
+
+- `source_provider = "we_work_remotely"`;
+- `source_scope = "global"`;
+- `external_id` uses the RSS `guid`.
+
+Normalized fields include the company/title pair encoded in RSS `title`, HTML
+description, region/country/state, category and skills text, employment type,
+publication timestamp, and WWR source URL. RSS provides neither structured salary nor
+a separate application URL, so those fields remain empty.
+
+Live limitations: the feed returned 99 items but one duplicate `guid`; the collector
+kept 98 unique observations. It also contained replacement characters in some text
+and at least one very stale posting timestamp (2023-02-07). Source-side category and
+skills strings vary in granularity. These issues are preserved and documented rather
+than silently corrected.
+
+No WWR code was copied. The adapter was independently implemented against the
+official RSS contract.
+
+---
+
+## Researched Sources Not Implemented
+
+### Good future sources
+
+- **Greenhouse Job Board API** — official credential-free JSON GET API with stable
+  native job IDs and optional full content: https://developer.greenhouse.io/job-board.html
+  Deferred because it requires an explicit non-secret company board identifier/scope
+  and is not a broad remote feed.
+- **Lever Postings API** — official public read-only JSON API with pagination and
+  stable posting IDs: https://github.com/lever/postings-api. Deferred until the
+  product has a curated set of company site names/scopes.
+- **Ashby Public Job Postings API** — official credential-free JSON endpoint per
+  configured job board: https://developers.ashbyhq.com/docs/public-job-posting-api.
+  Deferred for the same board-discovery/scope reason.
+
+### Credential required — not implemented
+
+- **Adzuna** — requires registered `app_id` and `app_key`:
+  https://developer.adzuna.com/overview.
+- **The Muse** — its developer contract requires application registration/API-key
+  usage for a production integration: https://www.themuse.com/developers/api/v2 and
+  https://www.themuse.com/developers/api/v2/terms.
+
+### Skipped or brittle
+
+- **Arbeitnow** — a JSON endpoint is referenced by third parties, but no sufficiently
+  strong official API contract was found for a durable adapter.
+- **Remote.co** — HTML-oriented listing pages without a documented structured public
+  vacancy API; skipped to avoid a brittle scraper.
+- **Wellfound** — account/interactive HTML-oriented access and anti-automation risk;
+  skipped rather than bypassing controls.
+- **CryptoJobsList and other small Web3 boards** — no better credential-free,
+  documented broad feed was verified in this sprint; avoid duplicating Web3.career
+  through brittle HTML extraction.
+
+The complete candidate scorecard and live evidence are in
+[Source Expansion Report](SOURCE_EXPANSION_REPORT.md).
+
+---
+
 ## Candidate Repositories
 
 ### ever-jobs / ever-jobs

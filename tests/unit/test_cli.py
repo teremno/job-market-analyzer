@@ -150,9 +150,59 @@ def test_cli_help_lists_manual_collection_commands(
     assert error.value.code == 0
     assert "collect-remote-ok" in captured.out
     assert "collect-web3-career" in captured.out
+    assert "collect-himalayas" in captured.out
+    assert "collect-jobicy" in captured.out
+    assert "collect-remotive" in captured.out
+    assert "collect-we-work-remotely" in captured.out
     assert "analyze-skills" in captured.out
     assert "analyze-roles" in captured.out
     assert captured.err == ""
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "collect-himalayas",
+        "collect-jobicy",
+        "collect-remotive",
+        "collect-we-work-remotely",
+    ],
+)
+def test_public_source_commands_require_explicit_database(
+    command: str,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    with pytest.raises(SystemExit) as error:
+        cli.main([command])
+
+    assert error.value.code == 2
+    assert "--database" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    ("command", "function_name"),
+    [
+        ("collect-himalayas", "collect_himalayas"),
+        ("collect-jobicy", "collect_jobicy"),
+        ("collect-remotive", "collect_remotive"),
+        ("collect-we-work-remotely", "collect_we_work_remotely"),
+    ],
+)
+def test_public_source_commands_dispatch_selected_database(
+    command: str,
+    function_name: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    selected: list[Path] = []
+
+    def command_spy(database_path: Path) -> int:
+        selected.append(database_path)
+        return 17
+
+    monkeypatch.setattr(cli, function_name, command_spy)
+
+    assert cli.main([command, "--database", "selected.sqlite3"]) == 17
+    assert selected == [Path("selected.sqlite3")]
 
 
 def test_analyze_skills_requires_explicit_database_path(

@@ -84,6 +84,33 @@ job-market-analyzer collect-web3-career --database ./web3-career-smoke.sqlite3
 
 Never commit the token or store it in tracked files. The command reads it only from `WEB3_CAREER_API_TOKEN`, performs one authenticated API collection run, initializes or reuses the selected database, prints a token-safe summary and at most five vacancies, then exits. Repeated runs reuse the same database and its existing deduplication/upsert behavior.
 
+### Public credential-free sources
+
+The MVP also supports four structured, remote-focused public feeds that require no
+account or API secret:
+
+| Source | Access | Command |
+|---|---|---|
+| Himalayas | Public JSON API | `collect-himalayas` |
+| Jobicy | Public JSON API | `collect-jobicy` |
+| Remotive | Public JSON API | `collect-remotive` |
+| We Work Remotely | Official RSS | `collect-we-work-remotely` |
+
+Run any source once with an explicit SQLite database:
+
+```bash
+job-market-analyzer collect-himalayas --database ./himalayas-smoke.sqlite3
+job-market-analyzer collect-jobicy --database ./jobicy-smoke.sqlite3
+job-market-analyzer collect-remotive --database ./remotive-smoke.sqlite3
+job-market-analyzer collect-we-work-remotely --database ./we-work-remotely-smoke.sqlite3
+```
+
+Each command performs a bounded collection and exits. Reusing the same database
+preserves the existing same-source identity, observation provenance, and idempotent
+upsert behavior. These integrations do not scrape job pages. Provider-specific
+attribution and known feed limitations are documented in
+[External Sources and Attribution](docs/SOURCES.md).
+
 ## Manual one-shot skill analysis
 
 Analyze a bounded set of current durable postings already stored in SQLite:

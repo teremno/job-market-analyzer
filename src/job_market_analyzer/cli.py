@@ -10,6 +10,21 @@ from contextlib import closing
 from pathlib import Path
 
 from job_market_analyzer.collectors.base import CollectionFailure, JobCollector
+from job_market_analyzer.collectors.himalayas import (
+    HIMALAYAS_SOURCE_PROVIDER,
+    HIMALAYAS_SOURCE_SCOPE,
+    HimalayasCollector,
+)
+from job_market_analyzer.collectors.jobicy import (
+    JOBICY_SOURCE_PROVIDER,
+    JOBICY_SOURCE_SCOPE,
+    JobicyCollector,
+)
+from job_market_analyzer.collectors.remotive import (
+    REMOTIVE_SOURCE_PROVIDER,
+    REMOTIVE_SOURCE_SCOPE,
+    RemotiveCollector,
+)
 from job_market_analyzer.collectors.remote_ok import (
     REMOTE_OK_SOURCE_PROVIDER,
     REMOTE_OK_SOURCE_SCOPE,
@@ -21,11 +36,22 @@ from job_market_analyzer.collectors.web3_career import (
     WEB3_CAREER_TOKEN_ENV,
     Web3CareerCollector,
 )
+from job_market_analyzer.collectors.we_work_remotely import (
+    WE_WORK_REMOTELY_SOURCE_PROVIDER,
+    WE_WORK_REMOTELY_SOURCE_SCOPE,
+    WeWorkRemotelyCollector,
+)
 from job_market_analyzer.models import NormalizedJobPosting, RawJob
 from job_market_analyzer.intelligence.skills import SKILL_TAXONOMY_VERSION
 from job_market_analyzer.intelligence.roles import ROLE_TAXONOMY_VERSION
 from job_market_analyzer.normalization.remote_ok import normalize_remote_ok_job
+from job_market_analyzer.normalization.himalayas import normalize_himalayas_job
+from job_market_analyzer.normalization.jobicy import normalize_jobicy_job
+from job_market_analyzer.normalization.remotive import normalize_remotive_job
 from job_market_analyzer.normalization.web3_career import normalize_web3_career_job
+from job_market_analyzer.normalization.we_work_remotely import (
+    normalize_we_work_remotely_job,
+)
 from job_market_analyzer.services.collection import (
     CollectionSummary,
     collect_and_persist_jobs,
@@ -62,6 +88,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         return collect_remote_ok(arguments.database)
     if arguments.command == "collect-web3-career":
         return collect_web3_career(arguments.database)
+    if arguments.command == "collect-himalayas":
+        return collect_himalayas(arguments.database)
+    if arguments.command == "collect-jobicy":
+        return collect_jobicy(arguments.database)
+    if arguments.command == "collect-remotive":
+        return collect_remotive(arguments.database)
+    if arguments.command == "collect-we-work-remotely":
+        return collect_we_work_remotely(arguments.database)
     if arguments.command == "analyze-skills":
         return analyze_skills(arguments.database, limit=arguments.limit)
     if arguments.command == "analyze-roles":
@@ -94,6 +128,58 @@ def collect_web3_career(database_path: Path) -> int:
         collector_factory=Web3CareerCollector,
         normalizer=normalize_web3_career_job,
         secret_env_name=WEB3_CAREER_TOKEN_ENV,
+    )
+
+
+def collect_himalayas(database_path: Path) -> int:
+    """Run one bounded public Himalayas collection."""
+
+    return _collect_once(
+        database_path,
+        source_name="Himalayas",
+        source_provider=HIMALAYAS_SOURCE_PROVIDER,
+        source_scope=HIMALAYAS_SOURCE_SCOPE,
+        collector_factory=HimalayasCollector,
+        normalizer=normalize_himalayas_job,
+    )
+
+
+def collect_jobicy(database_path: Path) -> int:
+    """Run one bounded public Jobicy collection."""
+
+    return _collect_once(
+        database_path,
+        source_name="Jobicy",
+        source_provider=JOBICY_SOURCE_PROVIDER,
+        source_scope=JOBICY_SOURCE_SCOPE,
+        collector_factory=JobicyCollector,
+        normalizer=normalize_jobicy_job,
+    )
+
+
+def collect_remotive(database_path: Path) -> int:
+    """Run one bounded public Remotive collection."""
+
+    return _collect_once(
+        database_path,
+        source_name="Remotive",
+        source_provider=REMOTIVE_SOURCE_PROVIDER,
+        source_scope=REMOTIVE_SOURCE_SCOPE,
+        collector_factory=RemotiveCollector,
+        normalizer=normalize_remotive_job,
+    )
+
+
+def collect_we_work_remotely(database_path: Path) -> int:
+    """Run one bounded official We Work Remotely RSS collection."""
+
+    return _collect_once(
+        database_path,
+        source_name="We Work Remotely",
+        source_provider=WE_WORK_REMOTELY_SOURCE_PROVIDER,
+        source_scope=WE_WORK_REMOTELY_SOURCE_SCOPE,
+        collector_factory=WeWorkRemotelyCollector,
+        normalizer=normalize_we_work_remotely_job,
     )
 
 
@@ -235,6 +321,23 @@ def _build_parser() -> argparse.ArgumentParser:
         metavar="PATH",
         help="SQLite database path to create or reuse.",
     )
+    for command, help_text in (
+        ("collect-himalayas", "Run one public Himalayas collection into SQLite."),
+        ("collect-jobicy", "Run one public Jobicy collection into SQLite."),
+        ("collect-remotive", "Run one public Remotive collection into SQLite."),
+        (
+            "collect-we-work-remotely",
+            "Run one public We Work Remotely RSS collection into SQLite.",
+        ),
+    ):
+        source_parser = subparsers.add_parser(command, help=help_text)
+        source_parser.add_argument(
+            "--database",
+            required=True,
+            type=Path,
+            metavar="PATH",
+            help="SQLite database path to create or reuse.",
+        )
     analyze_parser = subparsers.add_parser(
         "analyze-skills",
         help=(

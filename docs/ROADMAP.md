@@ -19,6 +19,10 @@ This roadmap is directional. It describes meaningful product milestones, not a r
 | Remote OK integration | ✅ | Offline tests plus successful real one-shot collection |
 | Remote OK repeated-run validation | ✅ | Second live run created no duplicate posting or raw observation |
 | Web3.career integration | ✅ | Offline tests plus successful real one-shot and repeated-run collection validation |
+| Himalayas integration | ✅ | Public JSON API, offline tests, two live runs, and SQLite integrity validation |
+| Jobicy integration | ✅ | Public JSON API, offline tests, two live runs, and SQLite integrity validation |
+| Remotive integration | ✅ | Attributed public JSON API, offline tests, two live runs, and SQLite integrity validation |
+| We Work Remotely integration | ✅ | Official RSS, offline tests, duplicate-feed guard, two live runs, and SQLite integrity validation |
 | Normalized source-tag intelligence input | ✅ | Committed normalized analyzer input contract with migration and regression coverage |
 | Skill Taxonomy v1 / deterministic extractor | ✅ | Committed pure taxonomy-backed extraction with direct mention evidence |
 | Data-driven Skill Taxonomy v2 | ✅ | Bounded additions and ambiguity guards validated against local Remote OK and Web3.career data |
@@ -26,13 +30,14 @@ This roadmap is directional. It describes meaningful product milestones, not a r
 | Manual real-data skill validation | ✅ | V1 and v2 analyzed twice against both local 100-posting smoke databases with integrity checks |
 | Role Classification V1 | ✅ | Committed pure deterministic classifier with bounded 200-posting local validation |
 | Versioned role persistence / recomputation | ✅ | Committed schema v3, repository, exact identity, and analyzer-kind protections |
-| Manual persisted role validation | 🟡 | One-shot CLI and two-pass validation on disposable copies are implemented in the current uncommitted worktree; awaiting review |
+| Manual persisted role validation | ✅ | One-shot CLI and two-pass disposable-copy validation are committed |
+| Multi-source expansion | ✅ | Six supported sources; 218 new live-validated postings across four credential-free feeds |
 
 ## Visual Direction
 
 ```mermaid
 flowchart LR
-    P1["✅ Phase 1<br/>Data Foundation"] --> P2["🟡 Phase 2<br/>Data Intelligence"]
+    P1["✅ Phase 1<br/>Data Foundation"] --> P2["✅ Phase 2<br/>Core Intelligence"]
     P2 --> P3["⬜ Phase 3<br/>Market Analytics"]
     P3 --> P4["⬜ Phase 4<br/>Personal Intelligence"]
     P3 --> P5["⬜ Phase 5<br/>Product API / Hosted Backend"]
@@ -55,15 +60,21 @@ flowchart LR
 - ✅ Real Remote OK first-run and second-run dedup smoke checks.
 - ✅ Web3.career offline collector, normalization, source terms, token-log protection, and SQLite integration.
 - ✅ Real Web3.career first-run and repeated-run dedup smoke checks.
+- ✅ Credential-free Himalayas, Jobicy, Remotive, and We Work Remotely adapters.
+- ✅ Offline per-source contracts, generic SQLite pipeline regression, two-pass live
+  validation, database integrity, and documented data-quality limitations.
 
 ### Current / next
 
-- 🟡 Review the manual persisted role-validation checkpoint.
+- 🟡 Build a minimal read-only analytics/query layer that can power the first local
+  personal dashboard without waiting for every future enrichment.
 
 ### Planned foundation work
 
-- ⬜ Add selected high-quality sources such as Greenhouse, Lever, Ashby, and other appropriate general, remote, or Web3 sources.
-- ⬜ Expand sources according to reliability, legal access, provenance quality, and market coverage rather than an arbitrary target count.
+- ⬜ Pilot curated remote-friendly Greenhouse boards, followed by Lever and Ashby,
+  with explicit per-board source scopes.
+- ⬜ Continue source expansion according to reliability, legal access, provenance
+  quality, and market coverage rather than an arbitrary target count.
 - ⬜ Prepare consistent company identity without introducing the separate Company Intelligence domain.
 - ⬜ Develop high-confidence cross-source canonical linking while preserving every source posting.
 
@@ -76,7 +87,7 @@ flowchart LR
 - ✅ Manual real-data validation of skill coverage and evidence on local Remote OK and Web3.career datasets.
 - ✅ Role Classification V1 pure implementation and bounded local read-only validation.
 - ✅ Persisted versioned role analysis and recomputation with role/skill isolation.
-- 🟡 Manual one-shot persisted role validation and bounded real-data report; review and commit remain pending.
+- ✅ Manual one-shot persisted role validation and bounded real-data report.
 - ⬜ Company normalization.
 - ⬜ Geography and remote-restriction normalization.
 - ⬜ Salary normalization with explicit disclosed, estimated, and derived provenance.
