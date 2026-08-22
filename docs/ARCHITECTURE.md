@@ -73,6 +73,32 @@ A new posting without a high-confidence match receives a new CanonicalJob. Low-c
 
 Application services depend on the `JobRepository` protocol, not SQLite. A repository accepts `RawJob` plus `NormalizedJobPosting` and owns durable IDs, lifecycle timestamps, hashes, transactions, and raw-to-posting links.
 
+### Guided update orchestration
+
+The one-shot `update` application service coordinates existing components without
+reimplementing them. A small static source registry binds a provider code and display
+name to its existing collector factory and normalizer, plus only the credential
+metadata needed for an honest skip. A separate analyzer registry binds
+`(analyzer_kind, input_language)` to a version and existing durable-posting runner.
+Source identity is never used as a language signal; a source may contain mixed text.
+
+The update validates that every active analyzer kind supports the requested input
+language before opening the database or collecting. Current capability is
+`skills/en` plus `roles/en`; no Ukrainian implementation is registered. Enabled
+sources then run sequentially in registry order. A collector/network failure is an
+isolated source result and later sources continue. Normalization invariants outside
+the existing typed recoverable item failures, repository writes, schema errors, and
+database errors are systemic and abort. Analysis reloads current durable postings
+through the existing repository after collection, so it never analyzes stale
+collector objects. Analyzer failures are visible and independent unless SQLite or an
+open transaction indicates a systemic consistency failure.
+
+The registry is an explicit composition root, not a plugin framework. Adding a
+source changes its adapter module plus the registry entry; adding a language changes
+the relevant language-specific analyzer registrations. The CLI only selects and
+reports these entries. No scheduler, background worker, language detection, or schema
+change is part of this flow.
+
 Persistence uses deterministic representations:
 
 - timestamps: UTC `YYYY-MM-DDTHH:MM:SS.ffffffZ`;

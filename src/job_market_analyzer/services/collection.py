@@ -4,6 +4,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 from job_market_analyzer.collectors.base import (
+    CollectedJobs,
     CollectionFailure,
     FailureStage,
     JobCollector,
@@ -41,6 +42,16 @@ async def collect_and_persist_jobs(
     """
 
     collected = await collector.collect()
+    return persist_collected_jobs(collected, normalizer, repository)
+
+
+def persist_collected_jobs(
+    collected: CollectedJobs,
+    normalizer: JobNormalizer,
+    repository: JobRepository,
+) -> CollectionSummary:
+    """Normalize and atomically persist one already collected source batch."""
+
     failures = list(collected.failures)
     persisted = 0
     postings_created = 0

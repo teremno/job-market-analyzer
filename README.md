@@ -55,6 +55,39 @@ Early development / research phase.
 
 See [Product Vision](docs/PRODUCT_VISION.md) for long-term principles and [Product Roadmap](docs/ROADMAP.md) for current progress and future phases.
 
+## Guided dataset update
+
+Run every enabled source, persist current observations, and then run the active
+English skill and role analyzers with one command:
+
+```powershell
+job-market-analyzer update --database .\job-market.sqlite3
+```
+
+The database path is required and may be new or existing. Sources run once in the
+explicit registry order: Remote OK, Web3.career, Himalayas, Jobicy, Remotive, and We
+Work Remotely. If `WEB3_CAREER_API_TOKEN` is absent, Web3.career alone is reported as
+skipped; credential-free sources still run. Never commit the token or pass it as a
+CLI argument. A failed remote source is reported and later independent sources
+continue, while a database, schema, or persistence failure aborts the update. Skill
+and role analysis runs after collection over current durable postings.
+
+Repeated unchanged updates reuse source postings, observations, and versioned
+analysis runs. Use repeatable `--source PROVIDER` to select registry entries and
+`--limit-analysis N` only when an explicit bounded analysis pass is wanted. The
+default analyzes all current postings. For example:
+
+```powershell
+job-market-analyzer update --database .\job-market.sqlite3 --source remote_ok --source jobicy
+```
+
+`--language` means analyzer input language, not CLI display language. The CLI remains
+English. Current registrations are only `skills/en` and `roles/en`, so
+`--language uk` fails before collection with a clear not-implemented message; it does
+not run English rules over Ukrainian text. The summary reports source-posting counts,
+not globally deduplicated vacancies, and ends with the matching `serve` command. See
+[Guided Update Flow](docs/UPDATE_FLOW.md) for the exact policy and extension seams.
+
 ## Manual one-shot collection
 
 Install the package locally:

@@ -73,8 +73,12 @@ flowchart LR
 
 ### Current / next
 
-- 🟡 Populate one six-source personal database and perform the documented product
-  audit, then design a guided update flow from observed personal-use friction.
+- 🟡 Guided one-shot update flow: source/analyzer registries, partial source failure,
+  credential skip, English capability validation, idempotency, and dashboard handoff
+  are implemented and tested but not yet committed.
+- ⬜ After commit, run one real personal-use six-source update/dashboard cycle and
+  record observed product friction. Ukrainian skill/role intelligence can then be a
+  concrete next language sprint if desired; it is not implemented or implied now.
 
 ### Planned foundation work
 

@@ -65,6 +65,19 @@ from job_market_analyzer.services.skill_smoke import (
     SkillSmokeSummary,
     run_skill_smoke,
 )
+from job_market_analyzer.services.update import (
+    AnalyzerRunStatus,
+    GuidedUpdateSummary,
+    SourceRunStatus,
+    UnsupportedAnalyzerLanguageError,
+    run_guided_update,
+    select_analyzers,
+)
+from job_market_analyzer.services.update_registry import (
+    ANALYSIS_LANGUAGE_CHOICES,
+    ANALYZER_REGISTRY,
+    SOURCE_REGISTRY,
+)
 from job_market_analyzer.services.role_smoke import (
     RoleSmokeSummary,
     run_role_smoke,
@@ -89,6 +102,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = _build_parser()
     arguments = parser.parse_args(argv)
 
+    if arguments.command == "update":
+        return update_database(
+            arguments.database,
+            analysis_language=arguments.language,
+            source_codes=arguments.source,
+            analysis_limit=arguments.limit_analysis,
+        )
     if arguments.command == "collect-remote-ok":
         return collect_remote_ok(arguments.database)
     if arguments.command == "collect-web3-career":
@@ -113,6 +133,69 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
 
     parser.error(f"Unsupported command: {arguments.command}")
+
+
+def update_database(
+    database_path: Path,
+    *,
+    analysis_language: str,
+    source_codes: Sequence[str] | None,
+    analysis_limit: int | None,
+) -> int:
+    """Run one explicit multi-source update and current intelligence pass."""
+
+    selected_codes = set(source_codes) if source_codes is not None else None
+    sources = tuple(
+        source
+        for source in SOURCE_REGISTRY
+        if source.enabled
+        and (
+            selected_codes is None
+            or source.provider_code in selected_codes
+        )
+    )
+    try:
+        analyzers = select_analyzers(
+            ANALYZER_REGISTRY,
+            language=analysis_language,
+        )
+    except UnsupportedAnalyzerLanguageError as exc:
+        print(f"Update failed: {exc}", file=sys.stderr)
+        return 1
+
+    secret_env_names = tuple(
+        source.credential_env
+        for source in sources
+        if source.credential_env is not None
+    )
+    sensitive_values = tuple(
+        value
+        for env_name in secret_env_names
+        for value in _environment_secret_values(env_name)
+    )
+    try:
+        with closing(connect_database(database_path)) as connection:
+            initialize_database(connection)
+            summary = asyncio.run(
+                run_guided_update(
+                    connection,
+                    sources=sources,
+                    analyzers=analyzers,
+                    analysis_language=analysis_language,
+                    analysis_limit=analysis_limit,
+                    environment=os.environ,
+                )
+            )
+    except Exception as exc:  # noqa: BLE001 - CLI boundary converts failures to exit 1
+        print(
+            f"Update failed: {type(exc).__name__}: "
+            f"{_short_message(exc, sensitive_values=sensitive_values)}",
+            file=sys.stderr,
+        )
+        return 1
+
+    _print_update_summary(summary, database_path=database_path)
+    return int(summary.has_failures)
 
 
 def collect_remote_ok(database_path: Path) -> int:
@@ -323,6 +406,38 @@ def _build_parser() -> argparse.ArgumentParser:
         description="Manual commands for the Job Market Analyzer MVP.",
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
+    update_parser = subparsers.add_parser(
+        "update",
+        help="Collect registered sources and run current intelligence once.",
+    )
+    update_parser.add_argument(
+        "--database",
+        required=True,
+        type=Path,
+        metavar="PATH",
+        help="SQLite database path to create or reuse.",
+    )
+    update_parser.add_argument(
+        "--source",
+        action="append",
+        choices=tuple(
+            source.provider_code for source in SOURCE_REGISTRY if source.enabled
+        ),
+        metavar="PROVIDER",
+        help="Run only this registered source; repeat for more than one.",
+    )
+    update_parser.add_argument(
+        "--language",
+        choices=ANALYSIS_LANGUAGE_CHOICES,
+        default="en",
+        help="Analyzer input language (default: en; uk is not implemented).",
+    )
+    update_parser.add_argument(
+        "--limit-analysis",
+        type=_positive_int,
+        metavar="N",
+        help="Optional maximum current postings analyzed per analyzer.",
+    )
     collect_parser = subparsers.add_parser(
         "collect-remote-ok",
         help="Run one real Remote OK collection into SQLite.",
@@ -429,6 +544,96 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Bind port from 1 to 65535 (default: 8000).",
     )
     return parser
+
+
+def _print_update_summary(
+    summary: GuidedUpdateSummary,
+    *,
+    database_path: Path,
+) -> None:
+    """Print one compact, token-safe guided update report."""
+
+    heading = (
+        "Update completed with failures"
+        if summary.has_failures
+        else "Update completed"
+    )
+    print(heading)
+    print()
+    print("Sources:")
+    for result in summary.sources:
+        if result.status is SourceRunStatus.SKIPPED:
+            print(f"- {result.display_name}: SKIPPED - {result.message}")
+        elif result.status is SourceRunStatus.FAILED:
+            print(f"- {result.display_name}: FAILED - {result.message}")
+        else:
+            collection = result.collection
+            if collection is None:
+                raise RuntimeError("completed source result lacks counts")
+            print(
+                f"- {result.display_name}: {collection.fetched} fetched, "
+                f"{result.collection.postings_created} new, "
+                f"{result.changed_postings} changed, "
+                f"{collection.failed} failed"
+            )
+
+    print()
+    print(f"Intelligence ({summary.analysis_language}):")
+    for result in summary.analyzers:
+        if result.status is AnalyzerRunStatus.FAILED:
+            print(f"- {result.display_name}: FAILED - {result.message}")
+        else:
+            execution = result.execution
+            if execution is None:
+                raise RuntimeError("completed analyzer result lacks counts")
+            print(
+                f"- {result.display_name}: {execution.postings_considered} "
+                f"considered, {execution.runs_created} created, "
+                f"{execution.runs_reused} reused"
+            )
+
+    overview = summary.dataset
+    role_covered = (
+        overview.current_role_classified_posting_count
+        + overview.current_role_unknown_posting_count
+    )
+    skill_covered = (
+        overview.current_skill_classified_posting_count
+        + overview.current_skill_zero_posting_count
+    )
+    role_coverage = (
+        100 * role_covered / overview.posting_count
+        if overview.posting_count
+        else 0.0
+    )
+    skill_coverage = (
+        100 * skill_covered / overview.posting_count
+        if overview.posting_count
+        else 0.0
+    )
+    print()
+    print("Dataset:")
+    print(f"- Source postings: {overview.posting_count}")
+    print(f"- Sources represented: {overview.source_count}")
+    print(
+        f"- Role coverage: {role_coverage:.1f}% "
+        f"({role_covered}/{overview.posting_count})"
+    )
+    print(
+        f"- Skill coverage: {skill_coverage:.1f}% "
+        f"({skill_covered}/{overview.posting_count})"
+    )
+    print()
+    print("Dashboard ready:")
+    print(
+        "job-market-analyzer serve --database "
+        f"{_shell_path(database_path)}"
+    )
+
+
+def _shell_path(path: Path) -> str:
+    value = str(path)
+    return f'"{value}"' if any(character.isspace() for character in value) else value
 
 
 def _positive_int(value: str) -> int:

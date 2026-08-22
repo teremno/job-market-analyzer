@@ -674,3 +674,50 @@ stack traces. Counts remain explicitly posting-level, skill text says mentioned 
 co-mentioned rather than required, and source dates describe dataset freshness rather
 than uptime. Salary, seniority, geography, canonical linking, accounts, deployment,
 and saved user state remain postponed until personal-use evidence justifies them.
+
+---
+
+## ADR-018: Guided updates use explicit source and language-aware analyzer registries
+
+Date: 2026-08-22
+
+Status: Accepted for the current uncommitted implementation checkpoint.
+
+### Decision
+
+Add a one-shot `job-market-analyzer update --database PATH` orchestration service.
+Its static typed source registry contains only provider identity, display metadata,
+the existing collector/normalizer composition, enablement, and optional credential
+environment name. Its analyzer registry keys existing durable-posting runners by
+analyzer kind and input language. Current registrations are `skills/en` and
+`roles/en`; requesting `uk` is rejected before collection or database creation.
+
+Sources execute sequentially in registry order. A missing source credential is an
+explicit source skip. A collector/network failure is recorded and later sources
+continue. Existing typed item failures remain recoverable collection results.
+Unexpected normalization, repository, schema, transaction, and database failures are
+systemic and abort. Analysis follows collection and reloads current persisted
+postings. Non-database analyzer failures are reported independently; SQLite and
+transaction-state failures abort. Any reported source item, source, or analyzer
+failure gives the CLI a non-zero exit status even when useful work completed.
+
+### Alternatives rejected
+
+- Six new hardcoded CLI branches would make each source addition edit orchestration.
+- A dynamic plugin framework, dependency injection container, queue, or scheduler is
+  unnecessary for six local adapters.
+- Inferring analyzer language from source would be inaccurate for mixed-language
+  feeds.
+- Treating missing Web3 credentials as a whole-command precondition would prevent
+  useful credential-free collection.
+- Silently routing `uk` to English rules would misrepresent extractor capability.
+
+### Consequences
+
+The default update creates or reuses SQLite, collects all enabled sources, runs all
+current English analyzers, prints one posting-level summary, and leaves the database
+ready for `serve`. Existing repository and analysis identities make unchanged repeat
+runs idempotent. Adding a future source or `skills/uk` / `roles/uk` is a registry
+composition change, not an orchestration rewrite. CLI display remains English and is
+separate from analyzer input language. This decision adds no source, schema,
+scheduler, automatic language detection, or Ukrainian taxonomy.

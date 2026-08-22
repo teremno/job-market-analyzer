@@ -148,6 +148,7 @@ def test_cli_help_lists_manual_collection_commands(
 
     captured = capsys.readouterr()
     assert error.value.code == 0
+    assert "update" in captured.out
     assert "collect-remote-ok" in captured.out
     assert "collect-web3-career" in captured.out
     assert "collect-himalayas" in captured.out
