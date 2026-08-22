@@ -105,7 +105,7 @@ def test_valid_v2_migrates_without_backfill_and_preserves_everything() -> None:
         initialize_database(connection)
         initialize_database(connection)
 
-        assert connection.execute("PRAGMA user_version").fetchone()[0] == 4
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == 5
         assert snapshot(connection) == before
         assert connection.execute("SELECT COUNT(*) FROM roles").fetchone()[0] == 0
         assert connection.execute("SELECT COUNT(*) FROM job_roles").fetchone()[0] == 0

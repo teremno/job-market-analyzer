@@ -880,3 +880,48 @@ First live pass over 2,871 postings classified 1,022 (35.6%): senior 781,
 staff 151, principal 47, junior 22, intern 17, lead 4. The low junior/mid/lead
 counts reflect conservative rules rather than market absence; future taxonomy
 revisions may add guarded patterns with explicit version bumps.
+
+---
+
+## ADR-023: Geography v1 classifies arrangement and region eligibility
+
+Date: 2026-08-22
+
+Status: Accepted and committed.
+
+### Decision
+
+Add Geography Classification V1 as the fourth deterministic intelligence
+boundary, registered as `geography/en`. It consumes normalized
+`description_text`, `location_text`, and the structured `is_remote` flag;
+titles are intentionally not an input so retitling does not invalidate runs.
+It emits at most one work-arrangement evidence (`arrangement_remote`,
+`arrangement_hybrid`, `arrangement_onsite`) plus multi-label region evidence
+(`region_worldwide`, `region_europe`, `region_north_america`,
+`region_latin_america`, `region_asia_pacific`). Schema v5 additively adds
+`geography_terms` and `job_geography` with analyzer-kind triggers and no
+backfill. The structured source flag is authoritative for the remote
+arrangement when present.
+
+### Reason
+
+Remote eligibility is a top user filter and the third data-quality priority.
+Lever and Ashby now supply structured workplace flags, while Greenhouse and
+aggregators require guarded text rules; the analyzer unifies both into one
+versioned, recomputable contract. "Anywhere" style worldwide claims are guarded
+against scoped places ("anywhere in the US"), and bare hyphenless "hybrid" is
+ignored to avoid hybrid-cloud false positives.
+
+### Rejected
+
+Country-level eligibility, timezone constraints, and visa requirements remain
+future revisions: current feeds rarely expose them reliably and conservative
+region buckets avoid fabricating precision. Dashboard/API exposure is postponed
+until the analyzer accumulates real-dataset validation.
+
+### Consequences
+
+First live pass over 5,548 postings classified 4,780 (86.2%):
+3,165 remote, 287 onsite, 125 hybrid arrangements; regions: North America 3,065,
+worldwide 808, Europe 772, Asia Pacific 327, Latin America 67. Region counts are
+multi-label and must not be presented as exclusive partitions.

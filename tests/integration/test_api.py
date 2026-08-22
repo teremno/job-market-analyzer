@@ -123,7 +123,7 @@ def test_startup_rejects_legacy_schema_without_migrating(tmp_path: Path) -> None
         )
     before = database_path.read_bytes()
 
-    with pytest.raises(DatabaseConfigurationError, match="version 4 is required"):
+    with pytest.raises(DatabaseConfigurationError, match="version 5 is required"):
         create_app(database_path)
 
     assert database_path.read_bytes() == before
@@ -136,7 +136,7 @@ def test_health_openapi_request_id_and_local_cors(api_client: TestClient) -> Non
     )
 
     assert response.status_code == 200
-    assert response.json() == {"status": "ok", "schema_version": 4}
+    assert response.json() == {"status": "ok", "schema_version": 5}
     assert response.headers["access-control-allow-origin"] == "http://localhost:3000"
     assert response.headers["x-request-id"]
     assert api_client.get("/openapi.json").status_code == 200

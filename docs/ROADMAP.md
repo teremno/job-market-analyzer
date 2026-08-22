@@ -119,6 +119,11 @@ flowchart LR
 - ⬜ Geography and remote-restriction normalization.
 - ⬜ Salary normalization with explicit disclosed, estimated, and derived provenance.
 - ⬜ Seniority detection.
+- ✅ Geography / work-arrangement v1: deterministic `geography/en` analyzer over
+  description, location, and structured remote flags; classifies
+  remote/hybrid/onsite arrangement plus multi-label region eligibility
+  (worldwide, Europe, North America, Latin America, Asia Pacific). Persisted as
+  versioned runs behind schema v5; dashboard exposure follows once validated.
 - ✅ Seniority detection v1: deterministic title-only experience-level analyzer
   (intern/junior/mid/senior/lead/staff/principal) persisted as versioned
   `seniority/en` runs behind schema v4; people-management words are deliberately not

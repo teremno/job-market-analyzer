@@ -13,7 +13,8 @@ SOURCE_TAGS_SCHEMA_VERSION = 1
 SKILL_INTELLIGENCE_SCHEMA_VERSION = 2
 ROLE_INTELLIGENCE_SCHEMA_VERSION = 3
 SENIORITY_INTELLIGENCE_SCHEMA_VERSION = 4
-CURRENT_SCHEMA_VERSION = SENIORITY_INTELLIGENCE_SCHEMA_VERSION
+GEOGRAPHY_INTELLIGENCE_SCHEMA_VERSION = 5
+CURRENT_SCHEMA_VERSION = GEOGRAPHY_INTELLIGENCE_SCHEMA_VERSION
 _SKILL_INTELLIGENCE_OBJECTS = frozenset(
     {
         "analysis_runs",
@@ -42,6 +43,15 @@ _SENIORITY_INTELLIGENCE_OBJECTS = frozenset(
         "seniority_levels",
         "trg_job_seniority_levels_kind",
         "trg_job_seniority_levels_kind_update",
+    }
+)
+_GEOGRAPHY_INTELLIGENCE_OBJECTS = frozenset(
+    {
+        "geography_terms",
+        "idx_job_geography_term_run",
+        "job_geography",
+        "trg_job_geography_terms_kind",
+        "trg_job_geography_terms_kind_update",
     }
 )
 
@@ -92,6 +102,15 @@ def load_seniority_intelligence_schema() -> str:
 
     schema_file = resources.files("job_market_analyzer.storage").joinpath(
         "seniority_intelligence_schema.sql"
+    )
+    return schema_file.read_text(encoding="utf-8")
+
+
+def load_geography_intelligence_schema() -> str:
+    """Load the additive SQLite schema for geography intelligence."""
+
+    schema_file = resources.files("job_market_analyzer.storage").joinpath(
+        "geography_intelligence_schema.sql"
     )
     return schema_file.read_text(encoding="utf-8")
 
@@ -164,14 +183,20 @@ def initialize_database(
         )
 
     if initial_version == CURRENT_SCHEMA_VERSION:
-        _validate_v4_schema(connection)
+        _validate_v5_schema(connection)
         return
 
-    if initial_version == ROLE_INTELLIGENCE_SCHEMA_VERSION:
+    if initial_version == SENIORITY_INTELLIGENCE_SCHEMA_VERSION:
+        _validate_v4_schema(connection)
+        _validate_no_partial_geography_schema(connection, initial_version)
+    elif initial_version == ROLE_INTELLIGENCE_SCHEMA_VERSION:
         _validate_v3_schema(connection)
     elif initial_version == SKILL_INTELLIGENCE_SCHEMA_VERSION:
         _validate_v2_schema(connection)
         _validate_no_partial_role_schema(connection, initial_version)
+        if _requires_role_intelligence_migration(connection):
+            _migrate_role_intelligence(connection)
+        _validate_v3_schema(connection)
     else:
         _validate_no_partial_intelligence_schema(connection, initial_version)
 
@@ -189,16 +214,19 @@ def initialize_database(
         if _requires_skill_intelligence_migration(connection):
             _migrate_skill_intelligence(connection)
         _validate_v2_schema(connection)
-
-    if _requires_role_intelligence_migration(connection):
-        _migrate_role_intelligence(connection)
-
-    _validate_v3_schema(connection)
+        if _requires_role_intelligence_migration(connection):
+            _migrate_role_intelligence(connection)
+        _validate_v3_schema(connection)
 
     if _requires_seniority_intelligence_migration(connection):
         _migrate_seniority_intelligence(connection)
 
     _validate_v4_schema(connection)
+
+    if _requires_geography_intelligence_migration(connection):
+        _migrate_geography_intelligence(connection)
+
+    _validate_v5_schema(connection)
 
 
 def _create_source_schema(connection: sqlite3.Connection) -> None:
@@ -222,6 +250,7 @@ def _validate_no_partial_intelligence_schema(
         _SKILL_INTELLIGENCE_OBJECTS
         | _ROLE_INTELLIGENCE_OBJECTS
         | _SENIORITY_INTELLIGENCE_OBJECTS
+        | _GEOGRAPHY_INTELLIGENCE_OBJECTS
     )
     if unexpected:
         names = ", ".join(sorted(unexpected))
@@ -243,6 +272,21 @@ def _validate_no_partial_role_schema(
         raise InconsistentDatabaseSchemaError(
             f"Database schema version {version} contains unexpected partial "
             f"role-intelligence objects: {names}"
+        )
+
+
+def _validate_no_partial_geography_schema(
+    connection: sqlite3.Connection,
+    version: int,
+) -> None:
+    unexpected = _schema_object_names(connection) & (
+        _GEOGRAPHY_INTELLIGENCE_OBJECTS
+    )
+    if unexpected:
+        names = ", ".join(sorted(unexpected))
+        raise InconsistentDatabaseSchemaError(
+            f"Database schema version {version} contains unexpected partial "
+            f"geography objects: {names}"
         )
 
 
@@ -377,6 +421,21 @@ def _validate_v4_schema(connection: sqlite3.Connection) -> None:
     _validate_intelligence_schema(connection, version=version)
     _validate_role_intelligence_schema(connection, version=version)
     _validate_seniority_intelligence_schema(connection, version=version)
+
+
+def _validate_v5_schema(connection: sqlite3.Connection) -> None:
+    version = _get_schema_version(connection)
+    if version != GEOGRAPHY_INTELLIGENCE_SCHEMA_VERSION:
+        raise InconsistentDatabaseSchemaError(
+            "Expected database schema version "
+            f"{GEOGRAPHY_INTELLIGENCE_SCHEMA_VERSION}, got {version}"
+        )
+
+    _validate_source_schema(connection, version=version)
+    _validate_intelligence_schema(connection, version=version)
+    _validate_role_intelligence_schema(connection, version=version)
+    _validate_seniority_intelligence_schema(connection, version=version)
+    _validate_geography_intelligence_schema(connection, version=version)
 
 
 def _validate_intelligence_schema(
@@ -766,6 +825,127 @@ def _validate_seniority_intelligence_schema(
     _require_no_foreign_key_violations(connection, version=version)
 
 
+def _validate_geography_intelligence_schema(
+    connection: sqlite3.Connection,
+    *,
+    version: int,
+) -> None:
+    expected_columns = {
+        "geography_terms": {"code", "display_name", "dimension"},
+        "job_geography": {
+            "analysis_run_id",
+            "geography_code",
+            "geography_name",
+            "dimension",
+            "evidence_field",
+            "matched_text",
+            "evidence_text",
+            "rule_id",
+            "match_kind",
+        },
+    }
+    _require_tables(connection, set(expected_columns), version=version)
+    for table_name, columns in expected_columns.items():
+        _require_columns(
+            connection,
+            table_name,
+            columns,
+            version=version,
+            require_not_null=True,
+        )
+
+    _require_primary_key(
+        connection,
+        "geography_terms",
+        ("code",),
+        version=version,
+    )
+    _require_table_sql_fragments(
+        connection,
+        "geography_terms",
+        (
+            "length(trim(code)) > 0",
+            "length(trim(display_name)) > 0",
+            "dimension in ('arrangement', 'region')",
+        ),
+        version=version,
+    )
+    _require_primary_key(
+        connection,
+        "job_geography",
+        ("analysis_run_id", "geography_code"),
+        version=version,
+    )
+    _require_foreign_key(
+        connection,
+        "job_geography",
+        from_column="analysis_run_id",
+        target_table="analysis_runs",
+        target_column="id",
+        on_delete="CASCADE",
+        version=version,
+    )
+    _require_foreign_key(
+        connection,
+        "job_geography",
+        from_column="geography_code",
+        target_table="geography_terms",
+        target_column="code",
+        on_delete="RESTRICT",
+        version=version,
+    )
+    _require_index_columns(
+        connection,
+        "idx_job_geography_term_run",
+        ("geography_code", "analysis_run_id"),
+        version=version,
+    )
+    _require_table_sql_fragments(
+        connection,
+        "job_geography",
+        (
+            "dimension in ('arrangement', 'region')",
+            "evidence_field in ('description', 'location', 'structured')",
+            "length(trim(geography_name)) > 0",
+            "length(trim(matched_text)) > 0",
+            "length(trim(evidence_text)) > 0",
+            "length(trim(rule_id)) > 0",
+            "match_kind in ('title_pattern', 'description_statement',"
+            " 'normalized_field')",
+        ),
+        version=version,
+    )
+    _require_trigger_sql_fragment(
+        connection,
+        "trg_job_geography_terms_kind",
+        (
+            "before insert on job_geography",
+            "where id = new.analysis_run_id",
+            "!= 'geography'",
+            "job_geography requires a geography analysis run",
+        ),
+        version=version,
+    )
+    _require_trigger_sql_fragment(
+        connection,
+        "trg_job_geography_terms_kind_update",
+        (
+            "before update of analysis_run_id on job_geography",
+            "where id = new.analysis_run_id",
+            "!= 'geography'",
+            "job_geography requires a geography analysis run",
+        ),
+        version=version,
+    )
+    _require_evidence_analyzer_kind(
+        connection,
+        evidence_table="job_geography",
+        expected_kind="geography",
+        version=version,
+    )
+    _require_no_foreign_key_violations(connection, version=version)
+
+
 def _table_names(connection: sqlite3.Connection) -> set[str]:
     return {
         row[0]
@@ -977,7 +1157,7 @@ def _require_evidence_analyzer_kind(
     expected_kind: str,
     version: int,
 ) -> None:
-    if evidence_table not in {"job_roles", "job_skills", "job_seniority"}:
+    if evidence_table not in {"job_roles", "job_skills", "job_seniority", "job_geography"}:
         raise ValueError(f"Unsupported evidence table: {evidence_table!r}")
     invalid = connection.execute(
         f"""
@@ -1318,6 +1498,36 @@ def _migrate_seniority_intelligence(connection: sqlite3.Connection) -> None:
         )
         connection.execute(
             f"PRAGMA user_version = {SENIORITY_INTELLIGENCE_SCHEMA_VERSION}"
+        )
+        connection.commit()
+    except Exception:
+        if connection.in_transaction:
+            connection.rollback()
+        raise
+
+
+def _requires_geography_intelligence_migration(
+    connection: sqlite3.Connection,
+) -> bool:
+    return _get_schema_version(connection) < GEOGRAPHY_INTELLIGENCE_SCHEMA_VERSION
+
+
+def _migrate_geography_intelligence(connection: sqlite3.Connection) -> None:
+    """Create geography-intelligence tables without backfilling postings."""
+
+    try:
+        connection.executescript(
+            f"""
+            BEGIN IMMEDIATE;
+            {load_geography_intelligence_schema()}
+            """
+        )
+        _validate_geography_intelligence_schema(
+            connection,
+            version=GEOGRAPHY_INTELLIGENCE_SCHEMA_VERSION,
+        )
+        connection.execute(
+            f"PRAGMA user_version = {GEOGRAPHY_INTELLIGENCE_SCHEMA_VERSION}"
         )
         connection.commit()
     except Exception:

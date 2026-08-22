@@ -48,10 +48,10 @@ cross-source canonical linking does not exist yet.
 
 `--language en` selects analyzer input capability. It does not set source language or
 CLI display language. Sources can contain English, Ukrainian, German, or mixed text.
-Current registrations are `skills/en`, `roles/en`, and `seniority/en`; `--language uk`
-is deliberately rejected before database creation and collection. Future Ukrainian
-support requires real implementations and registry entries for each kind, not a
-source mapping or an English fallback.
+Current registrations are `skills/en`, `roles/en`, `seniority/en`, and
+`geography/en`; `--language uk` is deliberately rejected before database creation and
+collection. Future Ukrainian support requires real implementations and registry
+entries for each kind, not a source mapping or an English fallback.
 
 ## Extension seams
 

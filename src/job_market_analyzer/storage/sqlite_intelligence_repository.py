@@ -11,6 +11,8 @@ from job_market_analyzer.intelligence.models import (
     SkillEvidence,
 )
 from job_market_analyzer.intelligence.repository import (
+    GeographyAnalysisKey,
+    GeographyAnalysisPersistResult,
     RoleAnalysisKey,
     RoleAnalysisPersistResult,
     SeniorityAnalysisKey,
@@ -23,6 +25,12 @@ from job_market_analyzer.intelligence.roles import (
     RoleEvidenceField,
     RoleMatchKind,
 )
+from job_market_analyzer.intelligence.geography import (
+    GEOGRAPHY_TERMS,
+    GeographyEvidence,
+    GeographyEvidenceField,
+    GeographyMatchKind,
+)
 from job_market_analyzer.intelligence.seniority import (
     SeniorityEvidence,
     SeniorityEvidenceField,
@@ -30,7 +38,13 @@ from job_market_analyzer.intelligence.seniority import (
 )
 from job_market_analyzer.storage.serialization import serialize_utc_datetime
 
-AnalysisKey = SkillAnalysisKey | RoleAnalysisKey | SeniorityAnalysisKey
+AnalysisKey = (
+    SkillAnalysisKey | RoleAnalysisKey | SeniorityAnalysisKey | GeographyAnalysisKey
+)
+
+_GEOGRAPHY_DIMENSIONS = {
+    term.code: term.dimension for term in GEOGRAPHY_TERMS
+}
 
 
 def _validate_connection(connection: sqlite3.Connection, repository_name: str) -> None:
@@ -536,6 +550,160 @@ class SQLiteSeniorityIntelligenceRepository:
                     str(analysis_run_id),
                     item.seniority_code,
                     item.seniority_name,
+                    item.evidence_field.value,
+                    item.matched_text,
+                    item.evidence_text,
+                    item.rule_id,
+                    item.match_kind.value,
+                )
+                for item in evidence
+            ),
+        )
+
+
+class SQLiteGeographyIntelligenceRepository:
+    """Persist geography-analysis runs using one caller-owned connection."""
+
+    def __init__(self, connection: sqlite3.Connection) -> None:
+        _validate_connection(connection, type(self).__name__)
+        self._connection = connection
+
+    def find_analysis_run_id(self, key: GeographyAnalysisKey) -> UUID | None:
+        """Return an identical run ID without changing database state."""
+
+        return _find_analysis_run_id(self._connection, key)
+
+    def persist_geography_analysis(
+        self,
+        key: GeographyAnalysisKey,
+        evidence: tuple[GeographyEvidence, ...],
+        *,
+        created_at: datetime,
+    ) -> GeographyAnalysisPersistResult:
+        """Persist a geography run and its evidence in one transaction."""
+
+        if self._connection.in_transaction:
+            raise RuntimeError(
+                "persist_geography_analysis requires a connection "
+                "without an active transaction"
+            )
+
+        self._connection.execute("BEGIN IMMEDIATE")
+        try:
+            analysis_run_id, analysis_created = _insert_analysis_run(
+                self._connection,
+                key,
+                created_at=created_at,
+            )
+            if not analysis_created:
+                result = GeographyAnalysisPersistResult(
+                    analysis_run_id=analysis_run_id,
+                    analysis_created=False,
+                    evidence_created=0,
+                )
+            else:
+                self._persist_evidence(analysis_run_id, evidence)
+                result = GeographyAnalysisPersistResult(
+                    analysis_run_id=analysis_run_id,
+                    analysis_created=True,
+                    evidence_created=len(evidence),
+                )
+            self._connection.commit()
+        except BaseException:
+            if self._connection.in_transaction:
+                self._connection.rollback()
+            raise
+        return result
+
+    def get_geography_evidence(
+        self,
+        analysis_run_id: UUID,
+    ) -> tuple[GeographyEvidence, ...]:
+        """Reconstruct stored geography evidence using label snapshots."""
+
+        rows = self._connection.execute(
+            """
+            SELECT
+                geography_code,
+                geography_name,
+                dimension,
+                evidence_field,
+                matched_text,
+                evidence_text,
+                rule_id,
+                match_kind
+            FROM job_geography
+            WHERE analysis_run_id = ?
+            ORDER BY geography_code, rule_id
+            """,
+            (str(analysis_run_id),),
+        ).fetchall()
+        return tuple(
+            GeographyEvidence(
+                geography_code=row["geography_code"],
+                geography_name=row["geography_name"],
+                dimension=row["dimension"],
+                evidence_field=GeographyEvidenceField(row["evidence_field"]),
+                matched_text=row["matched_text"],
+                evidence_text=row["evidence_text"],
+                rule_id=row["rule_id"],
+                match_kind=GeographyMatchKind(row["match_kind"]),
+            )
+            for row in rows
+        )
+
+    def _persist_evidence(
+        self,
+        analysis_run_id: UUID,
+        evidence: tuple[GeographyEvidence, ...],
+    ) -> None:
+        term_names: dict[str, str] = {}
+        for item in evidence:
+            previous_name = term_names.setdefault(
+                item.geography_code, item.geography_name
+            )
+            if previous_name != item.geography_name:
+                raise ValueError(
+                    "conflicting display names for geography code "
+                    f"{item.geography_code!r}"
+                )
+
+        self._connection.executemany(
+            """
+            INSERT INTO geography_terms (code, display_name, dimension)
+            VALUES (?, ?, ?)
+            ON CONFLICT (code) DO NOTHING
+            """,
+            (
+                (
+                    code,
+                    name,
+                    _GEOGRAPHY_DIMENSIONS[code],
+                )
+                for code, name in term_names.items()
+            ),
+        )
+        self._connection.executemany(
+            """
+            INSERT INTO job_geography (
+                analysis_run_id,
+                geography_code,
+                geography_name,
+                dimension,
+                evidence_field,
+                matched_text,
+                evidence_text,
+                rule_id,
+                match_kind
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                (
+                    str(analysis_run_id),
+                    item.geography_code,
+                    item.geography_name,
+                    item.dimension,
                     item.evidence_field.value,
                     item.matched_text,
                     item.evidence_text,

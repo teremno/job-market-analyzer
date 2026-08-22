@@ -7,11 +7,13 @@ from uuid import UUID
 
 from job_market_analyzer.intelligence.models import SkillEvidence
 from job_market_analyzer.intelligence.roles import RoleEvidence
+from job_market_analyzer.intelligence.geography import GeographyEvidence
 from job_market_analyzer.intelligence.seniority import SeniorityEvidence
 
 SKILL_ANALYZER_KIND = "skills"
 ROLE_ANALYZER_KIND = "roles"
 SENIORITY_ANALYZER_KIND = "seniority"
+GEOGRAPHY_ANALYZER_KIND = "geography"
 
 
 @dataclass(frozen=True, slots=True)
@@ -179,5 +181,62 @@ class SeniorityIntelligenceRepository(Protocol):
         analysis_run_id: UUID,
     ) -> tuple[SeniorityEvidence, ...]:
         """Read the deterministic seniority evidence for one analysis run."""
+
+        ...
+
+
+@dataclass(frozen=True, slots=True)
+class GeographyAnalysisKey:
+    """Identity of one reproducible geography-analysis execution."""
+
+    job_posting_id: UUID
+    analyzer_kind: str
+    taxonomy_version: str
+    extractor_version: str
+    input_hash: str
+
+    def __post_init__(self) -> None:
+        """Reject non-geography analyzer identities at the geography boundary."""
+
+        if self.analyzer_kind != GEOGRAPHY_ANALYZER_KIND:
+            raise ValueError(
+                f"GeographyAnalysisKey requires analyzer_kind="
+                f"{GEOGRAPHY_ANALYZER_KIND!r}"
+            )
+
+
+@dataclass(frozen=True, slots=True)
+class GeographyAnalysisPersistResult:
+    """Result of atomically persisting one geography-analysis execution."""
+
+    analysis_run_id: UUID
+    analysis_created: bool
+    evidence_created: int
+
+
+class GeographyIntelligenceRepository(Protocol):
+    """Persistence boundary used by deterministic geography-analysis services."""
+
+    def find_analysis_run_id(self, key: GeographyAnalysisKey) -> UUID | None:
+        """Return the identical persisted run, if one already exists."""
+
+        ...
+
+    def persist_geography_analysis(
+        self,
+        key: GeographyAnalysisKey,
+        evidence: tuple[GeographyEvidence, ...],
+        *,
+        created_at: datetime,
+    ) -> GeographyAnalysisPersistResult:
+        """Persist one run and all geography evidence atomically."""
+
+        ...
+
+    def get_geography_evidence(
+        self,
+        analysis_run_id: UUID,
+    ) -> tuple[GeographyEvidence, ...]:
+        """Read the deterministic geography evidence for one analysis run."""
 
         ...

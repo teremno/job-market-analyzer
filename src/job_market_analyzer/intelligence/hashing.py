@@ -71,3 +71,26 @@ def calculate_seniority_input_hash(title: str) -> str:
         separators=(",", ":"),
     )
     return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
+
+
+def calculate_geography_input_hash(
+    description_text: str | None,
+    *,
+    location_text: str | None,
+    is_remote: bool | None,
+) -> str:
+    """Hash only the normalized fields consumed by ``extract_geography``."""
+
+    analyzer_input = {
+        "description_text": _normalize_optional_description(description_text),
+        "is_remote": is_remote,
+        "location_text": _normalize_optional_description(location_text),
+    }
+    serialized = json.dumps(
+        analyzer_input,
+        ensure_ascii=False,
+        allow_nan=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
