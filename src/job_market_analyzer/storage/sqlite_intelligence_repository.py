@@ -13,6 +13,8 @@ from job_market_analyzer.intelligence.models import (
 from job_market_analyzer.intelligence.repository import (
     RoleAnalysisKey,
     RoleAnalysisPersistResult,
+    SeniorityAnalysisKey,
+    SeniorityAnalysisPersistResult,
     SkillAnalysisKey,
     SkillAnalysisPersistResult,
 )
@@ -21,9 +23,14 @@ from job_market_analyzer.intelligence.roles import (
     RoleEvidenceField,
     RoleMatchKind,
 )
+from job_market_analyzer.intelligence.seniority import (
+    SeniorityEvidence,
+    SeniorityEvidenceField,
+    SeniorityMatchKind,
+)
 from job_market_analyzer.storage.serialization import serialize_utc_datetime
 
-AnalysisKey = SkillAnalysisKey | RoleAnalysisKey
+AnalysisKey = SkillAnalysisKey | RoleAnalysisKey | SeniorityAnalysisKey
 
 
 def _validate_connection(connection: sqlite3.Connection, repository_name: str) -> None:
@@ -386,6 +393,149 @@ class SQLiteRoleIntelligenceRepository:
                     str(analysis_run_id),
                     item.role_code,
                     item.role_name,
+                    item.evidence_field.value,
+                    item.matched_text,
+                    item.evidence_text,
+                    item.rule_id,
+                    item.match_kind.value,
+                )
+                for item in evidence
+            ),
+        )
+
+
+class SQLiteSeniorityIntelligenceRepository:
+    """Persist seniority-analysis runs using one caller-owned connection."""
+
+    def __init__(self, connection: sqlite3.Connection) -> None:
+        _validate_connection(connection, type(self).__name__)
+        self._connection = connection
+
+    def find_analysis_run_id(self, key: SeniorityAnalysisKey) -> UUID | None:
+        """Return an identical run ID without changing database state."""
+
+        return _find_analysis_run_id(self._connection, key)
+
+    def persist_seniority_analysis(
+        self,
+        key: SeniorityAnalysisKey,
+        evidence: tuple[SeniorityEvidence, ...],
+        *,
+        created_at: datetime,
+    ) -> SeniorityAnalysisPersistResult:
+        """Persist a seniority run and its evidence in one transaction."""
+
+        if self._connection.in_transaction:
+            raise RuntimeError(
+                "persist_seniority_analysis requires a connection "
+                "without an active transaction"
+            )
+
+        self._connection.execute("BEGIN IMMEDIATE")
+        try:
+            analysis_run_id, analysis_created = _insert_analysis_run(
+                self._connection,
+                key,
+                created_at=created_at,
+            )
+            if not analysis_created:
+                result = SeniorityAnalysisPersistResult(
+                    analysis_run_id=analysis_run_id,
+                    analysis_created=False,
+                    evidence_created=0,
+                )
+            else:
+                self._persist_evidence(analysis_run_id, evidence)
+                result = SeniorityAnalysisPersistResult(
+                    analysis_run_id=analysis_run_id,
+                    analysis_created=True,
+                    evidence_created=len(evidence),
+                )
+            self._connection.commit()
+        except BaseException:
+            if self._connection.in_transaction:
+                self._connection.rollback()
+            raise
+        return result
+
+    def get_seniority_evidence(
+        self,
+        analysis_run_id: UUID,
+    ) -> tuple[SeniorityEvidence, ...]:
+        """Reconstruct stored seniority evidence using label snapshots."""
+
+        rows = self._connection.execute(
+            """
+            SELECT
+                seniority_code,
+                seniority_name,
+                evidence_field,
+                matched_text,
+                evidence_text,
+                rule_id,
+                match_kind
+            FROM job_seniority
+            WHERE analysis_run_id = ?
+            ORDER BY seniority_code, rule_id
+            """,
+            (str(analysis_run_id),),
+        ).fetchall()
+        return tuple(
+            SeniorityEvidence(
+                seniority_code=row["seniority_code"],
+                seniority_name=row["seniority_name"],
+                evidence_field=SeniorityEvidenceField(row["evidence_field"]),
+                matched_text=row["matched_text"],
+                evidence_text=row["evidence_text"],
+                rule_id=row["rule_id"],
+                match_kind=SeniorityMatchKind(row["match_kind"]),
+            )
+            for row in rows
+        )
+
+    def _persist_evidence(
+        self,
+        analysis_run_id: UUID,
+        evidence: tuple[SeniorityEvidence, ...],
+    ) -> None:
+        level_names: dict[str, str] = {}
+        for item in evidence:
+            previous_name = level_names.setdefault(
+                item.seniority_code, item.seniority_name
+            )
+            if previous_name != item.seniority_name:
+                raise ValueError(
+                    "conflicting display names for seniority code "
+                    f"{item.seniority_code!r}"
+                )
+
+        self._connection.executemany(
+            """
+            INSERT INTO seniority_levels (code, display_name)
+            VALUES (?, ?)
+            ON CONFLICT (code) DO NOTHING
+            """,
+            level_names.items(),
+        )
+        self._connection.executemany(
+            """
+            INSERT INTO job_seniority (
+                analysis_run_id,
+                seniority_code,
+                seniority_name,
+                evidence_field,
+                matched_text,
+                evidence_text,
+                rule_id,
+                match_kind
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                (
+                    str(analysis_run_id),
+                    item.seniority_code,
+                    item.seniority_name,
                     item.evidence_field.value,
                     item.matched_text,
                     item.evidence_text,

@@ -54,3 +54,20 @@ def calculate_role_input_hash(
         separators=(",", ":"),
     )
     return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
+
+
+def calculate_seniority_input_hash(title: str) -> str:
+    """Hash only the normalized field consumed by ``extract_seniority``.
+
+    Seniority v1 is a title-only analyzer; description changes intentionally
+    do not create new seniority runs.
+    """
+
+    serialized = json.dumps(
+        {"title": title},
+        ensure_ascii=False,
+        allow_nan=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    return hashlib.sha256(serialized.encode("utf-8")).hexdigest()

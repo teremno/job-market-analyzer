@@ -32,6 +32,7 @@ from job_market_analyzer.collectors.we_work_remotely import (
     WeWorkRemotelyCollector,
 )
 from job_market_analyzer.intelligence.roles import ROLE_TAXONOMY_VERSION
+from job_market_analyzer.intelligence.seniority import SENIORITY_TAXONOMY_VERSION
 from job_market_analyzer.intelligence.skills import SKILL_TAXONOMY_VERSION
 from job_market_analyzer.normalization.greenhouse import normalize_greenhouse_job
 from job_market_analyzer.normalization.himalayas import normalize_himalayas_job
@@ -43,6 +44,7 @@ from job_market_analyzer.normalization.we_work_remotely import (
     normalize_we_work_remotely_job,
 )
 from job_market_analyzer.services.role_smoke import run_role_smoke
+from job_market_analyzer.services.seniority_smoke import run_seniority_smoke
 from job_market_analyzer.services.skill_smoke import run_skill_smoke
 from job_market_analyzer.services.update import (
     AnalyzerAdapter,
@@ -51,6 +53,7 @@ from job_market_analyzer.services.update import (
 )
 from job_market_analyzer.storage.sqlite_intelligence_repository import (
     SQLiteRoleIntelligenceRepository,
+    SQLiteSeniorityIntelligenceRepository,
     SQLiteSkillIntelligenceRepository,
 )
 from job_market_analyzer.storage.sqlite_repository import SQLiteJobRepository
@@ -138,6 +141,23 @@ def _run_roles(
     )
 
 
+def _run_seniority(
+    connection: sqlite3.Connection,
+    limit: int,
+) -> AnalyzerExecutionSummary:
+    summary = run_seniority_smoke(
+        SQLiteJobRepository(connection),
+        SQLiteSeniorityIntelligenceRepository(connection),
+        limit=limit,
+        sample_limit=0,
+    )
+    return AnalyzerExecutionSummary(
+        postings_considered=summary.postings_considered,
+        runs_created=summary.new_analysis_runs,
+        runs_reused=summary.existing_analysis_runs_reused,
+    )
+
+
 ANALYZER_REGISTRY: tuple[AnalyzerAdapter, ...] = (
     AnalyzerAdapter(
         kind="skills",
@@ -152,5 +172,12 @@ ANALYZER_REGISTRY: tuple[AnalyzerAdapter, ...] = (
         language="en",
         version=ROLE_TAXONOMY_VERSION,
         runner=_run_roles,
+    ),
+    AnalyzerAdapter(
+        kind="seniority",
+        display_name="Seniority",
+        language="en",
+        version=SENIORITY_TAXONOMY_VERSION,
+        runner=_run_seniority,
     ),
 )

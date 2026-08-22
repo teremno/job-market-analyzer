@@ -105,10 +105,18 @@ def test_valid_v2_migrates_without_backfill_and_preserves_everything() -> None:
         initialize_database(connection)
         initialize_database(connection)
 
-        assert connection.execute("PRAGMA user_version").fetchone()[0] == 3
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == 4
         assert snapshot(connection) == before
         assert connection.execute("SELECT COUNT(*) FROM roles").fetchone()[0] == 0
         assert connection.execute("SELECT COUNT(*) FROM job_roles").fetchone()[0] == 0
+        # The additive seniority migration creates its structures without
+        # touching role or source rows.
+        assert connection.execute(
+            "SELECT COUNT(*) FROM seniority_levels"
+        ).fetchone()[0] == 0
+        assert connection.execute(
+            "SELECT COUNT(*) FROM job_seniority"
+        ).fetchone()[0] == 0
         assert connection.execute("PRAGMA foreign_key_check").fetchall() == []
         assert connection.execute(
             "SELECT id FROM analysis_runs WHERE id = ?", (ids["run"],)

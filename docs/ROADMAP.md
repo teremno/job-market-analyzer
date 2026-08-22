@@ -115,6 +115,10 @@ flowchart LR
 - ⬜ Geography and remote-restriction normalization.
 - ⬜ Salary normalization with explicit disclosed, estimated, and derived provenance.
 - ⬜ Seniority detection.
+- ✅ Seniority detection v1: deterministic title-only experience-level analyzer
+  (intern/junior/mid/senior/lead/staff/principal) persisted as versioned
+  `seniority/en` runs behind schema v4; people-management words are deliberately not
+  seniority evidence. Analytics exposure follows later once validated.
 - ✅ Vacancy lifecycle and historical state: freshness-based active/stale boundary is
   implemented at the analytics layer (see Job Lifecycle v1 above); richer
   source-aware states remain future work.

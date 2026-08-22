@@ -12,7 +12,8 @@ DatabasePath = str | Path
 SOURCE_TAGS_SCHEMA_VERSION = 1
 SKILL_INTELLIGENCE_SCHEMA_VERSION = 2
 ROLE_INTELLIGENCE_SCHEMA_VERSION = 3
-CURRENT_SCHEMA_VERSION = ROLE_INTELLIGENCE_SCHEMA_VERSION
+SENIORITY_INTELLIGENCE_SCHEMA_VERSION = 4
+CURRENT_SCHEMA_VERSION = SENIORITY_INTELLIGENCE_SCHEMA_VERSION
 _SKILL_INTELLIGENCE_OBJECTS = frozenset(
     {
         "analysis_runs",
@@ -32,6 +33,15 @@ _ROLE_INTELLIGENCE_OBJECTS = frozenset(
         "trg_job_roles_roles_kind_update",
         "trg_job_skills_skills_kind",
         "trg_job_skills_skills_kind_update",
+    }
+)
+_SENIORITY_INTELLIGENCE_OBJECTS = frozenset(
+    {
+        "idx_job_seniority_level_run",
+        "job_seniority",
+        "seniority_levels",
+        "trg_job_seniority_levels_kind",
+        "trg_job_seniority_levels_kind_update",
     }
 )
 
@@ -73,6 +83,15 @@ def load_role_intelligence_schema() -> str:
 
     schema_file = resources.files("job_market_analyzer.storage").joinpath(
         "role_intelligence_schema.sql"
+    )
+    return schema_file.read_text(encoding="utf-8")
+
+
+def load_seniority_intelligence_schema() -> str:
+    """Load the additive SQLite schema for seniority intelligence."""
+
+    schema_file = resources.files("job_market_analyzer.storage").joinpath(
+        "seniority_intelligence_schema.sql"
     )
     return schema_file.read_text(encoding="utf-8")
 
@@ -145,10 +164,12 @@ def initialize_database(
         )
 
     if initial_version == CURRENT_SCHEMA_VERSION:
-        _validate_v3_schema(connection)
+        _validate_v4_schema(connection)
         return
 
-    if initial_version == SKILL_INTELLIGENCE_SCHEMA_VERSION:
+    if initial_version == ROLE_INTELLIGENCE_SCHEMA_VERSION:
+        _validate_v3_schema(connection)
+    elif initial_version == SKILL_INTELLIGENCE_SCHEMA_VERSION:
         _validate_v2_schema(connection)
         _validate_no_partial_role_schema(connection, initial_version)
     else:
@@ -174,6 +195,11 @@ def initialize_database(
 
     _validate_v3_schema(connection)
 
+    if _requires_seniority_intelligence_migration(connection):
+        _migrate_seniority_intelligence(connection)
+
+    _validate_v4_schema(connection)
+
 
 def _create_source_schema(connection: sqlite3.Connection) -> None:
     try:
@@ -193,7 +219,9 @@ def _validate_no_partial_intelligence_schema(
     version: int,
 ) -> None:
     unexpected = _schema_object_names(connection) & (
-        _SKILL_INTELLIGENCE_OBJECTS | _ROLE_INTELLIGENCE_OBJECTS
+        _SKILL_INTELLIGENCE_OBJECTS
+        | _ROLE_INTELLIGENCE_OBJECTS
+        | _SENIORITY_INTELLIGENCE_OBJECTS
     )
     if unexpected:
         names = ", ".join(sorted(unexpected))
@@ -207,7 +235,9 @@ def _validate_no_partial_role_schema(
     connection: sqlite3.Connection,
     version: int,
 ) -> None:
-    unexpected = _schema_object_names(connection) & _ROLE_INTELLIGENCE_OBJECTS
+    unexpected = _schema_object_names(connection) & (
+        _ROLE_INTELLIGENCE_OBJECTS | _SENIORITY_INTELLIGENCE_OBJECTS
+    )
     if unexpected:
         names = ", ".join(sorted(unexpected))
         raise InconsistentDatabaseSchemaError(
@@ -333,6 +363,20 @@ def _validate_v3_schema(connection: sqlite3.Connection) -> None:
     _validate_source_schema(connection, version=version)
     _validate_intelligence_schema(connection, version=version)
     _validate_role_intelligence_schema(connection, version=version)
+
+
+def _validate_v4_schema(connection: sqlite3.Connection) -> None:
+    version = _get_schema_version(connection)
+    if version != SENIORITY_INTELLIGENCE_SCHEMA_VERSION:
+        raise InconsistentDatabaseSchemaError(
+            "Expected database schema version "
+            f"{SENIORITY_INTELLIGENCE_SCHEMA_VERSION}, got {version}"
+        )
+
+    _validate_source_schema(connection, version=version)
+    _validate_intelligence_schema(connection, version=version)
+    _validate_role_intelligence_schema(connection, version=version)
+    _validate_seniority_intelligence_schema(connection, version=version)
 
 
 def _validate_intelligence_schema(
@@ -605,6 +649,123 @@ def _validate_role_intelligence_schema(
     _require_no_foreign_key_violations(connection, version=version)
 
 
+def _validate_seniority_intelligence_schema(
+    connection: sqlite3.Connection,
+    *,
+    version: int,
+) -> None:
+    expected_columns = {
+        "seniority_levels": {"code", "display_name"},
+        "job_seniority": {
+            "analysis_run_id",
+            "seniority_code",
+            "seniority_name",
+            "evidence_field",
+            "matched_text",
+            "evidence_text",
+            "rule_id",
+            "match_kind",
+        },
+    }
+    _require_tables(connection, set(expected_columns), version=version)
+    for table_name, columns in expected_columns.items():
+        _require_columns(
+            connection,
+            table_name,
+            columns,
+            version=version,
+            require_not_null=True,
+        )
+
+    _require_primary_key(
+        connection,
+        "seniority_levels",
+        ("code",),
+        version=version,
+    )
+    _require_table_sql_fragments(
+        connection,
+        "seniority_levels",
+        (
+            "length(trim(code)) > 0",
+            "length(trim(display_name)) > 0",
+        ),
+        version=version,
+    )
+    _require_primary_key(
+        connection,
+        "job_seniority",
+        ("analysis_run_id", "seniority_code"),
+        version=version,
+    )
+    _require_foreign_key(
+        connection,
+        "job_seniority",
+        from_column="analysis_run_id",
+        target_table="analysis_runs",
+        target_column="id",
+        on_delete="CASCADE",
+        version=version,
+    )
+    _require_foreign_key(
+        connection,
+        "job_seniority",
+        from_column="seniority_code",
+        target_table="seniority_levels",
+        target_column="code",
+        on_delete="RESTRICT",
+        version=version,
+    )
+    _require_index_columns(
+        connection,
+        "idx_job_seniority_level_run",
+        ("seniority_code", "analysis_run_id"),
+        version=version,
+    )
+    _require_table_sql_fragments(
+        connection,
+        "job_seniority",
+        (
+            "evidence_field in ('title', 'description')",
+            "length(trim(seniority_name)) > 0",
+            "length(trim(matched_text)) > 0",
+            "length(trim(evidence_text)) > 0",
+            "length(trim(rule_id)) > 0",
+            "match_kind in ('title_pattern', 'description_statement')",
+        ),
+        version=version,
+    )
+    _require_trigger_sql_fragment(
+        connection,
+        "trg_job_seniority_levels_kind",
+        (
+            "before insert on job_seniority",
+            "where id = new.analysis_run_id",
+            "!= 'seniority'",
+            "job_seniority requires a seniority analysis run",
+        ),
+        version=version,
+    )
+    _require_trigger_sql_fragment(
+        connection,
+        "trg_job_seniority_levels_kind_update",
+        (
+            "before update of analysis_run_id on job_seniority",
+            "where id = new.analysis_run_id",
+            "!= 'seniority'",
+            "job_seniority requires a seniority analysis run",
+        ),
+        version=version,
+    )
+    _require_evidence_analyzer_kind(
+        connection,
+        evidence_table="job_seniority",
+        expected_kind="seniority",
+        version=version,
+    )
+    _require_no_foreign_key_violations(connection, version=version)
+
+
 def _table_names(connection: sqlite3.Connection) -> set[str]:
     return {
         row[0]
@@ -816,7 +977,7 @@ def _require_evidence_analyzer_kind(
     expected_kind: str,
     version: int,
 ) -> None:
-    if evidence_table not in {"job_roles", "job_skills"}:
+    if evidence_table not in {"job_roles", "job_skills", "job_seniority"}:
         raise ValueError(f"Unsupported evidence table: {evidence_table!r}")
     invalid = connection.execute(
         f"""
@@ -1127,6 +1288,36 @@ def _migrate_role_intelligence(connection: sqlite3.Connection) -> None:
         )
         connection.execute(
             f"PRAGMA user_version = {ROLE_INTELLIGENCE_SCHEMA_VERSION}"
+        )
+        connection.commit()
+    except Exception:
+        if connection.in_transaction:
+            connection.rollback()
+        raise
+
+
+def _requires_seniority_intelligence_migration(
+    connection: sqlite3.Connection,
+) -> bool:
+    return _get_schema_version(connection) < SENIORITY_INTELLIGENCE_SCHEMA_VERSION
+
+
+def _migrate_seniority_intelligence(connection: sqlite3.Connection) -> None:
+    """Create seniority-intelligence tables without backfilling postings."""
+
+    try:
+        connection.executescript(
+            f"""
+            BEGIN IMMEDIATE;
+            {load_seniority_intelligence_schema()}
+            """
+        )
+        _validate_seniority_intelligence_schema(
+            connection,
+            version=SENIORITY_INTELLIGENCE_SCHEMA_VERSION,
+        )
+        connection.execute(
+            f"PRAGMA user_version = {SENIORITY_INTELLIGENCE_SCHEMA_VERSION}"
         )
         connection.commit()
     except Exception:

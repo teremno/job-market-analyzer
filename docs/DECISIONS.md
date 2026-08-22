@@ -836,3 +836,47 @@ Measured posting-level coverage on the live dataset rose from 32.9% to 45.6%
 reflecting the previously invisible commercial side of the market. This is a
 bounded validation measurement, not complete market analytics; cross-source
 canonical deduplication still does not exist.
+
+---
+
+## ADR-022: Seniority v1 is a title-only, experience-axis analyzer
+
+Date: 2026-08-22
+
+Status: Accepted and committed.
+
+### Decision
+
+Add Seniority Classification V1 as the third deterministic intelligence
+boundary, registered as `seniority/en` in the analyzer registry. It consumes
+only `title`, applies a versioned seven-level experience taxonomy (intern,
+junior, mid, senior, lead, staff, principal), and returns at most one evidence
+record using highest-rank precedence. Zero evidence is Unknown. Persistence
+reuses the generic `analysis_runs` identity with dedicated input hash over
+`title` only; schema v4 additively adds `seniority_levels` and `job_seniority`
+with analyzer-kind triggers, no backfill.
+
+### Reason
+
+After Role Taxonomy v2, the remaining Unknown population is dominated by
+explicit experience markers (senior/staff/principal) that are orthogonal to
+functional roles. Seniority was also the top-priority data-quality capability
+in the handoff. Restricting v1 to title-only keeps the input hash stable under
+description edits, since experience signals live in titles in practice.
+
+### Rejected
+
+People-management levels (manager, director, head of, VP) are deliberately not
+seniority evidence in v1 because functional titles such as Product Manager or
+Community Manager would produce false people-management classifications.
+Bare "lead" is accepted only with engineering context for the same reason.
+Generic engineering titles without experience signals remain Unknown.
+Dashboard/API exposure is postponed until the analyzer accumulates real-dataset
+validation, per the analyzer onboarding checklist.
+
+### Consequences
+
+First live pass over 2,871 postings classified 1,022 (35.6%): senior 781,
+staff 151, principal 47, junior 22, intern 17, lead 4. The low junior/mid/lead
+counts reflect conservative rules rather than market absence; future taxonomy
+revisions may add guarded patterns with explicit version bumps.
