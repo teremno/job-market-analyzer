@@ -15,6 +15,8 @@ from job_market_analyzer.intelligence.repository import (
     GeographyAnalysisPersistResult,
     RoleAnalysisKey,
     RoleAnalysisPersistResult,
+    SalaryAnalysisKey,
+    SalaryAnalysisPersistResult,
     SeniorityAnalysisKey,
     SeniorityAnalysisPersistResult,
     SkillAnalysisKey,
@@ -25,6 +27,7 @@ from job_market_analyzer.intelligence.roles import (
     RoleEvidenceField,
     RoleMatchKind,
 )
+from job_market_analyzer.intelligence.salaries import SalaryEstimate
 from job_market_analyzer.intelligence.geography import (
     GEOGRAPHY_TERMS,
     GeographyEvidence,
@@ -39,7 +42,11 @@ from job_market_analyzer.intelligence.seniority import (
 from job_market_analyzer.storage.serialization import serialize_utc_datetime
 
 AnalysisKey = (
-    SkillAnalysisKey | RoleAnalysisKey | SeniorityAnalysisKey | GeographyAnalysisKey
+    SkillAnalysisKey
+    | RoleAnalysisKey
+    | SeniorityAnalysisKey
+    | GeographyAnalysisKey
+    | SalaryAnalysisKey
 )
 
 _GEOGRAPHY_DIMENSIONS = {
@@ -711,5 +718,125 @@ class SQLiteGeographyIntelligenceRepository:
                     item.match_kind.value,
                 )
                 for item in evidence
+            ),
+        )
+
+
+class SQLiteSalaryIntelligenceRepository:
+    """Persist salary-analysis runs using one caller-owned connection."""
+
+    def __init__(self, connection: sqlite3.Connection) -> None:
+        _validate_connection(connection, type(self).__name__)
+        self._connection = connection
+
+    def find_analysis_run_id(self, key: SalaryAnalysisKey) -> UUID | None:
+        """Return an identical run ID without changing database state."""
+
+        return _find_analysis_run_id(self._connection, key)
+
+    def persist_salary_analysis(
+        self,
+        key: SalaryAnalysisKey,
+        estimate: SalaryEstimate | None,
+        *,
+        created_at: datetime,
+    ) -> SalaryAnalysisPersistResult:
+        """Persist a salary run and its single estimate in one transaction."""
+
+        if self._connection.in_transaction:
+            raise RuntimeError(
+                "persist_salary_analysis requires a connection "
+                "without an active transaction"
+            )
+
+        self._connection.execute("BEGIN IMMEDIATE")
+        try:
+            analysis_run_id, analysis_created = _insert_analysis_run(
+                self._connection,
+                key,
+                created_at=created_at,
+            )
+            if not analysis_created:
+                result = SalaryAnalysisPersistResult(
+                    analysis_run_id=analysis_run_id,
+                    analysis_created=False,
+                    estimate_created=False,
+                )
+            else:
+                if estimate is not None:
+                    self._insert_estimate(analysis_run_id, estimate)
+                result = SalaryAnalysisPersistResult(
+                    analysis_run_id=analysis_run_id,
+                    analysis_created=True,
+                    estimate_created=estimate is not None,
+                )
+            self._connection.commit()
+        except BaseException:
+            if self._connection.in_transaction:
+                self._connection.rollback()
+            raise
+        return result
+
+    def get_salary_estimate(
+        self,
+        analysis_run_id: UUID,
+    ) -> SalaryEstimate | None:
+        """Read the deterministic salary estimate stored for one run."""
+
+        row = self._connection.execute(
+            """
+            SELECT provenance, confidence, min_value, max_value, currency,
+                   period, annual_min, annual_max, annualized,
+                   matched_text, rule_id, evidence_field
+            FROM job_salaries
+            WHERE analysis_run_id = ?
+            """,
+            (str(analysis_run_id),),
+        ).fetchone()
+        if row is None:
+            return None
+        return SalaryEstimate(
+            provenance=row["provenance"],
+            confidence=row["confidence"],
+            min_value=row["min_value"],
+            max_value=row["max_value"],
+            currency=row["currency"],
+            period=row["period"],
+            annual_min=row["annual_min"],
+            annual_max=row["annual_max"],
+            annualized=bool(row["annualized"]),
+            matched_text=row["matched_text"],
+            rule_id=row["rule_id"],
+            evidence_field=row["evidence_field"],
+        )
+
+    def _insert_estimate(
+        self,
+        analysis_run_id: UUID,
+        estimate: SalaryEstimate,
+    ) -> None:
+        self._connection.execute(
+            """
+            INSERT INTO job_salaries (
+                analysis_run_id, provenance, confidence, min_value, max_value,
+                currency, period, annual_min, annual_max, annualized,
+                matched_text, rule_id, evidence_field
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                str(analysis_run_id),
+                estimate.provenance,
+                estimate.confidence,
+                estimate.min_value,
+                estimate.max_value,
+                estimate.currency,
+                estimate.period,
+                estimate.annual_min,
+                estimate.annual_max,
+                1 if estimate.annualized else 0,
+                estimate.matched_text,
+                estimate.rule_id,
+                estimate.evidence_field,
             ),
         )

@@ -94,3 +94,33 @@ def calculate_geography_input_hash(
         separators=(",", ":"),
     )
     return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
+
+
+def calculate_salary_input_hash(
+    salary_text: str | None,
+    *,
+    salary_min: str | None,
+    salary_max: str | None,
+    salary_currency: str | None,
+    salary_period: str | None,
+) -> str:
+    """Hash only the normalized fields consumed by ``extract_salary_estimate``."""
+
+    def clean(value: str | None) -> str | None:
+        return None if value is None or not value.strip() else value
+
+    analyzer_input = {
+        "salary_currency": clean(salary_currency),
+        "salary_max": clean(salary_max),
+        "salary_min": clean(salary_min),
+        "salary_period": clean(salary_period),
+        "salary_text": clean(salary_text),
+    }
+    serialized = json.dumps(
+        analyzer_input,
+        ensure_ascii=False,
+        allow_nan=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    return hashlib.sha256(serialized.encode("utf-8")).hexdigest()

@@ -41,6 +41,7 @@ from job_market_analyzer.collectors.we_work_remotely import (
 )
 from job_market_analyzer.intelligence.geography import GEOGRAPHY_TAXONOMY_VERSION
 from job_market_analyzer.intelligence.roles import ROLE_TAXONOMY_VERSION
+from job_market_analyzer.intelligence.salaries import SALARY_TAXONOMY_VERSION
 from job_market_analyzer.intelligence.seniority import SENIORITY_TAXONOMY_VERSION
 from job_market_analyzer.intelligence.skills import SKILL_TAXONOMY_VERSION
 from job_market_analyzer.normalization.ashby import normalize_ashby_job
@@ -56,6 +57,7 @@ from job_market_analyzer.normalization.we_work_remotely import (
 )
 from job_market_analyzer.services.geography_smoke import run_geography_smoke
 from job_market_analyzer.services.role_smoke import run_role_smoke
+from job_market_analyzer.services.salary_smoke import run_salary_smoke
 from job_market_analyzer.services.seniority_smoke import run_seniority_smoke
 from job_market_analyzer.services.skill_smoke import run_skill_smoke
 from job_market_analyzer.services.update import (
@@ -66,6 +68,7 @@ from job_market_analyzer.services.update import (
 from job_market_analyzer.storage.sqlite_intelligence_repository import (
     SQLiteGeographyIntelligenceRepository,
     SQLiteRoleIntelligenceRepository,
+    SQLiteSalaryIntelligenceRepository,
     SQLiteSeniorityIntelligenceRepository,
     SQLiteSkillIntelligenceRepository,
 )
@@ -200,6 +203,22 @@ def _run_geography(
     )
 
 
+def _run_salary(
+    connection: sqlite3.Connection,
+    limit: int,
+) -> AnalyzerExecutionSummary:
+    summary = run_salary_smoke(
+        SQLiteJobRepository(connection),
+        SQLiteSalaryIntelligenceRepository(connection),
+        limit=limit,
+    )
+    return AnalyzerExecutionSummary(
+        postings_considered=summary.postings_considered,
+        runs_created=summary.new_analysis_runs,
+        runs_reused=summary.existing_analysis_runs_reused,
+    )
+
+
 ANALYZER_REGISTRY: tuple[AnalyzerAdapter, ...] = (
     AnalyzerAdapter(
         kind="skills",
@@ -228,5 +247,12 @@ ANALYZER_REGISTRY: tuple[AnalyzerAdapter, ...] = (
         language="en",
         version=GEOGRAPHY_TAXONOMY_VERSION,
         runner=_run_geography,
+    ),
+    AnalyzerAdapter(
+        kind="salary",
+        display_name="Salary",
+        language="en",
+        version=SALARY_TAXONOMY_VERSION,
+        runner=_run_salary,
     ),
 )

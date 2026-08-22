@@ -925,3 +925,44 @@ First live pass over 5,548 postings classified 4,780 (86.2%):
 3,165 remote, 287 onsite, 125 hybrid arrangements; regions: North America 3,065,
 worldwide 808, Europe 772, Asia Pacific 327, Latin America 67. Region counts are
 multi-label and must not be presented as exclusive partitions.
+
+---
+
+## ADR-024: Salary v1 normalizes structured and text salaries conservatively
+
+Date: 2026-08-23
+
+Status: Accepted and committed.
+
+### Decision
+
+Add Salary Classification V1 as the fifth deterministic intelligence boundary,
+registered as `salary/en`. It consumes only the normalized salary fields
+(`salary_text`, `salary_min`, `salary_max`, `salary_currency`,
+`salary_period`) so unrelated posting edits do not invalidate runs. Two
+provenance paths exist: `structured` values pass through with `direct`
+confidence, and guarded text parsing (`parsed` confidence) handles common
+English formats including k-notation, ranges, "up to", currency symbols and
+ISO codes. Annual equivalents are derived only under a known period using
+explicit conventions (2080 hours, 260 days, 52 weeks, 12 months); unknown
+period stores bounds with null annual figures. Equity/token-only mentions
+produce no estimate; inverted ranges are rejected rather than swapped.
+Schema v6 additively adds `job_salaries` keyed by analysis run with
+analyzer-kind triggers and no backfill.
+
+### Reason
+
+Salary was the last top-priority data-quality dimension. The conservative
+guards implement the documented product honesty rules: no blind conversion
+without period context, no invented currencies, no silent range swaps.
+
+### Consequences
+
+The first live pass estimated 104 of 5,548 postings (92 structured, 12 text;
+94 USD, plus EUR/CAD/GBP/PLN). Coverage is thin because the large ATS sources
+do not publish compensation through these endpoints (the Ashby adapter
+deliberately requests without compensation fields); enabling Ashby
+compensation and mining Greenhouse description text are explicit future
+revisions requiring their own versioning decisions. Median annual minimums by
+currency are now computable but remain posting-level observations, not market
+certified statistics.

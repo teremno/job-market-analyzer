@@ -9,11 +9,13 @@ from job_market_analyzer.intelligence.models import SkillEvidence
 from job_market_analyzer.intelligence.roles import RoleEvidence
 from job_market_analyzer.intelligence.geography import GeographyEvidence
 from job_market_analyzer.intelligence.seniority import SeniorityEvidence
+from job_market_analyzer.intelligence.salaries import SalaryEstimate
 
 SKILL_ANALYZER_KIND = "skills"
 ROLE_ANALYZER_KIND = "roles"
 SENIORITY_ANALYZER_KIND = "seniority"
 GEOGRAPHY_ANALYZER_KIND = "geography"
+SALARY_ANALYZER_KIND = "salary"
 
 
 @dataclass(frozen=True, slots=True)
@@ -238,5 +240,61 @@ class GeographyIntelligenceRepository(Protocol):
         analysis_run_id: UUID,
     ) -> tuple[GeographyEvidence, ...]:
         """Read the deterministic geography evidence for one analysis run."""
+
+        ...
+
+
+@dataclass(frozen=True, slots=True)
+class SalaryAnalysisKey:
+    """Identity of one reproducible salary-analysis execution."""
+
+    job_posting_id: UUID
+    analyzer_kind: str
+    taxonomy_version: str
+    extractor_version: str
+    input_hash: str
+
+    def __post_init__(self) -> None:
+        """Reject non-salary analyzer identities at the salary boundary."""
+
+        if self.analyzer_kind != SALARY_ANALYZER_KIND:
+            raise ValueError(
+                f"SalaryAnalysisKey requires analyzer_kind={SALARY_ANALYZER_KIND!r}"
+            )
+
+
+@dataclass(frozen=True, slots=True)
+class SalaryAnalysisPersistResult:
+    """Result of atomically persisting one salary-analysis execution."""
+
+    analysis_run_id: UUID
+    analysis_created: bool
+    estimate_created: bool
+
+
+class SalaryIntelligenceRepository(Protocol):
+    """Persistence boundary used by the deterministic salary-analysis service."""
+
+    def find_analysis_run_id(self, key: SalaryAnalysisKey) -> UUID | None:
+        """Return the identical persisted run, if one already exists."""
+
+        ...
+
+    def persist_salary_analysis(
+        self,
+        key: SalaryAnalysisKey,
+        estimate: SalaryEstimate | None,
+        *,
+        created_at: datetime,
+    ) -> SalaryAnalysisPersistResult:
+        """Persist one run and its single estimate (or none) atomically."""
+
+        ...
+
+    def get_salary_estimate(
+        self,
+        analysis_run_id: UUID,
+    ) -> SalaryEstimate | None:
+        """Read the deterministic salary estimate stored for one analysis run."""
 
         ...

@@ -243,6 +243,8 @@ Seniority Classification V1 is the third deterministic intelligence boundary. It
 
 Geography Classification V1 is the fourth deterministic intelligence boundary. It consumes normalized `description_text`, `location_text`, and the structured `is_remote` flag (titles are excluded to keep runs stable under retitling) and classifies two independent dimensions: one work-arrangement term (`arrangement_remote`, `arrangement_hybrid`, `arrangement_onsite`) where a structured source flag is authoritative, plus multi-label region eligibility (`region_worldwide`, `region_europe`, `region_north_america`, `region_latin_america`, `region_asia_pacific`). Persistence uses schema v5's additive `geography_terms` and `job_geography` tables with analyzer-kind triggers. The analyzer is registered as `geography/en`; dashboard exposure follows validation.
 
+Salary Classification V1 is the fifth deterministic intelligence boundary. It consumes only normalized salary fields and produces at most one estimate per run with explicit provenance (`structured`/`text`) and confidence (`direct`/`parsed`). Annual equivalents are derived only under known periods using documented conventions, unknown periods store null annual figures, equity-only mentions produce no estimate, and inverted ranges are rejected. Persistence uses schema v6's additive `job_salaries` table keyed by analysis run with analyzer-kind triggers. The analyzer is registered as `salary/en`; dashboard exposure follows validation.
+
 Canonical analytics remove duplication only when multiple postings already share one `CanonicalJob`. Complete cross-source canonical linking is not implemented yet, so current data must not be described as fully deduplicated across sources.
 
 ## Engineering Principles

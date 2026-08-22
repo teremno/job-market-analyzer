@@ -201,7 +201,7 @@ def test_update_rejects_unsupported_language_before_database_or_collection(
     assert collector.calls == 0
     assert not database_path.exists()
     assert "Ukrainian intelligence extraction is not implemented yet" in captured.err
-    assert "geography, roles, seniority, skills" in captured.err
+    assert "geography, roles, salary, seniority, skills" in captured.err
 
 
 def test_update_rejects_unknown_source_as_argument_error(
@@ -383,4 +383,5 @@ def test_current_registries_have_exact_source_and_english_analyzer_capabilities(
         ("roles", "en"),
         ("seniority", "en"),
         ("geography", "en"),
+        ("salary", "en"),
     }

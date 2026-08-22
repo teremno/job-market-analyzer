@@ -41,7 +41,7 @@ This roadmap is directional. It describes meaningful product milestones, not a r
 | Seniority v1 (`seniority/en`) | ✅ | Title-only experience-axis analyzer persisted behind schema v4; live-validated on 2,871 postings |
 | Geography v1 (`geography/en`) | ✅ | Arrangement plus region eligibility behind schema v5; live pass classified 86.2% of 5,548 postings |
 | Unified personal-use dataset audit | ✅ | Real nine-source guided update run; findings recorded in `DATA_QUALITY_NOTES.md` |
-| Salary normalization | ⬜ | Next data-quality capability after lifecycle/seniority/geography |
+| Salary normalization v1 (`salary/en`) | ✅ | Deterministic structured/text salary normalization with provenance, confidence, and guarded annualization behind schema v6; live pass estimated 104 postings (salary data remains thin because ATS endpoints do not publish it) |
 | Deployment foundation (Docker, CI, hosted alpha) | ⬜ | Required before the public read-only website |
 
 ## Visual Direction
@@ -125,6 +125,10 @@ flowchart LR
 - ⬜ Geography and remote-restriction normalization.
 - ⬜ Salary normalization with explicit disclosed, estimated, and derived provenance.
 - ⬜ Seniority detection.
+- ✅ Salary normalization v1: deterministic `salary/en` analyzer over normalized
+  salary fields with structured/text provenance, direct/parsed confidence, and
+  annualization only under known periods (2080h/260d/52w/12m conventions).
+  Persisted behind schema v6; dashboard exposure follows validation.
 - ✅ Geography / work-arrangement v1: deterministic `geography/en` analyzer over
   description, location, and structured remote flags; classifies
   remote/hybrid/onsite arrangement plus multi-label region eligibility

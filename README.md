@@ -67,7 +67,7 @@ See [Product Vision](docs/PRODUCT_VISION.md) for long-term principles and [Produ
 ## Guided dataset update
 
 Run every enabled source, persist current observations, and then run the active
-English analyzers (skills, roles, seniority, geography) with one command:
+English analyzers (skills, roles, seniority, geography, salary) with one command:
 
 ```powershell
 job-market-analyzer update --database .\job-market.sqlite3

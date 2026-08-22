@@ -14,7 +14,8 @@ SKILL_INTELLIGENCE_SCHEMA_VERSION = 2
 ROLE_INTELLIGENCE_SCHEMA_VERSION = 3
 SENIORITY_INTELLIGENCE_SCHEMA_VERSION = 4
 GEOGRAPHY_INTELLIGENCE_SCHEMA_VERSION = 5
-CURRENT_SCHEMA_VERSION = GEOGRAPHY_INTELLIGENCE_SCHEMA_VERSION
+SALARY_INTELLIGENCE_SCHEMA_VERSION = 6
+CURRENT_SCHEMA_VERSION = SALARY_INTELLIGENCE_SCHEMA_VERSION
 _SKILL_INTELLIGENCE_OBJECTS = frozenset(
     {
         "analysis_runs",
@@ -52,6 +53,13 @@ _GEOGRAPHY_INTELLIGENCE_OBJECTS = frozenset(
         "job_geography",
         "trg_job_geography_terms_kind",
         "trg_job_geography_terms_kind_update",
+    }
+)
+_SALARY_INTELLIGENCE_OBJECTS = frozenset(
+    {
+        "job_salaries",
+        "trg_job_salaries_kind",
+        "trg_job_salaries_kind_update",
     }
 )
 
@@ -111,6 +119,15 @@ def load_geography_intelligence_schema() -> str:
 
     schema_file = resources.files("job_market_analyzer.storage").joinpath(
         "geography_intelligence_schema.sql"
+    )
+    return schema_file.read_text(encoding="utf-8")
+
+
+def load_salary_intelligence_schema() -> str:
+    """Load the additive SQLite schema for salary intelligence."""
+
+    schema_file = resources.files("job_market_analyzer.storage").joinpath(
+        "salary_intelligence_schema.sql"
     )
     return schema_file.read_text(encoding="utf-8")
 
@@ -183,10 +200,13 @@ def initialize_database(
         )
 
     if initial_version == CURRENT_SCHEMA_VERSION:
-        _validate_v5_schema(connection)
+        _validate_v6_schema(connection)
         return
 
-    if initial_version == SENIORITY_INTELLIGENCE_SCHEMA_VERSION:
+    if initial_version == GEOGRAPHY_INTELLIGENCE_SCHEMA_VERSION:
+        _validate_v5_schema(connection)
+        _validate_no_partial_salary_schema(connection, initial_version)
+    elif initial_version == SENIORITY_INTELLIGENCE_SCHEMA_VERSION:
         _validate_v4_schema(connection)
         _validate_no_partial_geography_schema(connection, initial_version)
     elif initial_version == ROLE_INTELLIGENCE_SCHEMA_VERSION:
@@ -218,15 +238,30 @@ def initialize_database(
             _migrate_role_intelligence(connection)
         _validate_v3_schema(connection)
 
-    if _requires_seniority_intelligence_migration(connection):
-        _migrate_seniority_intelligence(connection)
-
-    _validate_v4_schema(connection)
-
-    if _requires_geography_intelligence_migration(connection):
-        _migrate_geography_intelligence(connection)
-
-    _validate_v5_schema(connection)
+    # Progressive additive-intelligence ladder: each step migrates only from
+    # the previous version and validates only its own exact version.
+    intelligence_ladder = (
+        (
+            SENIORITY_INTELLIGENCE_SCHEMA_VERSION,
+            _migrate_seniority_intelligence,
+            _validate_v4_schema,
+        ),
+        (
+            GEOGRAPHY_INTELLIGENCE_SCHEMA_VERSION,
+            _migrate_geography_intelligence,
+            _validate_v5_schema,
+        ),
+        (
+            SALARY_INTELLIGENCE_SCHEMA_VERSION,
+            _migrate_salary_intelligence,
+            _validate_v6_schema,
+        ),
+    )
+    for target_version, migrate_step, validate_step in intelligence_ladder:
+        if _get_schema_version(connection) < target_version:
+            migrate_step(connection)
+        if _get_schema_version(connection) == target_version:
+            validate_step(connection)
 
 
 def _create_source_schema(connection: sqlite3.Connection) -> None:
@@ -251,6 +286,7 @@ def _validate_no_partial_intelligence_schema(
         | _ROLE_INTELLIGENCE_OBJECTS
         | _SENIORITY_INTELLIGENCE_OBJECTS
         | _GEOGRAPHY_INTELLIGENCE_OBJECTS
+        | _SALARY_INTELLIGENCE_OBJECTS
     )
     if unexpected:
         names = ", ".join(sorted(unexpected))
@@ -280,13 +316,26 @@ def _validate_no_partial_geography_schema(
     version: int,
 ) -> None:
     unexpected = _schema_object_names(connection) & (
-        _GEOGRAPHY_INTELLIGENCE_OBJECTS
+        _GEOGRAPHY_INTELLIGENCE_OBJECTS | _SALARY_INTELLIGENCE_OBJECTS
     )
     if unexpected:
         names = ", ".join(sorted(unexpected))
         raise InconsistentDatabaseSchemaError(
             f"Database schema version {version} contains unexpected partial "
             f"geography objects: {names}"
+        )
+
+
+def _validate_no_partial_salary_schema(
+    connection: sqlite3.Connection,
+    version: int,
+) -> None:
+    unexpected = _schema_object_names(connection) & _SALARY_INTELLIGENCE_OBJECTS
+    if unexpected:
+        names = ", ".join(sorted(unexpected))
+        raise InconsistentDatabaseSchemaError(
+            f"Database schema version {version} contains unexpected partial "
+            f"salary objects: {names}"
         )
 
 
@@ -436,6 +485,22 @@ def _validate_v5_schema(connection: sqlite3.Connection) -> None:
     _validate_role_intelligence_schema(connection, version=version)
     _validate_seniority_intelligence_schema(connection, version=version)
     _validate_geography_intelligence_schema(connection, version=version)
+
+
+def _validate_v6_schema(connection: sqlite3.Connection) -> None:
+    version = _get_schema_version(connection)
+    if version != SALARY_INTELLIGENCE_SCHEMA_VERSION:
+        raise InconsistentDatabaseSchemaError(
+            "Expected database schema version "
+            f"{SALARY_INTELLIGENCE_SCHEMA_VERSION}, got {version}"
+        )
+
+    _validate_source_schema(connection, version=version)
+    _validate_intelligence_schema(connection, version=version)
+    _validate_role_intelligence_schema(connection, version=version)
+    _validate_seniority_intelligence_schema(connection, version=version)
+    _validate_geography_intelligence_schema(connection, version=version)
+    _validate_salary_intelligence_schema(connection, version=version)
 
 
 def _validate_intelligence_schema(
@@ -941,6 +1006,86 @@ def _validate_geography_intelligence_schema(
         connection,
         evidence_table="job_geography",
         expected_kind="geography",
+        version=version,
+    )
+    _require_no_foreign_key_violations(connection, version=version)
+
+
+def _validate_salary_intelligence_schema(
+    connection: sqlite3.Connection,
+    *,
+    version: int,
+) -> None:
+    expected_columns = {
+        "job_salaries": {
+            "analysis_run_id",
+            "provenance",
+            "confidence",
+            "min_value",
+            "max_value",
+            "currency",
+            "period",
+            "annual_min",
+            "annual_max",
+            "annualized",
+            "matched_text",
+            "rule_id",
+            "evidence_field",
+        },
+    }
+    _require_tables(connection, set(expected_columns), version=version)
+    for table_name in expected_columns:
+        # min/max/currency/period/annual columns are nullable by design.
+        _require_columns(
+            connection,
+            table_name,
+            expected_columns[table_name],
+            version=version,
+        )
+
+    _require_primary_key(connection, "job_salaries", ("analysis_run_id",), version=version)
+    _require_foreign_key(
+        connection,
+        "job_salaries",
+        from_column="analysis_run_id",
+        target_table="analysis_runs",
+        target_column="id",
+        on_delete="CASCADE",
+        version=version,
+    )
+    _require_table_sql_fragments(
+        connection,
+        "job_salaries",
+        (
+            "provenance in ('structured', 'text')",
+            "confidence in ('direct', 'parsed')",
+            "annualized in (0, 1)",
+            "length(trim(matched_text)) > 0",
+            "length(trim(rule_id)) > 0",
+            "evidence_field = 'normalized'",
+        ),
+        version=version,
+    )
+    _require_trigger_sql_fragment(
+        connection,
+        "trg_job_salaries_kind",
+        (
+            "before insert on job_salaries",
+            "where id = new.analysis_run_id",
+            "!= 'salary'",
+            "job_salaries requires a salary analysis run",
+        ),
+        version=version,
+    )
+    _require_trigger_sql_fragment(
+        connection,
+        "trg_job_salaries_kind_update",
+        (
+            "before update of analysis_run_id on job_salaries",
+            "where id = new.analysis_run_id",
+            "!= 'salary'",
+            "job_salaries requires a salary analysis run",
+        ),
         version=version,
     )
     _require_no_foreign_key_violations(connection, version=version)
@@ -1528,6 +1673,36 @@ def _migrate_geography_intelligence(connection: sqlite3.Connection) -> None:
         )
         connection.execute(
             f"PRAGMA user_version = {GEOGRAPHY_INTELLIGENCE_SCHEMA_VERSION}"
+        )
+        connection.commit()
+    except Exception:
+        if connection.in_transaction:
+            connection.rollback()
+        raise
+
+
+def _requires_salary_intelligence_migration(
+    connection: sqlite3.Connection,
+) -> bool:
+    return _get_schema_version(connection) < SALARY_INTELLIGENCE_SCHEMA_VERSION
+
+
+def _migrate_salary_intelligence(connection: sqlite3.Connection) -> None:
+    """Create salary-intelligence tables without backfilling postings."""
+
+    try:
+        connection.executescript(
+            f"""
+            BEGIN IMMEDIATE;
+            {load_salary_intelligence_schema()}
+            """
+        )
+        _validate_salary_intelligence_schema(
+            connection,
+            version=SALARY_INTELLIGENCE_SCHEMA_VERSION,
+        )
+        connection.execute(
+            f"PRAGMA user_version = {SALARY_INTELLIGENCE_SCHEMA_VERSION}"
         )
         connection.commit()
     except Exception:
