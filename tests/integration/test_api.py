@@ -27,6 +27,13 @@ from job_market_analyzer.storage.sqlite_intelligence_repository import (
 from job_market_analyzer.storage.sqlite_repository import SQLiteJobRepository
 
 BASE_TIME = datetime(2026, 8, 21, 12, 0, tzinfo=UTC)
+FROZEN_NOW = BASE_TIME + timedelta(days=14)
+
+
+def _frozen_app(database_path: Path):
+    app = create_app(database_path)
+    app.state.analytics_now_provider = lambda: FROZEN_NOW
+    return app
 
 
 @pytest.fixture
@@ -88,7 +95,7 @@ def api_database(tmp_path: Path) -> Path:
 
 @pytest.fixture
 def api_client(api_database: Path) -> TestClient:
-    with TestClient(create_app(api_database)) as client:
+    with TestClient(_frozen_app(api_database)) as client:
         yield client
 
 
@@ -168,6 +175,51 @@ def test_unknown_route_and_wrong_method_use_stable_errors(api_client: TestClient
     assert wrong_method.json()["error"]["code"] == "method_not_allowed"
     assert missing.headers["x-request-id"]
     assert wrong_method.headers["x-request-id"]
+
+
+def test_jobs_include_stale_parameter_expands_results(
+    api_database: Path,
+) -> None:
+    with closing(connect_database(api_database)) as connection:
+        jobs = SQLiteJobRepository(connection)
+        _persist(
+            jobs,
+            source="remote_ok",
+            external_id="ancient",
+            title="Legacy Perl Engineer",
+            company="Old Corp",
+            description="Maintain legacy systems.",
+            tags=(),
+            published_at=BASE_TIME - timedelta(days=45),
+            fetched_at=BASE_TIME - timedelta(days=40),
+        )
+
+    app = _frozen_app(api_database)
+    with TestClient(app) as client:
+        active = client.get("/api/jobs", params={"limit": 100})
+        with_stale = client.get(
+            "/api/jobs",
+            params={"limit": 100, "include_stale": "true"},
+        )
+        stale_only_search = client.get(
+            "/api/jobs",
+            params={"q": "Legacy Perl", "include_stale": "true"},
+        )
+        hidden_by_default = client.get("/api/jobs", params={"q": "Legacy Perl"})
+
+    assert active.status_code == 200
+    assert with_stale.status_code == 200
+    active_count = active.json()["total"]
+    stale_count = with_stale.json()["total"]
+    assert stale_count == active_count + 1
+    assert any(
+        item["title"] == "Legacy Perl Engineer" for item in with_stale.json()["items"]
+    )
+    assert all(
+        item["title"] != "Legacy Perl Engineer" for item in active.json()["items"]
+    )
+    assert stale_only_search.json()["total"] == 1
+    assert hidden_by_default.json()["total"] == 0
 
 
 def test_overview_preserves_posting_level_analytics(api_client: TestClient) -> None:
@@ -336,7 +388,7 @@ def test_sources_are_deterministic_dataset_summaries(api_client: TestClient) -> 
 
 def test_api_requests_do_not_mutate_database(api_database: Path) -> None:
     before = hashlib.sha256(api_database.read_bytes()).digest()
-    with TestClient(create_app(api_database)) as client:
+    with TestClient(_frozen_app(api_database)) as client:
         for url in (
             "/api/health",
             "/api/overview",
@@ -429,6 +481,7 @@ def _persist(
     description: str,
     tags: tuple[str, ...],
     published_at: datetime | None,
+    fetched_at: datetime | None = None,
 ):
     source_url = f"https://example.test/{source}/{external_id}"
     result = repository.persist_observation(
@@ -437,7 +490,7 @@ def _persist(
             source_scope="global",
             external_id=external_id,
             source_url=source_url,
-            fetched_at=BASE_TIME + timedelta(days=4),
+            fetched_at=fetched_at or BASE_TIME + timedelta(days=4),
             payload={
                 "external_id": external_id,
                 "RAW_PAYLOAD_SECRET": "must-not-leak",

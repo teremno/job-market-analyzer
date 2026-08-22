@@ -78,11 +78,23 @@ Query parameters:
 | `role` | exact active role code, maximum 100 characters |
 | `skill` | exact active skill code, maximum 100 characters |
 | `q` | literal title/company substring, maximum 200 characters |
+| `include_stale` | boolean; default `false`. When `true`, the response also includes postings whose `last_seen_at` is older than the 30-day freshness window. Historical rows are never deleted; by default only postings observed recently (active) are returned |
 
 Filters may be combined. Whitespace-only and overlong strings are rejected. Literal
 search retains the analytics layer's escaping and ASCII-oriented case-insensitive
 SQLite behavior. Response fields are `items`, `limit`, `offset`, and `total`; ordering
 is the deterministic ordering documented in `ANALYTICS_QUERY_CONTRACT.md`.
+
+### Posting freshness (lifecycle v1)
+
+All analytics endpoints count and list only active postings: rows whose
+`last_seen_at` is within the last 30 days at query time. Postings that stopped
+appearing in source feeds become stale after that window and disappear from
+default views while remaining stored for provenance and future trend analytics.
+The freshness window is a repository-level constant (`ACTIVE_POSTING_WINDOW_DAYS`)
+computed at read time; no persisted lifecycle column exists yet, and no endpoint
+currently claims that a posting is still "open" beyond this observed-freshness
+heuristic.
 
 ### `GET /api/roles/{role_code}`
 

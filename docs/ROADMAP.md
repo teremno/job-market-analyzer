@@ -102,11 +102,17 @@ flowchart LR
 - ✅ Role Classification V1 pure implementation and bounded local read-only validation.
 - ✅ Persisted versioned role analysis and recomputation with role/skill isolation.
 - ✅ Manual one-shot persisted role validation and bounded real-data report.
+- ✅ Job Lifecycle v1 (freshness-based): read-time active/stale boundary with a 30-day
+  window, active-only dashboard/API defaults, and an explicit `include_stale` history
+  parameter; deletion is not part of retention (ADR-020). Source-provided expiry and
+  richer lifecycle states remain future work.
 - ⬜ Company normalization.
 - ⬜ Geography and remote-restriction normalization.
 - ⬜ Salary normalization with explicit disclosed, estimated, and derived provenance.
 - ⬜ Seniority detection.
-- ⬜ Vacancy lifecycle and historical state.
+- ✅ Vacancy lifecycle and historical state: freshness-based active/stale boundary is
+  implemented at the analytics layer (see Job Lifecycle v1 above); richer
+  source-aware states remain future work.
 - ⬜ Data-quality scoring only where a clear interpretation and use case justify it.
 
 ## Phase 3 — Market Analytics

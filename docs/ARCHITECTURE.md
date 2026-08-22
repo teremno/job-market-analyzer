@@ -143,6 +143,15 @@ Dashboard v0 analytics count durable source postings by default. Field names say
 posting list carries `canonical_job_id` for provenance/future grouping, but no fuzzy
 linking or misleading global unique-job total is introduced.
 
+Job Lifecycle v1 adds a read-time freshness boundary: analytics queries consider a
+posting active only when its `last_seen_at` is within
+`ACTIVE_POSTING_WINDOW_DAYS = 30` of the repository clock, which is injectable for
+deterministic tests. Stale postings disappear from default overview, list, detail,
+and source summaries while remaining durably stored with all observations, per
+ADR-020's status-not-deletion rule. `GET /api/jobs` accepts an explicit
+`include_stale=true` parameter for history access; no persisted lifecycle column,
+removal policy, or source-provided expiry handling exists yet.
+
 Current intelligence is resolved by exact analyzer kind, active taxonomy/extractor
 version, and the current posting input hash. Historical runs are never selected by
 creation time. An exact run with no evidence is analyzed-zero (Unknown for roles),

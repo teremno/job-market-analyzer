@@ -221,6 +221,15 @@ def create_app(database_path: Path) -> FastAPI:
         role: RoleFilter = None,
         skill: SkillFilter = None,
         q: SearchFilter = None,
+        include_stale: Annotated[
+            bool,
+            Query(
+                description=(
+                    "Include postings no longer observed within the freshness "
+                    "window (historical rows are kept, never deleted)."
+                )
+            ),
+        ] = False,
     ) -> JobsResponse:
         page = session.analytics.list_postings(
             PostingSearchFilters(
@@ -231,6 +240,7 @@ def create_app(database_path: Path) -> FastAPI:
             ),
             limit=limit,
             offset=offset,
+            include_stale=include_stale,
         )
         return JobsResponse.from_dto(page)
 

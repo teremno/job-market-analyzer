@@ -760,7 +760,10 @@ account handling. No authentication work happens before the hosted alpha exists.
 
 Date: 2026-08-22
 
-Status: Accepted as direction; implementation is the planned Job Lifecycle v1 sprint.
+Status: Accepted; Job Lifecycle v1 is implemented as a read-time freshness
+boundary (`ACTIVE_POSTING_WINDOW_DAYS = 30`, active-only defaults, explicit
+`include_stale` history parameter). Persisted status columns and
+source-provided expiry data remain future work.
 
 ### Decision
 

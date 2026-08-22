@@ -3,8 +3,8 @@
 import json
 import sqlite3
 from collections import defaultdict
-from collections.abc import Iterable
-from datetime import datetime
+from collections.abc import Callable, Iterable
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from job_market_analyzer.analytics.models import (
@@ -38,55 +38,84 @@ from job_market_analyzer.intelligence.skills import (
     SKILL_TAXONOMY,
     SKILL_TAXONOMY_VERSION,
 )
-from job_market_analyzer.storage.serialization import deserialize_source_tags
+from job_market_analyzer.storage.serialization import (
+    deserialize_source_tags,
+    serialize_utc_datetime,
+)
 
 MAX_PAGE_SIZE = 100
 MAX_AGGREGATE_LIMIT = 100
+ACTIVE_POSTING_WINDOW_DAYS = 30
+
+
+def _utc_now() -> datetime:
+    return datetime.now(UTC)
 
 _ROLE_NAMES = {role.code: role.name for role in ROLE_TAXONOMY}
 _SKILL_NAMES = {skill.code: skill.name for skill in SKILL_TAXONOMY}
 
-_CURRENT_RUNS_CTES = """
-WITH current_role_runs AS (
+_ACTIVE_POSTINGS_CTE = """
+active_postings AS (
+    SELECT job_postings.id,
+           job_postings.title,
+           job_postings.description_text,
+           job_postings.source_tags_json
+    FROM job_postings
+    WHERE job_postings.last_seen_at >= ?
+)
+"""
+
+_CURRENT_RUNS_CTES = (
+    "WITH "
+    + _ACTIVE_POSTINGS_CTE
+    + """,
+current_role_runs AS (
     SELECT analysis_runs.id, analysis_runs.job_posting_id
     FROM analysis_runs
-    JOIN job_postings
-      ON job_postings.id = analysis_runs.job_posting_id
+    JOIN active_postings
+      ON active_postings.id = analysis_runs.job_posting_id
     WHERE analysis_runs.analyzer_kind = ?
       AND analysis_runs.taxonomy_version = ?
       AND analysis_runs.extractor_version = ?
       AND analysis_runs.input_hash = jma_role_input_hash(
-          job_postings.title,
-          job_postings.description_text
+          active_postings.title,
+          active_postings.description_text
       )
 ),
 current_skill_runs AS (
     SELECT analysis_runs.id, analysis_runs.job_posting_id
     FROM analysis_runs
-    JOIN job_postings
-      ON job_postings.id = analysis_runs.job_posting_id
+    JOIN active_postings
+      ON active_postings.id = analysis_runs.job_posting_id
     WHERE analysis_runs.analyzer_kind = ?
       AND analysis_runs.taxonomy_version = ?
       AND analysis_runs.extractor_version = ?
       AND analysis_runs.input_hash = jma_skill_input_hash(
-          job_postings.title,
-          job_postings.description_text,
-          job_postings.source_tags_json
+          active_postings.title,
+          active_postings.description_text,
+          active_postings.source_tags_json
       )
 )
 """
+)
 
 
 class SQLiteAnalyticsRepository:
     """Execute bounded, parameterized analytics using a caller-owned connection."""
 
-    def __init__(self, connection: sqlite3.Connection) -> None:
+    def __init__(
+        self,
+        connection: sqlite3.Connection,
+        *,
+        now_provider: Callable[[], datetime] | None = None,
+    ) -> None:
         if connection.row_factory is not sqlite3.Row:
             raise ValueError(
                 "SQLiteAnalyticsRepository requires connection.row_factory to be "
                 "sqlite3.Row; create the connection with connect_database()"
             )
         self._connection = connection
+        self._now_provider = now_provider if now_provider is not None else _utc_now
         connection.create_function(
             "jma_role_input_hash",
             2,
@@ -99,6 +128,17 @@ class SQLiteAnalyticsRepository:
             _calculate_persisted_skill_input_hash,
             deterministic=True,
         )
+
+    def _active_cutoff(self) -> str:
+        """Return the serialized cutoff separating active from stale postings."""
+
+        cutoff = self._now_provider() - timedelta(days=ACTIVE_POSTING_WINDOW_DAYS)
+        return serialize_utc_datetime(cutoff)
+
+    def _active_condition(self, *, include_stale: bool) -> tuple[str, list[str]]:
+        if include_stale:
+            return "1 = 1", []
+        return "job_postings.last_seen_at >= ?", [self._active_cutoff()]
 
     def get_overview(self, *, top_limit: int = 10) -> AnalyticsOverview:
         """Return current posting-level counts without evidence inflation."""
@@ -154,10 +194,12 @@ class SQLiteAnalyticsRepository:
                   ON current_skill_runs.job_posting_id = job_postings.id
                 LEFT JOIN skill_evidence_counts
                   ON skill_evidence_counts.analysis_run_id = current_skill_runs.id
+                WHERE job_postings.last_seen_at >= ?
             ),
             source_counts AS (
                 SELECT source_provider, COUNT(*) AS posting_count
                 FROM job_postings
+                WHERE job_postings.last_seen_at >= ?
                 GROUP BY source_provider
                 ORDER BY posting_count DESC, source_provider ASC
             ),
@@ -218,7 +260,14 @@ class SQLiteAnalyticsRepository:
                 ), '[]') AS skill_counts_json
             FROM status
             """,
-            (*self._current_run_parameters(), top_limit, top_limit),
+            (
+                self._active_cutoff(),
+                *self._current_run_parameters(),
+                self._active_cutoff(),
+                self._active_cutoff(),
+                top_limit,
+                top_limit,
+            ),
         ).fetchone()
         source_rows = json.loads(row["source_counts_json"])
         role_rows = json.loads(row["role_counts_json"])
@@ -251,21 +300,30 @@ class SQLiteAnalyticsRepository:
         *,
         limit: int = 50,
         offset: int = 0,
+        include_stale: bool = False,
     ) -> PagedPostings:
-        """Return a stable page and load role/skill labels in two batch queries."""
+        """Return a stable page and load role/skill labels in two batch queries.
+
+        By default only active postings (observed within the freshness window)
+        are returned; ``include_stale=True`` also returns historical postings.
+        """
 
         _validate_bounded_limit(limit, "limit", MAX_PAGE_SIZE)
         if isinstance(offset, bool) or not isinstance(offset, int) or offset < 0:
             raise ValueError("offset must be non-negative")
         where_sql, filter_parameters = _posting_filter_sql(filters)
+        active_sql, active_parameters = self._active_condition(
+            include_stale=include_stale
+        )
         current_parameters = self._current_run_parameters()
         count = self._connection.execute(
             f"""
             SELECT COUNT(*) AS posting_count
             FROM job_postings
             WHERE {where_sql}
+              AND {active_sql}
             """,
-            filter_parameters,
+            (*filter_parameters, *active_parameters),
         ).fetchone()["posting_count"]
         rows = self._connection.execute(
             f"""
@@ -305,6 +363,7 @@ class SQLiteAnalyticsRepository:
                  job_postings.source_tags_json
              )
             WHERE {where_sql}
+              AND {active_sql}
             ORDER BY
                 job_postings.published_at IS NULL ASC,
                 job_postings.published_at DESC,
@@ -315,7 +374,13 @@ class SQLiteAnalyticsRepository:
                 job_postings.id ASC
             LIMIT ? OFFSET ?
             """,
-            (*current_parameters, *filter_parameters, limit, offset),
+            (
+                *current_parameters,
+                *filter_parameters,
+                *active_parameters,
+                limit,
+                offset,
+            ),
         ).fetchall()
         (
             roles_by_posting,
@@ -374,6 +439,7 @@ class SQLiteAnalyticsRepository:
                       job_postings.title,
                       job_postings.description_text
                   )
+                  AND job_postings.last_seen_at >= ?
             )
             SELECT job_skills.skill_code,
                    COUNT(DISTINCT selected_current_role_runs.job_posting_id)
@@ -403,6 +469,7 @@ class SQLiteAnalyticsRepository:
                 ROLE_ANALYZER_KIND,
                 ROLE_TAXONOMY_VERSION,
                 ROLE_TAXONOMY_VERSION,
+                self._active_cutoff(),
                 SKILL_ANALYZER_KIND,
                 SKILL_TAXONOMY_VERSION,
                 SKILL_TAXONOMY_VERSION,
@@ -453,6 +520,7 @@ class SQLiteAnalyticsRepository:
                       job_postings.description_text,
                       job_postings.source_tags_json
                   )
+                  AND job_postings.last_seen_at >= ?
             )
             , role_counts AS (
                 SELECT job_roles.role_code AS code,
@@ -500,6 +568,7 @@ class SQLiteAnalyticsRepository:
                 SKILL_ANALYZER_KIND,
                 SKILL_TAXONOMY_VERSION,
                 SKILL_TAXONOMY_VERSION,
+                self._active_cutoff(),
                 ROLE_ANALYZER_KIND,
                 ROLE_TAXONOMY_VERSION,
                 ROLE_TAXONOMY_VERSION,
@@ -579,10 +648,15 @@ class SQLiteAnalyticsRepository:
               ON role_state.job_posting_id = job_postings.id
             LEFT JOIN skill_state
               ON skill_state.job_posting_id = job_postings.id
+            WHERE job_postings.last_seen_at >= ?
             GROUP BY job_postings.source_provider
             ORDER BY posting_count DESC, job_postings.source_provider ASC
             """,
-            self._current_run_parameters(),
+            (
+                self._active_cutoff(),
+                *self._current_run_parameters(),
+                self._active_cutoff(),
+            ),
         ).fetchall()
         return tuple(_source_summary(row) for row in rows)
 

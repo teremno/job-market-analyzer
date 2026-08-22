@@ -29,6 +29,14 @@ from job_market_analyzer.storage.sqlite_intelligence_repository import (
 from job_market_analyzer.storage.sqlite_repository import SQLiteJobRepository
 
 BASE_TIME = datetime(2026, 8, 21, 10, 0, tzinfo=UTC)
+FROZEN_NOW = BASE_TIME + timedelta(days=14)
+
+
+def _frozen_repository(connection: sqlite3.Connection) -> SQLiteAnalyticsRepository:
+    return SQLiteAnalyticsRepository(
+        connection,
+        now_provider=lambda: FROZEN_NOW,
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -177,7 +185,7 @@ def test_overview_counts_distinct_postings_and_exact_current_runs(
     analytics_connection: sqlite3.Connection,
     analytics_dataset: DatasetIds,
 ) -> None:
-    overview = SQLiteAnalyticsRepository(analytics_connection).get_overview()
+    overview = _frozen_repository(analytics_connection).get_overview()
 
     assert overview.posting_count == 6
     assert overview.source_count == 2
@@ -205,7 +213,7 @@ def test_overview_counts_distinct_postings_and_exact_current_runs(
 def test_empty_current_dataset_has_stable_empty_results(
     analytics_connection: sqlite3.Connection,
 ) -> None:
-    repository = SQLiteAnalyticsRepository(analytics_connection)
+    repository = _frozen_repository(analytics_connection)
 
     overview = repository.get_overview()
     assert overview.posting_count == 0
@@ -223,7 +231,7 @@ def test_historical_and_changed_input_runs_are_not_current(
     analytics_connection: sqlite3.Connection,
     analytics_dataset: DatasetIds,
 ) -> None:
-    repository = SQLiteAnalyticsRepository(analytics_connection)
+    repository = _frozen_repository(analytics_connection)
 
     stale = repository.list_postings(
         PostingSearchFilters(search_text="Delta Growth")
@@ -249,7 +257,7 @@ def test_posting_list_has_stable_pagination_and_bounded_projection(
     analytics_connection: sqlite3.Connection,
     analytics_dataset: DatasetIds,
 ) -> None:
-    repository = SQLiteAnalyticsRepository(analytics_connection)
+    repository = _frozen_repository(analytics_connection)
 
     first = repository.list_postings(limit=2)
     second = repository.list_postings(limit=2, offset=2)
@@ -272,7 +280,7 @@ def test_posting_filters_intersect_and_do_not_inflate_evidence(
     analytics_connection: sqlite3.Connection,
     analytics_dataset: DatasetIds,
 ) -> None:
-    repository = SQLiteAnalyticsRepository(analytics_connection)
+    repository = _frozen_repository(analytics_connection)
 
     assert repository.list_postings(
         PostingSearchFilters(source_provider="jobicy")
@@ -294,7 +302,7 @@ def test_search_is_case_insensitive_literal_and_parameterized(
     analytics_connection: sqlite3.Connection,
     analytics_dataset: DatasetIds,
 ) -> None:
-    repository = SQLiteAnalyticsRepository(analytics_connection)
+    repository = _frozen_repository(analytics_connection)
 
     assert repository.list_postings(
         PostingSearchFilters(search_text="alpha LABS")
@@ -315,7 +323,7 @@ def test_role_detail_counts_distinct_postings_and_mentioned_skills(
     analytics_connection: sqlite3.Connection,
     analytics_dataset: DatasetIds,
 ) -> None:
-    detail = SQLiteAnalyticsRepository(analytics_connection).get_role_detail(
+    detail = _frozen_repository(analytics_connection).get_role_detail(
         "backend"
     )
 
@@ -328,7 +336,7 @@ def test_role_detail_counts_distinct_postings_and_mentioned_skills(
         ("python", 1),
     ]
     assert len(detail.representative_postings) == 2
-    assert SQLiteAnalyticsRepository(analytics_connection).get_role_detail(
+    assert _frozen_repository(analytics_connection).get_role_detail(
         "not-a-role"
     ) is None
 
@@ -337,7 +345,7 @@ def test_skill_detail_counts_roles_and_cooccurrence_once_per_posting(
     analytics_connection: sqlite3.Connection,
     analytics_dataset: DatasetIds,
 ) -> None:
-    detail = SQLiteAnalyticsRepository(analytics_connection).get_skill_detail(
+    detail = _frozen_repository(analytics_connection).get_skill_detail(
         "docker"
     )
 
@@ -354,7 +362,7 @@ def test_skill_detail_counts_roles_and_cooccurrence_once_per_posting(
     assert all(
         item.skill_code != "docker" for item in detail.co_occurring_skills
     )
-    assert SQLiteAnalyticsRepository(analytics_connection).get_skill_detail(
+    assert _frozen_repository(analytics_connection).get_skill_detail(
         "not-a-skill"
     ) is None
 
@@ -365,7 +373,7 @@ def test_source_summaries_report_freshness_and_three_analysis_states(
 ) -> None:
     summaries = {
         item.source_provider: item
-        for item in SQLiteAnalyticsRepository(
+        for item in _frozen_repository(
             analytics_connection
         ).list_source_summaries()
     }
@@ -389,7 +397,7 @@ def test_analyzed_zero_is_distinct_from_not_analyzed_in_list_items(
     analytics_connection: sqlite3.Connection,
     analytics_dataset: DatasetIds,
 ) -> None:
-    repository = SQLiteAnalyticsRepository(analytics_connection)
+    repository = _frozen_repository(analytics_connection)
     zero = repository.list_postings(
         PostingSearchFilters(search_text="Office Coordinator")
     ).items[0]
@@ -409,7 +417,7 @@ def test_queries_do_not_mutate_database_bytes_or_total_changes(
 ) -> None:
     before = hashlib.sha256(analytics_connection.serialize()).digest()
     changes_before = analytics_connection.total_changes
-    repository = SQLiteAnalyticsRepository(analytics_connection)
+    repository = _frozen_repository(analytics_connection)
 
     repository.get_overview()
     repository.list_postings(PostingSearchFilters(search_text="engineer"))
@@ -438,9 +446,98 @@ def test_query_limits_are_bounded(
     method: str,
     kwargs: dict[str, int | float | bool],
 ) -> None:
-    repository = SQLiteAnalyticsRepository(analytics_connection)
+    repository = _frozen_repository(analytics_connection)
     with pytest.raises(ValueError):
         getattr(repository, method)(**kwargs)
+
+
+def test_stale_postings_are_hidden_from_active_queries(
+    analytics_connection: sqlite3.Connection,
+    analytics_dataset: DatasetIds,
+) -> None:
+    jobs = SQLiteJobRepository(analytics_connection)
+    _persist(
+        jobs,
+        source="remote_ok",
+        external_id="ancient",
+        title="Legacy Perl Engineer",
+        company="Old Corp",
+        description="Maintain legacy systems.",
+        published_at=BASE_TIME - timedelta(days=45),
+        fetched_at=BASE_TIME - timedelta(days=40),
+    )
+    repository = _frozen_repository(analytics_connection)
+
+    active_page = repository.list_postings(
+        PostingSearchFilters(search_text="Engineer")
+    )
+    assert active_page.posting_count == 3
+    assert all(item.title != "Legacy Perl Engineer" for item in active_page.items)
+
+    stale_page = repository.list_postings(
+        PostingSearchFilters(search_text="Engineer"),
+        include_stale=True,
+    )
+    assert stale_page.posting_count == 4
+    assert any(item.title == "Legacy Perl Engineer" for item in stale_page.items)
+
+    overview = repository.get_overview()
+    assert overview.posting_count == 6
+
+    summaries = {
+        item.source_provider: item for item in repository.list_source_summaries()
+    }
+    assert summaries["remote_ok"].posting_count == 3
+
+
+def test_role_and_skill_details_count_only_active_postings(
+    analytics_connection: sqlite3.Connection,
+    analytics_dataset: DatasetIds,
+) -> None:
+    jobs = SQLiteJobRepository(analytics_connection)
+    roles = SQLiteRoleIntelligenceRepository(analytics_connection)
+    skills = SQLiteSkillIntelligenceRepository(analytics_connection)
+    ancient_id = _persist(
+        jobs,
+        source="jobicy",
+        external_id="ancient-backend",
+        title="Backend Engineer",
+        company="Ancient Systems",
+        description="Build Python services with Docker.",
+        tags=("Python",),
+        published_at=BASE_TIME - timedelta(days=45),
+        fetched_at=BASE_TIME - timedelta(days=40),
+    )
+    ancient = _postings_by_id(jobs)[ancient_id]
+    analyze_job_roles(ancient, roles)
+    analyze_job_skills(ancient, skills)
+
+    repository = _frozen_repository(analytics_connection)
+
+    active_page = repository.list_postings(PostingSearchFilters(role_code="backend"))
+    assert active_page.posting_count == 2
+    assert all(item.company_name != "Ancient Systems" for item in active_page.items)
+    stale_page = repository.list_postings(
+        PostingSearchFilters(role_code="backend"),
+        include_stale=True,
+    )
+    assert stale_page.posting_count == 3
+    assert any(
+        item.company_name == "Ancient Systems" for item in stale_page.items
+    )
+
+    role_detail = repository.get_role_detail("backend")
+    assert role_detail is not None
+    assert role_detail.posting_count == 2
+    skill_counts = {
+        item.skill_code: item.posting_count for item in role_detail.top_skills
+    }
+    assert skill_counts["python"] == 1
+    assert skill_counts["docker"] == 2
+
+    skill_detail = repository.get_skill_detail("python")
+    assert skill_detail is not None
+    assert skill_detail.posting_count == 1
 
 
 def _persist(

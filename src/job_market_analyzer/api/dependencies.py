@@ -70,7 +70,12 @@ def get_database_session(request: Request) -> Iterator[ApiDatabaseSession]:
         connection = connect_read_only_database(request.app.state.database_path)
         yield ApiDatabaseSession(
             connection=connection,
-            analytics=SQLiteAnalyticsRepository(connection),
+            analytics=SQLiteAnalyticsRepository(
+                connection,
+                now_provider=getattr(
+                    request.app.state, "analytics_now_provider", None
+                ),
+            ),
         )
     except (OSError, sqlite3.Error) as exc:
         raise DatabaseUnavailableError("The analytics database is unavailable.") from exc

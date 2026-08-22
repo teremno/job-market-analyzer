@@ -26,8 +26,13 @@ class AnalyticsRepository(Protocol):
         *,
         limit: int = 50,
         offset: int = 0,
+        include_stale: bool = False,
     ) -> PagedPostings:
-        """Return a stable page of current source postings."""
+        """Return a stable page of current active source postings.
+
+        ``include_stale=True`` additionally returns postings no longer seen
+        within the freshness window.
+        """
 
         ...
 

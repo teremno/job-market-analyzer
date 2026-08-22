@@ -96,13 +96,19 @@ Aggregate limits must be between 1 and 100. Ties use machine code ascending.
 
 ## Current posting list
 
-`list_postings(filters, limit=50, offset=0)` supports:
+`list_postings(filters, limit=50, offset=0, include_stale=False)` supports:
 
 - exact `source_provider`;
 - exact active `role_code`;
 - exact active `skill_code`;
 - combined role and skill intersection;
 - literal title/company substring search.
+
+By default the list and every aggregate consider only active postings: rows whose
+`last_seen_at` is within `ACTIVE_POSTING_WINDOW_DAYS = 30` of the repository clock.
+The clock is injectable (`now_provider`) for deterministic tests. Stale postings
+stay stored but leave default views; `include_stale=True` restores them for history
+access.
 
 All values are SQL parameters. `%`, `_`, and the escape character in search input are
 escaped and treated literally. SQLite `LIKE ... COLLATE NOCASE` provides a simple
