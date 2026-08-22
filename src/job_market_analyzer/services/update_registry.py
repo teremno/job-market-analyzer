@@ -2,6 +2,10 @@
 
 import sqlite3
 
+from job_market_analyzer.collectors.greenhouse import (
+    GREENHOUSE_SOURCE_PROVIDER,
+    GreenhouseCollector,
+)
 from job_market_analyzer.collectors.himalayas import (
     HIMALAYAS_SOURCE_PROVIDER,
     HimalayasCollector,
@@ -29,6 +33,7 @@ from job_market_analyzer.collectors.we_work_remotely import (
 )
 from job_market_analyzer.intelligence.roles import ROLE_TAXONOMY_VERSION
 from job_market_analyzer.intelligence.skills import SKILL_TAXONOMY_VERSION
+from job_market_analyzer.normalization.greenhouse import normalize_greenhouse_job
 from job_market_analyzer.normalization.himalayas import normalize_himalayas_job
 from job_market_analyzer.normalization.jobicy import normalize_jobicy_job
 from job_market_analyzer.normalization.remote_ok import normalize_remote_ok_job
@@ -89,6 +94,12 @@ SOURCE_REGISTRY: tuple[SourceAdapter, ...] = (
         "We Work Remotely",
         WeWorkRemotelyCollector,
         normalize_we_work_remotely_job,
+    ),
+    SourceAdapter(
+        GREENHOUSE_SOURCE_PROVIDER,
+        "Greenhouse",
+        GreenhouseCollector,
+        normalize_greenhouse_job,
     ),
 )
 

@@ -373,8 +373,9 @@ def test_current_registries_have_exact_source_and_english_analyzer_capabilities(
         "jobicy",
         "remotive",
         "we_work_remotely",
+        "greenhouse",
     )
-    assert len({source.provider_code for source in REAL_SOURCE_REGISTRY}) == 6
+    assert len({source.provider_code for source in REAL_SOURCE_REGISTRY}) == 7
     assert {(analyzer.kind, analyzer.language) for analyzer in ANALYZER_REGISTRY} == {
         ("skills", "en"),
         ("roles", "en"),

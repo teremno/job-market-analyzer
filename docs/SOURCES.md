@@ -306,16 +306,56 @@ than silently corrected.
 No WWR code was copied. The adapter was independently implemented against the
 official RSS contract.
 
+### Greenhouse Job Boards
+
+Official API documentation:
+https://developers.greenhouse.io/job-board.html
+
+JSON endpoint per board:
+https://boards-api.greenhouse.io/v1/boards/{board_token}/jobs?content=true
+
+Status: implemented and offline-tested; first live curated-board validation
+recorded in this document's history.
+
+Authentication and cost: none. Each board is one public, credential-free JSON
+GET request returning every currently listed posting including full HTML
+content when `content=true`. The collector performs exactly one request per
+configured board token per run.
+
+Attribution: identify the company board via Greenhouse as the source and link
+to the original `absolute_url`, which is preserved as both `source_url` and
+`application_url`.
+
+MVP identity:
+
+- `source_provider = "greenhouse"`;
+- `source_scope` = the lowercase company board token (for example `coinbase`);
+- `external_id` uses the source-native numeric `id`.
+
+Curated pilot boards: coinbase, ripple, fireblocks, gemini, bitgo, consensys,
+recordedfuture, gitlab, canonical, cloudflare, datadog, elastic, grafanalabs,
+chainguard, duolingo, coursera.
+
+Normalized fields include title, company name, HTML description through the
+shared safe converter, location name, `first_published` as publication time,
+`updated_at` as source-updated time, department/office names as structured
+source tags, and the original board URL for application. A failed board is an
+isolated collection result while later boards continue; only all boards failing
+is a systemic error. No salary or remote-scope inference is performed: Greenhouse
+boards mix onsite, hybrid, and remote postings, so `remote_scope` stays unset
+until a dedicated geography analyzer exists.
+
+No Greenhouse code was copied. The adapter was independently implemented from
+the official documented API contract.
+
 ---
 
 ## Researched Sources Not Implemented
 
 ### Good future sources
 
-- **Greenhouse Job Board API** — official credential-free JSON GET API with stable
-  native job IDs and optional full content: https://developer.greenhouse.io/job-board.html
-  Deferred because it requires an explicit non-secret company board identifier/scope
-  and is not a broad remote feed.
+- **Greenhouse additional boards** — the adapter is source-scope driven, so new
+  company boards are one-token additions to `GREENHOUSE_BOARD_TOKENS`.
 - **Lever Postings API** — official public read-only JSON API with pagination and
   stable posting IDs: https://github.com/lever/postings-api. Deferred until the
   product has a curated set of company site names/scopes.

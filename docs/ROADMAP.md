@@ -85,8 +85,9 @@ flowchart LR
 
 ### Planned foundation work
 
-- ⬜ Pilot curated remote-friendly Greenhouse boards, followed by Lever and Ashby,
-  with explicit per-board source scopes.
+- ✅ Pilot curated remote-friendly Greenhouse boards: 16 approved company boards
+  collected through one credential-free request per board, with per-board
+  isolation and documented attribution. Lever and Ashby follow the same pattern.
 - ⬜ Continue source expansion according to reliability, legal access, provenance
   quality, and market coverage rather than an arbitrary target count.
 - ⬜ Prepare consistent company identity without introducing the separate Company Intelligence domain.
