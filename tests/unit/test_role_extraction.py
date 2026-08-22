@@ -21,7 +21,7 @@ def role_codes(
 
 
 def test_role_taxonomy_v1_has_unique_stable_contracts() -> None:
-    assert ROLE_TAXONOMY_VERSION == "1"
+    assert ROLE_TAXONOMY_VERSION == "2"
     assert len(ROLE_CODES) == 19
     assert list(ROLE_CODES) == sorted(ROLE_CODES)
     assert len(ROLE_CODES) == len(set(ROLE_CODES))
@@ -444,3 +444,63 @@ def test_matcher_internals_are_not_exported_from_intelligence_package() -> None:
     assert not hasattr(intelligence, "ROLE_TAXONOMY")
     assert not hasattr(intelligence, "RoleDefinition")
     assert not hasattr(intelligence, "RoleRule")
+
+
+def test_taxonomy_v2_sales_expansion_matches_real_title_families() -> None:
+    cases = {
+        "Enterprise Account Executive": "sales_bd",
+        "Account Manager - Fintech": "sales_bd",
+        "Sales Development Representative": "sales_bd",
+        "Global Head of Cloud Alliances": "sales_bd",
+        "Head of Sales, EMEA": "sales_bd",
+        "SDR": "sales_bd",
+    }
+    for title, expected in cases.items():
+        evidence = extract_roles(title, None)
+        assert [item.role_code for item in evidence] == [expected], title
+
+
+def test_taxonomy_v2_operations_guard_keeps_domain_ops_specific() -> None:
+    # Domain-specific operations titles must not leak into general operations.
+    assert [item.role_code for item in extract_roles("Security Operations Analyst", None)] == [
+        "security"
+    ]
+    assert [item.role_code for item in extract_roles("Customer Operations Associate", None)] == [
+        "support"
+    ] or extract_roles("Customer Operations Associate", None) == ()
+
+
+def test_taxonomy_v2_support_security_devops_operations_additions() -> None:
+    assert extract_roles("Customer Success Manager (EMEA)", None)[0].role_code == (
+        "support"
+    )
+    assert extract_roles("Cloud Support Engineer", None)[0].role_code == "support"
+    assert extract_roles("SOC Analyst", None)[0].role_code == "security"
+    assert extract_roles("Security Architect", None)[0].role_code == "security"
+    assert extract_roles("Site Reliability / Gitops Engineer", None)[
+        0
+    ].rule_id == "devops_platform.site_reliability_compound"
+    assert extract_roles("Cloud Engineer", None)[0].role_code == "devops_platform"
+    assert extract_roles("GitOps Lead", None)[0].role_code == "devops_platform"
+    assert extract_roles("Onboarding Operations Specialist", None)[
+        0
+    ].role_code == "operations"
+
+
+def test_taxonomy_v2_finance_trust_rules() -> None:
+    assert extract_roles("Trust Officer", None)[0].role_code == "finance"
+    assert (
+        extract_roles("Director of Trust Administration", None)[0].role_code
+        == "finance"
+    )
+
+
+def test_generic_software_engineer_titles_remain_unknown() -> None:
+    # Precision-first: generic engineering titles without a functional domain
+    # must not be fabricated into a specific role.
+    for title in (
+        "Software Engineer",
+        "Software Engineer, Ceph & Distributed Storage",
+        "Web Developer",
+    ):
+        assert extract_roles(title, None) == ()

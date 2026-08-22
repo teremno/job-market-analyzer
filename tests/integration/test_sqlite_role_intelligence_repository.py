@@ -553,13 +553,16 @@ def test_unicode_and_historical_names_round_trip(connection: sqlite3.Connection)
     original = named_backend("Бекенд")
     renamed = named_backend("Backend Engineering")
     first = repository.persist_role_analysis(
-        key(posting_id), (original,), created_at=CREATED_AT
+        key(posting_id, taxonomy_version="1", extractor_version="1"),
+        (original,),
+        created_at=CREATED_AT,
     )
     second = repository.persist_role_analysis(
         key(posting_id, taxonomy_version="2", extractor_version="2"),
         (renamed,),
         created_at=CREATED_AT + timedelta(days=1),
     )
+    assert first.analysis_run_id != second.analysis_run_id
 
     assert repository.get_role_evidence(first.analysis_run_id) == (original,)
     assert repository.get_role_evidence(second.analysis_run_id) == (renamed,)

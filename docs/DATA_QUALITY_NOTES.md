@@ -117,9 +117,31 @@ provenance policy (disclosed vs estimated) and text parsing rules.
 ## Sprint implications recorded from this audit
 
 1. **Job Lifecycle v1 stays the next vertical sprint**: stale/active semantics
-   are now backed by observed real data, not hypothesis.
+   are now backed by observed real data, not hypothesis. *(Implemented
+   2026-08-22: read-time 30-day freshness boundary.)*
 2. **Role Taxonomy v2 candidate**: mine Unknown titles from non-web3 sources;
-   target the biggest coverage gaps before adding new skills.
+   target the biggest coverage gaps before adding new skills. *(Implemented
+   2026-08-22: see below.)*
 3. **Web3.career token renewal** is a user-side operational action.
+   *(Resolved same day.)*
 4. **Remotive's small bounded response** (20 records despite limit) is a known
    feed limitation; monitor rather than fix.
+
+## Follow-up audit 2026-08-22 — Role Taxonomy v2 on the expanded dataset
+
+After Greenhouse added 2,339 postings (dataset: 2,871 across 7 sources), Unknown
+titles were mined and taxonomy v2 was implemented (ADR-021). Measured effect:
+
+| Metric | v1 | v2 |
+|---|---|---|
+| Classified postings | 945 (32.9%) | 1,310 (45.6%) |
+| sales_bd | 270 | 550 |
+| support | — | 87 |
+| devops_platform | 73 | 75 |
+| security | 55 | 59 |
+
+Remaining ~1,561 Unknowns are dominated by deliberately unclassified generic
+"Software Engineer" titles (~300) and management/director titles reserved for a
+future seniority dimension. This is expected precision-first behavior, not a
+defect; the next meaningful lever is an explicit seniority analyzer, not more
+role rules.

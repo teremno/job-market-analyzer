@@ -4,7 +4,7 @@ import re
 from dataclasses import dataclass
 from enum import StrEnum
 
-ROLE_TAXONOMY_VERSION = "1"
+ROLE_TAXONOMY_VERSION = "2"
 
 
 class RoleEvidenceField(StrEnum):
@@ -45,7 +45,7 @@ class RoleRule:
 
 @dataclass(frozen=True, slots=True)
 class RoleDefinition:
-    """One language-neutral role code and its English-oriented v1 rules."""
+    """One language-neutral role code and its versioned English-oriented rules."""
 
     code: str
     name: str
@@ -195,6 +195,18 @@ ROLE_TAXONOMY: tuple[RoleDefinition, ...] = (
                 "devops_platform.infrastructure_suffix",
                 r"\bsecurity\s+engineer\s*(?:/|\||[-–—,])\s*infrastructure\b",
             ),
+            _rule(
+                "devops_platform.gitops",
+                r"\bgit[\s-]?ops\s+(?:engineer|lead)\b",
+            ),
+            _rule(
+                "devops_platform.cloud",
+                r"\bcloud\s+(?:infrastructure\s+)?engineer\b",
+            ),
+            _rule(
+                "devops_platform.site_reliability_compound",
+                r"\bsite\s+reliability\b[^.;]{0,40}?\bengineer\b",
+            ),
         ),
     ),
     RoleDefinition(
@@ -215,6 +227,11 @@ ROLE_TAXONOMY: tuple[RoleDefinition, ...] = (
             _rule(
                 "finance.market_strategy",
                 r"\bhead\s+of\s+crypto\s+market\s+strategy\b",
+            ),
+            _rule(
+                "finance.trust",
+                r"\btrust\s+(?:officer|administrator|accounting\s+analyst)\b|"
+                r"\bdirector\s+of\s+trust\s+administration\b",
             ),
         ),
     ),
@@ -326,6 +343,14 @@ ROLE_TAXONOMY: tuple[RoleDefinition, ...] = (
                 "operations.named",
                 r"\b(?:linkedin|support|marketing\s+bd)\s+operations\b",
             ),
+            _rule(
+                "operations.specialist",
+                r"(?<!product\s)(?<!marketing\s)(?<!sales\s)(?<!finance\s)"
+                r"(?<!people\s)(?<!revenue\s)(?<!security\s)(?<!developer\s)"
+                r"(?<!support\s)(?<!customer\s)(?<!cloud\s)(?<!platform\s)"
+                r"(?<!technical\s)(?<!service\s)"
+                r"\boperations\s+(?:specialist|analyst|coordinator|associate)\b",
+            ),
         ),
     ),
     RoleDefinition(
@@ -378,6 +403,30 @@ ROLE_TAXONOMY: tuple[RoleDefinition, ...] = (
                 "sales_bd.solutions",
                 r"\b(?:head\s+of\s+)?solutions\s+engineer(?:ing)?\b",
             ),
+            _rule(
+                "sales_bd.account",
+                r"\b(?:enterprise|strategic|commercial|mid[\s-]?market|major)?\s*"
+                r"account\s+(?:executive|manager)\b",
+            ),
+            _rule(
+                "sales_bd.representative",
+                r"\bsales\s+(?:development\s+representative|representative|"
+                r"associate|specialist|consultant)\b",
+            ),
+            _rule(
+                "sales_bd.sdr_bdr",
+                r"(?<![\w-])(?:sdr|bdr)(?![\w-])",
+                priority=90,
+            ),
+            _rule(
+                "sales_bd.alliances",
+                r"\b(?:alliances?\s+(?:manager|lead|director)|"
+                r"head\s+of\s+[\w\s]{0,30}alliances?)\b",
+            ),
+            _rule(
+                "sales_bd.leadership",
+                r"\b(?:head|vp|svp|director)\s+of\s+sales\b",
+            ),
         ),
     ),
     RoleDefinition(
@@ -401,6 +450,14 @@ ROLE_TAXONOMY: tuple[RoleDefinition, ...] = (
                 "security.operations",
                 r"\bsecurity\s+operations\s+(?:analyst|engineer|specialist)\b",
             ),
+            _rule(
+                "security.soc",
+                r"\bsoc\s+(?:analyst|engineer|manager)\b",
+            ),
+            _rule(
+                "security.specialist",
+                r"\bsecurity\s+(?:specialist|architect|consultant|manager)\b",
+            ),
         ),
     ),
     RoleDefinition(
@@ -421,6 +478,15 @@ ROLE_TAXONOMY: tuple[RoleDefinition, ...] = (
                 "support.trust_safety",
                 r"\btrust\s*(?:&|&amp;|and)\s*safety"
                 r"(?:\s+(?:operations|ops|lead|manager))?\b",
+            ),
+            _rule(
+                "support.engineer",
+                r"\bsupport\s+engineer\b",
+            ),
+            _rule(
+                "support.customer_success",
+                r"\bcustomer\s+success\s+(?:manager|specialist|lead|"
+                r"representative|associate)\b",
             ),
         ),
     ),

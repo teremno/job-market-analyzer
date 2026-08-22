@@ -514,5 +514,5 @@ def _persist(
 
 
 def test_fixture_tracks_active_analyzer_contract() -> None:
-    assert ROLE_TAXONOMY_VERSION == "1"
+    assert ROLE_TAXONOMY_VERSION == "2"
     assert SKILL_TAXONOMY_VERSION == "2"

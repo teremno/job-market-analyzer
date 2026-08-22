@@ -102,6 +102,10 @@ flowchart LR
 - ✅ Manual real-data validation of skill coverage and evidence on local Remote OK and Web3.career datasets.
 - ✅ Role Classification V1 pure implementation and bounded local read-only validation.
 - ✅ Persisted versioned role analysis and recomputation with role/skill isolation.
+- ✅ Role Taxonomy v2: evidence-driven expansion mined from 1,926 Unknown titles in
+  the live seven-source dataset; posting-level coverage rose from 32.9% to 45.6%
+  while generic engineering and management titles deliberately stay Unknown
+  (ADR-021).
 - ✅ Manual one-shot persisted role validation and bounded real-data report.
 - ✅ Job Lifecycle v1 (freshness-based): read-time active/stale boundary with a 30-day
   window, active-only dashboard/API defaults, and an explicit `include_stale` history

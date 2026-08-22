@@ -789,3 +789,50 @@ A dashboard must distinguish active from historical postings once lifecycle land
 until then, counts remain honest posting-level totals without claiming everything
 is currently open. Any future physical pruning must be an explicit, documented
 policy decision that preserves raw observations.
+
+---
+
+## ADR-021: Role Taxonomy v2 is an evidence-driven real-dataset revision
+
+Date: 2026-08-22
+
+Status: Accepted and committed.
+
+### Decision
+
+After the first combined six-source plus Greenhouse dataset reached 2,871
+postings, Unknown titles were mined systematically to ground a bounded role
+taxonomy revision. The single taxonomy/extractor semantics version advances
+from `1` to `2`; historical v1 runs remain preserved and exact-current
+resolution automatically selects v2 by version plus input hash.
+
+V2 additions, each tied to observed title families among the 1,926 Unknown
+postings:
+
+- sales_bd: account executive/manager, sales development representative,
+  SDR/BDR acronyms, alliances leadership, head/vp/director of sales;
+- support: bare support engineer, customer success manager/specialist family;
+- security: SOC analyst, security specialist/architect/consultant/manager;
+- devops_platform: GitOps engineer, cloud engineer, compound
+  "site reliability / X engineer" titles;
+- operations: operations specialist/analyst/coordinator/associate with
+  domain-word negative lookbehinds so "Security Operations Analyst" stays
+  security-only;
+- finance: trust officer/administration family.
+
+### Rejected
+
+Generic "Software Engineer", "Software Developer", and "Web Developer" titles
+(~300 postings) deliberately remain Unknown: without a functional-domain
+signal they would fabricate a specific role and violate precision-first
+semantics. Management titles (engineering manager, director) belong to a
+future seniority dimension, not a functional role code. Inverted Greenhouse
+title forms ("Engineer, Software") are noted but not solved this round.
+
+### Consequences
+
+Measured posting-level coverage on the live dataset rose from 32.9% to 45.6%
+(1,310 classified). The largest gain is sales_bd (270 to 550 postings),
+reflecting the previously invisible commercial side of the market. This is a
+bounded validation measurement, not complete market analytics; cross-source
+canonical deduplication still does not exist.
