@@ -44,6 +44,13 @@ Action: verify/regenerate `WEB3_CAREER_API_TOKEN` from the official API page.
 The collector's fail-loud behavior is correct and must not be changed to follow
 the redirect.
 
+**Resolved later the same day:** after the token was regenerated at the source,
+the API returned HTTP 200 with its documented mixed metadata/jobs JSON array
+(the response still carries an HTML content type; the collector parses the body
+regardless). A follow-up single-source update collected 100 postings (7 new)
+with zero failures, bringing the combined dataset to 532 postings with all six
+sources green.
+
 ### Dataset composition after the run
 
 525 source postings across 6 sources:
