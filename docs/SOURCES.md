@@ -348,6 +348,84 @@ until a dedicated geography analyzer exists.
 No Greenhouse code was copied. The adapter was independently implemented from
 the official documented API contract.
 
+### Lever Job Boards
+
+Official API documentation:
+https://github.com/lever/postings-api
+
+JSON endpoint per board:
+https://api.lever.co/v0/postings/{board_token}?mode=json
+
+Status: implemented, offline-tested, and live-validated.
+
+Authentication and cost: none. Each board is one public credential-free JSON
+GET request returning every currently listed posting. The collector performs
+exactly one request per configured board token per run.
+
+Attribution: identify the company Lever board as the source and preserve the
+original `hostedUrl`; the documented `applyUrl` is used unmodified as the
+application link.
+
+MVP identity:
+
+- `source_provider = "lever"`;
+- `source_scope` = the lowercase company board token;
+- `external_id` uses the source-native `id`.
+
+Curated pilot boards: spotify, palantir.
+
+Normalized fields include title, plain-text description, location,
+`categories.commitment` mapped conservatively onto employment types, structured
+`workplaceType` mapped onto the remote flag (hybrid/onsite are not remote),
+epoch-millisecond `createdAt` as publication time, and department/team names as
+structured source tags. Company name is not exposed by this endpoint and stays
+empty rather than being derived from the board token. No salary is normalized.
+A failed board is an isolated result while later boards continue; all boards
+failing is systemic.
+
+No Lever code was copied; the adapter was implemented from the public API
+contract.
+
+---
+
+### Ashby Job Boards
+
+Official API documentation:
+https://developers.ashbyhq.com/docs/public-job-posting-api
+
+JSON endpoint per board:
+https://api.ashbyhq.com/posting-api/job-board/{board_token}
+
+Status: implemented, offline-tested, and live-validated.
+
+Authentication and cost: none. Each board is one public credential-free JSON
+GET request returning listed postings. The collector performs exactly one
+request per configured board token per run and does not request compensation
+fields.
+
+Attribution: identify the company Ashby board as the source and preserve the
+original `jobUrl`; `applyUrl` is used unmodified.
+
+MVP identity:
+
+- `source_provider = "ashby"`;
+- `source_scope` = the lowercase company board token;
+- `external_id` uses the source-native `id`.
+
+Curated pilot boards: openai, elevenlabs, clickhouse, cohere, ramp, notion,
+langchain, perplexity, baseten, replit, fireworks, supabase, temporal, sentry,
+sardine, linear, modal, posthog.
+
+Normalized fields include title, description with a plain-text preference and
+safe HTML fallback, location, boolean `isRemote`, employment type mapped
+conservatively, ISO `publishedAt` as publication time, and department/team
+names as structured source tags. Company name is not part of the job payload
+and stays empty. No salary or remote-scope geography inference is performed.
+A failed board is an isolated result while later boards continue.
+
+No Ashby code was copied; the adapter was implemented from the official
+documented contract.
+
 ---
 
 ## Researched Sources Not Implemented
@@ -356,12 +434,8 @@ the official documented API contract.
 
 - **Greenhouse additional boards** — the adapter is source-scope driven, so new
   company boards are one-token additions to `GREENHOUSE_BOARD_TOKENS`.
-- **Lever Postings API** — official public read-only JSON API with pagination and
-  stable posting IDs: https://github.com/lever/postings-api. Deferred until the
-  product has a curated set of company site names/scopes.
-- **Ashby Public Job Postings API** — official credential-free JSON endpoint per
-  configured job board: https://developers.ashbyhq.com/docs/public-job-posting-api.
-  Deferred for the same board-discovery/scope reason.
+- **Lever and Ashby additional boards** — new company boards are one-token
+  additions to `LEVER_BOARD_TOKENS` or `ASHBY_BOARD_TOKENS`.
 
 ### Credential required — not implemented
 

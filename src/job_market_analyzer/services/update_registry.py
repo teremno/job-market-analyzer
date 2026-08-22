@@ -2,6 +2,10 @@
 
 import sqlite3
 
+from job_market_analyzer.collectors.ashby import (
+    ASHBY_SOURCE_PROVIDER,
+    AshbyCollector,
+)
 from job_market_analyzer.collectors.greenhouse import (
     GREENHOUSE_SOURCE_PROVIDER,
     GreenhouseCollector,
@@ -13,6 +17,10 @@ from job_market_analyzer.collectors.himalayas import (
 from job_market_analyzer.collectors.jobicy import (
     JOBICY_SOURCE_PROVIDER,
     JobicyCollector,
+)
+from job_market_analyzer.collectors.lever import (
+    LEVER_SOURCE_PROVIDER,
+    LeverCollector,
 )
 from job_market_analyzer.collectors.remote_ok import (
     REMOTE_OK_SOURCE_PROVIDER,
@@ -34,9 +42,11 @@ from job_market_analyzer.collectors.we_work_remotely import (
 from job_market_analyzer.intelligence.roles import ROLE_TAXONOMY_VERSION
 from job_market_analyzer.intelligence.seniority import SENIORITY_TAXONOMY_VERSION
 from job_market_analyzer.intelligence.skills import SKILL_TAXONOMY_VERSION
+from job_market_analyzer.normalization.ashby import normalize_ashby_job
 from job_market_analyzer.normalization.greenhouse import normalize_greenhouse_job
 from job_market_analyzer.normalization.himalayas import normalize_himalayas_job
 from job_market_analyzer.normalization.jobicy import normalize_jobicy_job
+from job_market_analyzer.normalization.lever import normalize_lever_job
 from job_market_analyzer.normalization.remote_ok import normalize_remote_ok_job
 from job_market_analyzer.normalization.remotive import normalize_remotive_job
 from job_market_analyzer.normalization.web3_career import normalize_web3_career_job
@@ -103,6 +113,18 @@ SOURCE_REGISTRY: tuple[SourceAdapter, ...] = (
         "Greenhouse",
         GreenhouseCollector,
         normalize_greenhouse_job,
+    ),
+    SourceAdapter(
+        LEVER_SOURCE_PROVIDER,
+        "Lever",
+        LeverCollector,
+        normalize_lever_job,
+    ),
+    SourceAdapter(
+        ASHBY_SOURCE_PROVIDER,
+        "Ashby",
+        AshbyCollector,
+        normalize_ashby_job,
     ),
 )
 

@@ -87,7 +87,11 @@ flowchart LR
 
 - ✅ Pilot curated remote-friendly Greenhouse boards: 16 approved company boards
   collected through one credential-free request per board, with per-board
-  isolation and documented attribution. Lever and Ashby follow the same pattern.
+  isolation and documented attribution.
+- ✅ Lever and Ashby ATS boards: curated spotify/palantir (Lever) and 18 AI-era
+  remote-friendly boards including OpenAI, Cohere, Notion and Linear (Ashby),
+  following the same per-board isolation pattern. New company boards are now
+  one-token registry additions across three ATS platforms.
 - ⬜ Continue source expansion according to reliability, legal access, provenance
   quality, and market coverage rather than an arbitrary target count.
 - ⬜ Prepare consistent company identity without introducing the separate Company Intelligence domain.
