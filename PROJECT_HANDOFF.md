@@ -392,7 +392,7 @@ unique jobs worldwide
 
 # 9. Current sources
 
-Six sources are currently implemented and have been live-validated:
+Nine sources are currently implemented and have been live-validated:
 
 1. Remote OK
 2. Web3.career
@@ -400,8 +400,11 @@ Six sources are currently implemented and have been live-validated:
 4. Jobicy
 5. Remotive
 6. We Work Remotely RSS
+7. Greenhouse (16 curated company boards)
+8. Lever (2 curated boards)
+9. Ashby (18 curated boards)
 
-The project MUST NOT stop at these six sources.
+The project MUST NOT stop at these nine sources.
 
 These are the first working source set, not the final market universe.
 
@@ -856,9 +859,11 @@ It orchestrates:
 
 1. all enabled sources;
 2. persistence;
-3. skill analysis;
-4. role analysis;
-5. summary output.
+3. skills analysis;
+4. roles analysis;
+5. seniority analysis;
+6. geography analysis;
+7. summary output.
 
 Current collection order:
 
@@ -869,6 +874,9 @@ Himalayas
 Jobicy
 Remotive
 We Work Remotely
+Greenhouse
+Lever
+Ashby
 ```
 
 Current analysis order:
@@ -876,6 +884,8 @@ Current analysis order:
 ```text
 skills
 roles
+seniority
+geography
 ```
 
 The update system is registry-driven.
@@ -914,6 +924,8 @@ Current:
 ```text
 skills/en
 roles/en
+seniority/en
+geography/en
 ```
 
 This is an intentional extension seam for future analysis kinds and languages.
@@ -921,9 +933,7 @@ This is an intentional extension seam for future analysis kinds and languages.
 Future possibilities:
 
 ```text
-seniority/en
 salary/en
-geography/en
 skills/uk
 roles/uk
 ```
@@ -1013,9 +1023,20 @@ Idempotency is a fundamental product property.
 
 # 26. Current test/quality state
 
-Latest guided update sprint report:
+Latest full audit (2026-08-22, after lifecycle/seniority/geography and ATS
+source sprints):
 
 - Python 3.13.7
+- 812 Python tests passed
+- Ruff: all checks passed
+- `git diff --check`: clean
+- frontend: npm test / lint / typecheck all clean
+- live nine-source guided update verified on a disposable database copy
+- SQLite integrity_check ok, zero foreign-key violations, zero cross-analyzer
+  evidence contamination, historical analysis runs preserved
+
+Earlier sprint report (guided update delivery):
+
 - 731 tests passed
 - Ruff: all checks passed
 - `git diff --check`: clean
@@ -1056,10 +1077,10 @@ Do not reintroduce deleted dead modules without a concrete reason.
 Intentionally not implemented yet:
 
 - cross-source canonical deduplication;
-- job lifecycle / stale job handling;
-- seniority intelligence;
+- job lifecycle expiry states beyond the freshness heuristic (removed/expired);
 - salary normalization/intelligence;
-- geography/eligibility intelligence;
+- seniority and geography exposure in dashboard/API (analyzers persist runs;
+  analytics surfaces are postponed until validated);
 - multilingual vacancy detection/extraction;
 - user profiles;
 - skill-gap analysis;
@@ -1085,9 +1106,9 @@ Before the product becomes strongly personalized, high-value structured job dime
 
 Recommended priority:
 
-1. job lifecycle / stale postings
-2. seniority
-3. geography / remote eligibility
+1. ~~job lifecycle / stale postings~~ ✅ implemented (freshness boundary v1)
+2. ~~seniority~~ ✅ implemented (`seniority/en`, schema v4)
+3. ~~geography / remote eligibility~~ ✅ implemented (`geography/en`, schema v5)
 4. salary normalization
 5. cross-source canonical deduplication v1
 

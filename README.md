@@ -67,19 +67,23 @@ See [Product Vision](docs/PRODUCT_VISION.md) for long-term principles and [Produ
 ## Guided dataset update
 
 Run every enabled source, persist current observations, and then run the active
-English skill and role analyzers with one command:
+English analyzers (skills, roles, seniority, geography) with one command:
 
 ```powershell
 job-market-analyzer update --database .\job-market.sqlite3
 ```
 
 The database path is required and may be new or existing. Sources run once in the
-explicit registry order: Remote OK, Web3.career, Himalayas, Jobicy, Remotive, and We
-Work Remotely. If `WEB3_CAREER_API_TOKEN` is absent, Web3.career alone is reported as
-skipped; credential-free sources still run. Never commit the token or pass it as a
-CLI argument. A failed remote source is reported and later independent sources
-continue, while a database, schema, or persistence failure aborts the update. Skill
-and role analysis runs after collection over current durable postings.
+explicit registry order: Remote OK, Web3.career, Himalayas, Jobicy, Remotive, We
+Work Remotely, Greenhouse, Lever, and Ashby. The three ATS sources collect curated
+company boards through one credential-free request per board; their approved board
+lists live in `docs/SOURCES.md` and grow by one-token registry additions rather
+than new CLI commands. If `WEB3_CAREER_API_TOKEN` is absent, Web3.career alone is
+reported as skipped; credential-free sources still run. Never commit the token or
+pass it as a CLI argument. A failed remote source is reported and later independent
+sources continue, while a database, schema, or persistence failure aborts the
+update. All registered analyzers run after collection over current durable
+postings.
 
 Repeated unchanged updates reuse source postings, observations, and versioned
 analysis runs. Use repeatable `--source PROVIDER` to select registry entries and

@@ -31,12 +31,18 @@ This roadmap is directional. It describes meaningful product milestones, not a r
 | Role Classification V1 | ✅ | Committed pure deterministic classifier with bounded 200-posting local validation |
 | Versioned role persistence / recomputation | ✅ | Committed schema v3, repository, exact identity, and analyzer-kind protections |
 | Manual persisted role validation | ✅ | One-shot CLI and two-pass disposable-copy validation are committed |
-| Multi-source expansion | ✅ | Six supported sources; 218 new live-validated postings across four credential-free feeds |
+| Multi-source expansion | ✅ | Nine supported sources: six feeds plus curated Greenhouse (16 boards), Lever, and Ashby (18 boards) ATS adapters |
 | Dashboard v0 internal analytics/query layer | ✅ | Read-only exact-current overview, posting search, role/skill detail, and source summaries |
 | Local read-only Dashboard API | ✅ | Committed loopback-only FastAPI adapter over posting-level analytics |
 | Browser Dashboard v0 | ✅ | Committed browser UI over the local read-only API and validated on real persisted data |
 | Guided update flow: source/analyzer registries, partial-failure policy | ✅ | Committed orchestration with credential skip, language capability validation, and idempotent reruns |
-| Unified personal-use dataset audit | 🟡 | NEXT: run the real six-source guided update against the personal database, inspect the dashboard, and record data-quality findings |
+| Job Lifecycle v1 (freshness) | ✅ | Read-time 30-day active/stale boundary with explicit `include_stale` history access |
+| Role Taxonomy v2 | ✅ | Evidence-driven revision mined from real Unknown titles; coverage rose from 32.9% to 45.6% |
+| Seniority v1 (`seniority/en`) | ✅ | Title-only experience-axis analyzer persisted behind schema v4; live-validated on 2,871 postings |
+| Geography v1 (`geography/en`) | ✅ | Arrangement plus region eligibility behind schema v5; live pass classified 86.2% of 5,548 postings |
+| Unified personal-use dataset audit | ✅ | Real nine-source guided update run; findings recorded in `DATA_QUALITY_NOTES.md` |
+| Salary normalization | ⬜ | Next data-quality capability after lifecycle/seniority/geography |
+| Deployment foundation (Docker, CI, hosted alpha) | ⬜ | Required before the public read-only website |
 
 ## Visual Direction
 
