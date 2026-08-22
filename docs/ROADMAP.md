@@ -34,8 +34,8 @@ This roadmap is directional. It describes meaningful product milestones, not a r
 | Multi-source expansion | ✅ | Six supported sources; 218 new live-validated postings across four credential-free feeds |
 | Dashboard v0 internal analytics/query layer | ✅ | Read-only exact-current overview, posting search, role/skill detail, and source summaries |
 | Local read-only Dashboard API | ✅ | Committed loopback-only FastAPI adapter over posting-level analytics |
-| Browser Dashboard v0 | 🟡 | Implemented and browser-validated on real persisted data; awaiting commit checkpoint |
-| Unified personal-use dataset + product audit | ⬜ | NEXT: collect all six sources into one database and prioritize from observed product gaps |
+| Browser Dashboard v0 | ✅ | Committed browser UI over the local read-only API and validated on real persisted data |
+| Unified personal-use dataset + guided update flow | 🟡 | NEXT: collect all six sources into one database, audit real usage, then design the smallest guided refresh flow |
 
 ## Visual Direction
 
@@ -45,8 +45,8 @@ flowchart LR
     P2 --> P3["🟡 Phase 3<br/>Posting Analytics"]
     P3 --> P4["⬜ Phase 4<br/>Personal Intelligence"]
     P3 --> LA["✅ Local read-only API"]
-    LA --> P6["🟡 Dashboard v0"]
-    P6 --> UA["⬜ NEXT<br/>Unified dataset + product audit"]
+    LA --> P6["✅ Dashboard v0"]
+    P6 --> UA["🟡 NEXT<br/>Unified dataset + guided update"]
     P3 --> P5["⬜ Phase 5<br/>Hosted Backend"]
     P5 --> P6
     P5 --> P7["⬜ Phase 7<br/>Integrations"]
@@ -73,9 +73,8 @@ flowchart LR
 
 ### Current / next
 
-- 🟡 Commit the browser-visible Dashboard v0 checkpoint.
-- ⬜ NEXT: populate one six-source personal database and perform the documented
-  product audit before selecting another intelligence layer.
+- 🟡 Populate one six-source personal database and perform the documented product
+  audit, then design a guided update flow from observed personal-use friction.
 
 ### Planned foundation work
 
@@ -153,7 +152,7 @@ The local open-source mode must remain supported.
 
 ## Phase 6 — Web Product
 
-- 🟡 Dashboard v0: Overview, vacancy browser, URL-backed combined filters,
+- ✅ Dashboard v0: Overview, vacancy browser, URL-backed combined filters,
   role/skill detail, source coverage, and explicit local API error states.
 - ⬜ Role, skill, and salary explorers.
 - ⬜ Regional and remote-restriction filters.

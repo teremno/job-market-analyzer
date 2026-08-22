@@ -46,6 +46,6 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
       </form>
       <div className="result-summary" aria-live="polite"><p><strong>{formatNumber(jobs.total)}</strong> matching source postings</p>{jobs.total > 0 && <span>Showing {formatNumber(jobs.offset + 1)}–{formatNumber(Math.min(jobs.offset + jobs.items.length, jobs.total))}</span>}</div>
       {jobs.items.length ? <PostingsTable postings={jobs.items} /> : <EmptyState title="No postings match these filters.">Clear one or more filters, or try a broader title/company search.</EmptyState>}
-      {jobs.total > 0 && <nav className="pagination" aria-label="Job pages"><Link aria-disabled={safePage <= 1} tabIndex={safePage <= 1 ? -1 : undefined} href={safePage <= 1 ? pageHref(1) : pageHref(safePage - 1)}>Previous</Link><span>Page {safePage} of {pageCount}</span><Link aria-disabled={safePage >= pageCount} tabIndex={safePage >= pageCount ? -1 : undefined} href={safePage >= pageCount ? pageHref(pageCount) : pageHref(safePage + 1)}>Next</Link></nav>}
+      {jobs.total > 0 && <nav className="pagination" aria-label="Job pages">{safePage <= 1 ? <span className="pagination-control pagination-disabled" aria-disabled="true">Previous</span> : <Link className="pagination-control" href={pageHref(safePage - 1)}>Previous</Link>}<span>Page {safePage} of {pageCount}</span>{safePage >= pageCount ? <span className="pagination-control pagination-disabled" aria-disabled="true">Next</span> : <Link className="pagination-control" href={pageHref(safePage + 1)}>Next</Link>}</nav>}
   </>;
 }

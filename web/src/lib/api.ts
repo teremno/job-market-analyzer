@@ -12,13 +12,18 @@ const REQUEST_TIMEOUT_MS = 5_000;
 type ApiErrorKind = "unavailable" | "not_found" | "invalid_response" | "api";
 
 export class ApiClientError extends Error {
+  public readonly kind: ApiErrorKind;
+  public readonly status?: number;
+
   constructor(
-    public readonly kind: ApiErrorKind,
+    kind: ApiErrorKind,
     message: string,
-    public readonly status?: number,
+    status?: number,
   ) {
     super(message);
     this.name = "ApiClientError";
+    this.kind = kind;
+    this.status = status;
   }
 }
 
@@ -93,7 +98,7 @@ function isAnalysisStatus(value: unknown): boolean {
     || value === "analyzed_with_results";
 }
 
-function isOverview(value: unknown): value is Overview {
+export function isOverview(value: unknown): value is Overview {
   if (!isRecord(value)) return false;
   return hasNumber(value, "posting_count") && hasNumber(value, "source_count")
     && isAnalysisCounts(value.role_analysis) && isAnalysisCounts(value.skill_analysis)
@@ -115,12 +120,12 @@ function isPosting(value: unknown): boolean {
     && Array.isArray(value.skills) && value.skills.every(isNamedSkill);
 }
 
-function isJobsResponse(value: unknown): value is JobsResponse {
+export function isJobsResponse(value: unknown): value is JobsResponse {
   return isRecord(value) && Array.isArray(value.items) && value.items.every(isPosting)
     && hasNumber(value, "limit") && hasNumber(value, "offset") && hasNumber(value, "total");
 }
 
-function isRoleDetail(value: unknown): value is RoleDetail {
+export function isRoleDetail(value: unknown): value is RoleDetail {
   return isRecord(value) && hasString(value, "role_code") && hasString(value, "role_name")
     && hasNumber(value, "posting_count") && Array.isArray(value.top_skills)
     && value.top_skills.every(isSkillCount)
@@ -128,7 +133,7 @@ function isRoleDetail(value: unknown): value is RoleDetail {
     && value.representative_postings.every(isPosting);
 }
 
-function isSkillDetail(value: unknown): value is SkillDetail {
+export function isSkillDetail(value: unknown): value is SkillDetail {
   return isRecord(value) && hasString(value, "skill_code") && hasString(value, "skill_name")
     && hasNumber(value, "posting_count") && Array.isArray(value.associated_roles)
     && value.associated_roles.every(isRoleCount)
@@ -137,14 +142,14 @@ function isSkillDetail(value: unknown): value is SkillDetail {
     && value.representative_postings.every(isPosting);
 }
 
-function isSourceSummary(value: unknown): value is SourceSummary {
+export function isSourceSummary(value: unknown): value is SourceSummary {
   return isRecord(value) && hasString(value, "source_provider")
     && hasNumber(value, "posting_count") && hasString(value, "newest_last_seen_at")
     && hasNullableString(value, "newest_published_at")
     && isAnalysisCoverage(value.role_analysis) && isAnalysisCoverage(value.skill_analysis);
 }
 
-function isHealth(value: unknown): value is HealthResponse {
+export function isHealth(value: unknown): value is HealthResponse {
   return isRecord(value) && hasString(value, "status") && hasNumber(value, "schema_version");
 }
 

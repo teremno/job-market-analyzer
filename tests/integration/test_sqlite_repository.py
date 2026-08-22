@@ -1,6 +1,8 @@
 import sqlite3
 from datetime import UTC, datetime, timedelta, timezone
 from decimal import Decimal
+from pathlib import Path
+from threading import Event, Thread
 from uuid import UUID
 
 import pytest
@@ -668,3 +670,87 @@ def test_repository_rejects_caller_owned_active_transaction(
 
     assert connection.in_transaction
     connection.rollback()
+
+
+def test_file_database_serializes_two_writers_without_corruption(
+    tmp_path: Path,
+) -> None:
+    database_path = tmp_path / "concurrency.sqlite3"
+    holder = connect_database(database_path)
+    initialize_database(holder)
+    holder.execute(
+        "CREATE TABLE concurrency_probe (writer TEXT NOT NULL PRIMARY KEY)"
+    )
+    holder.commit()
+
+    worker_ready = Event()
+    start_worker = Event()
+    worker_attempting = Event()
+    worker_finished = Event()
+    worker_busy_timeouts: list[int] = []
+    worker_errors: list[BaseException] = []
+
+    def persist_from_second_connection() -> None:
+        worker = connect_database(database_path)
+        try:
+            worker_busy_timeouts.append(
+                int(worker.execute("PRAGMA busy_timeout").fetchone()[0])
+            )
+            worker.set_trace_callback(
+                lambda statement: (
+                    worker_attempting.set()
+                    if statement == "BEGIN IMMEDIATE"
+                    else None
+                )
+            )
+            repository = SQLiteJobRepository(worker)
+            worker_ready.set()
+            if not start_worker.wait(timeout=2):
+                raise AssertionError("first writer did not release worker")
+            repository.persist_observation(
+                make_raw_job(external_id="concurrent"),
+                make_posting(external_id="concurrent"),
+            )
+        except BaseException as error:
+            worker_errors.append(error)
+        finally:
+            worker.close()
+            worker_finished.set()
+
+    worker_thread = Thread(target=persist_from_second_connection)
+    worker_thread.start()
+    try:
+        assert worker_ready.wait(timeout=2), worker_errors
+        assert holder.execute("PRAGMA busy_timeout").fetchone()[0] == 5000
+
+        holder.execute("BEGIN IMMEDIATE")
+        holder.execute(
+            "INSERT INTO concurrency_probe (writer) VALUES (?)",
+            ("holder",),
+        )
+        start_worker.set()
+        assert worker_attempting.wait(timeout=2), worker_errors
+        assert worker_finished.wait(timeout=0.05) is False
+        holder.commit()
+
+        assert worker_finished.wait(timeout=2), worker_errors
+        worker_thread.join(timeout=2)
+        assert worker_thread.is_alive() is False
+        assert worker_errors == []
+        assert worker_busy_timeouts == [5000]
+        assert holder.execute(
+            "SELECT writer FROM concurrency_probe"
+        ).fetchone()[0] == "holder"
+        assert holder.execute(
+            "SELECT COUNT(*) FROM canonical_jobs"
+        ).fetchone()[0] == 1
+        assert holder.execute(
+            "SELECT COUNT(*) FROM job_postings"
+        ).fetchone()[0] == 1
+        assert holder.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
+    finally:
+        start_worker.set()
+        if holder.in_transaction:
+            holder.rollback()
+        worker_thread.join(timeout=2)
+        holder.close()

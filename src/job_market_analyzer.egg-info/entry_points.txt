@@ -1,2 +1,0 @@
-[console_scripts]
-job-market-analyzer = job_market_analyzer.cli:main

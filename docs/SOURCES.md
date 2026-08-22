@@ -31,6 +31,23 @@ Notes:
 
 ## Active Vacancy Sources
 
+### Optional publication-date validation policy
+
+Publication time is optional normalized data, but each adapter keeps the validation
+semantics established for its source contract. Remote OK, Himalayas, Jobicy,
+Remotive, and We Work Remotely accept an absent publication value but reject that
+individual posting when a supplied value has the wrong type, format, timezone, or
+range. The generic collection service records the item failure and continues with
+other source items.
+
+Web3.career is intentionally more tolerant because its API exposes three observed
+date candidates: it selects the first safely parsed value from `date`, `postedAt`,
+and `date_epoch`, skipping malformed candidates; if none is valid, `published_at`
+remains empty. This source-specific difference is retained for the current MVP.
+Changing it would alter accepted observations and normalized `content_hash` history,
+so any future standardization needs an explicit migration/versioning decision rather
+than a housekeeping edit.
+
 ### Remote OK
 
 Official JSON API:
