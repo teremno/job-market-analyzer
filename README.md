@@ -32,7 +32,16 @@ Repeated observations from the same source update one `JobPosting`. Cross-source
 
 Persistence is deterministic: timestamps use a fixed UTC format, JSON keys are sorted, Decimal values never pass through binary floats, and persistence owns both raw `observation_hash` and normalized `content_hash` values.
 
-## Initial target roles
+## Initial research focus
+
+Collection is not filtered by profession or role: each collector stores every vacancy
+its connected source exposes. The product is remote-first through source selection,
+not through a fixed vacancy whitelist.
+
+The roles below are only the initial research interests used when validating the first
+sources and analyzers. They are not a product boundary. The role taxonomy (currently
+19 stable codes plus an explicit Unknown state) keeps expanding together with the
+source set, and users search whatever the collected dataset contains.
 
 - AI Automation
 - Python Automation

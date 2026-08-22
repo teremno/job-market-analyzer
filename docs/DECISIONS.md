@@ -681,7 +681,7 @@ and saved user state remain postponed until personal-use evidence justifies them
 
 Date: 2026-08-22
 
-Status: Accepted for the current uncommitted implementation checkpoint.
+Status: Accepted and committed.
 
 ### Decision
 
@@ -721,3 +721,68 @@ runs idempotent. Adding a future source or `skills/uk` / `roles/uk` is a registr
 composition change, not an orchestration rewrite. CLI display remains English and is
 separate from analyzer input language. This decision adds no source, schema,
 scheduler, automatic language detection, or Ukrainian taxonomy.
+
+---
+
+## ADR-019: Optional accounts arrive only after the hosted read-only alpha
+
+Date: 2026-08-22
+
+Status: Accepted.
+
+### Decision
+
+Anonymous read-only access remains the permanent baseline mode of the product.
+Optional user accounts are introduced only after the hosted read-only alpha is
+running and only for personal state: saved searches and filters, notes, a skill
+profile, and later skill-gap recommendations. Personal data lives in a logically
+separate schema from the global market dataset and never mutates core domain
+models. The self-hosted/local mode keeps working without any account, using local
+configuration or a local profile instead of hosted authentication.
+
+### Reason
+
+Personal value features (skill gap, one-click "what should I learn") depend on
+trustworthy market evidence first: job lifecycle, seniority, geography, and salary
+quality. Adding authentication earlier would build personalization on weak data
+and contradict product honesty. Public read-only exposure also validates
+infrastructure and gathers feedback without an auth burden.
+
+### Consequences
+
+Public GET endpoints stay unchanged; personal endpoints are additive (for example,
+`/api/me/...`) over the same core. A future security sprint precedes any public
+account handling. No authentication work happens before the hosted alpha exists.
+
+---
+
+## ADR-020: Retention uses lifecycle status, not deletion
+
+Date: 2026-08-22
+
+Status: Accepted as direction; implementation is the planned Job Lifecycle v1 sprint.
+
+### Decision
+
+Old postings are not deleted or moved to a separate archive on a time schedule.
+Instead, postings receive normalized lifecycle semantics (for example active,
+stale, removed, expired) derived from source-aware observation history, and user-
+facing views default to currently-active postings with explicit freshness filters.
+Historical rows remain stored because they are required for provenance,
+idempotency invariants, and future trend analytics.
+
+### Reason
+
+Source feeds expose only their current listing window; anything not collected when
+published is lost forever, so broad collection plus durable retention is the only
+viable model for both search and market analytics. Deleting stale rows would
+destroy trend analytics and raw-provenance guarantees while saving negligible
+storage at this scale. Freshness is a query/filter concern, not a physical
+retention policy.
+
+### Consequences
+
+A dashboard must distinguish active from historical postings once lifecycle lands;
+until then, counts remain honest posting-level totals without claiming everything
+is currently open. Any future physical pruning must be an explicit, documented
+policy decision that preserves raw observations.

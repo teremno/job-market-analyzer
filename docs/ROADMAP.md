@@ -35,7 +35,8 @@ This roadmap is directional. It describes meaningful product milestones, not a r
 | Dashboard v0 internal analytics/query layer | ✅ | Read-only exact-current overview, posting search, role/skill detail, and source summaries |
 | Local read-only Dashboard API | ✅ | Committed loopback-only FastAPI adapter over posting-level analytics |
 | Browser Dashboard v0 | ✅ | Committed browser UI over the local read-only API and validated on real persisted data |
-| Unified personal-use dataset + guided update flow | 🟡 | NEXT: collect all six sources into one database, audit real usage, then design the smallest guided refresh flow |
+| Guided update flow: source/analyzer registries, partial-failure policy | ✅ | Committed orchestration with credential skip, language capability validation, and idempotent reruns |
+| Unified personal-use dataset audit | 🟡 | NEXT: run the real six-source guided update against the personal database, inspect the dashboard, and record data-quality findings |
 
 ## Visual Direction
 
@@ -73,12 +74,14 @@ flowchart LR
 
 ### Current / next
 
-- 🟡 Guided one-shot update flow: source/analyzer registries, partial source failure,
+- ✅ Guided one-shot update flow: source/analyzer registries, partial source failure,
   credential skip, English capability validation, idempotency, and dashboard handoff
-  are implemented and tested but not yet committed.
-- ⬜ After commit, run one real personal-use six-source update/dashboard cycle and
-  record observed product friction. Ukrainian skill/role intelligence can then be a
-  concrete next language sprint if desired; it is not implemented or implied now.
+  are implemented, tested, and committed.
+- 🟡 Run one real personal-use six-source update/dashboard cycle and record observed
+  product friction and concrete data-quality findings. Job lifecycle (active/stale
+  status instead of deletion) is the first planned vertical sprint after that audit.
+  Ukrainian skill/role intelligence can then be a concrete next language sprint if
+  desired; it is not implemented or implied now.
 
 ### Planned foundation work
 
