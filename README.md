@@ -182,11 +182,24 @@ Analyze a bounded set of current durable postings already stored in SQLite:
 job-market-analyzer analyze-roles --database ./job-market.sqlite3 --limit 100
 ```
 
-`--database` is required, must identify an existing SQLite file, and `--limit` defaults to `100`. The command reads current `JobPosting` rows in deterministic `(source_provider, source_scope, external_id, id)` order, runs Role Taxonomy v2, persists versioned role runs and evidence, prints posting-level coverage plus bounded evidence, Unknown, and multi-label samples, then exits. It performs no collection or network request.
-
 Unknown is a successful exact-version analysis with zero `RoleEvidence`, not a failure. Repeating the command with unchanged title, description, and analyzer version reuses every exact run without duplicating evidence. A changed role input creates a historical run; company, salary, location, tags, and other non-role changes do not.
 
 The output is a manual development validation over source postings. It is not fully canonical-deduplicated market analytics because complete cross-source canonical linking is not implemented. See [Role Persistence Validation Report](docs/ROLE_PERSISTENCE_VALIDATION_REPORT.md) for the bounded local persisted-data results and limitations.
+
+## Skill gap calculator
+
+Compare the skills you already have against what the active market mentions for
+one target role:
+
+```bash
+job-market-analyzer skill-gap --database ./job-market.sqlite3 --role backend --skills python,sql,Docker --top 15
+```
+
+The command is read-only: it resolves the role's active postings, ranks their
+mentioned skills by posting frequency, splits them into gaps and matches
+against your list (matched case-insensitively by skill code or display name),
+and prints unrecognized inputs honestly. Every row is mention-level evidence,
+never a requirement claim, and no profile is stored anywhere.
 
 ## Local Dashboard
 
@@ -214,8 +227,7 @@ paste into frontend configuration, or print that value.
 ### B. Analyze the persisted postings
 
 ```powershell
-job-market-analyzer analyze-skills --database .\job-market.sqlite3 --limit 10000
-job-market-analyzer analyze-roles --database .\job-market.sqlite3 --limit 10000
+job-market-analyzer update --database .\job-market.sqlite3
 ```
 
 ### C. Start the backend

@@ -966,3 +966,43 @@ compensation and mining Greenhouse description text are explicit future
 revisions requiring their own versioning decisions. Median annual minimums by
 currency are now computable but remain posting-level observations, not market
 certified statistics.
+
+---
+
+## ADR-025: Skill Gap v1 is a read-only deterministic calculator
+
+Date: 2026-08-23
+
+Status: Accepted and committed.
+
+### Decision
+
+Add Skill Gap V1 as a pure read-only calculator over ``AnalyticsRepository``:
+given a target role code and a list of skills the user claims (matched
+case-insensitively against canonical taxonomy codes and display names), the
+service ranks the role's market-mentioned skills by posting frequency and
+splits them into gaps and matches. Unrecognized inputs are reported back, not
+dropped or invented. No persistence, no user profiles, no authentication, no
+AI: the first CLI entry point is ``skill-gap --role CODE --skills a,b,c``.
+Every row is mention-level evidence ("mentioned in N of M active postings for
+this role") and is never presented as an employer requirement.
+
+### Reason
+
+This is the first product surface of the mission chain (market evidence >
+personal gap). It became honest only after lifecycle, roles v2, seniority,
+geography, and salary landed: ranking by stale or unclassified data would have
+misled users. Deferring persistence keeps privacy surface zero until hosted
+accounts exist (ADR-019).
+
+### Rejected
+
+Weighted scoring beyond mention counts, seniority-aware filtering inside the
+calculator, and any LLM explanation are postponed; they require evaluation
+datasets (handoff #59) before recommendations can be trusted.
+
+### Consequences
+
+A future web UI can reuse the same pure function over the API without new
+storage. The report inherits all dataset caveats: posting-level counts,
+taxonomy coverage limits, and English-language sources.

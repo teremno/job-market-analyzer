@@ -48,7 +48,10 @@ from job_market_analyzer.collectors.we_work_remotely import (
 )
 from job_market_analyzer.models import NormalizedJobPosting, RawJob
 from job_market_analyzer.intelligence.skills import SKILL_TAXONOMY_VERSION
-from job_market_analyzer.intelligence.roles import ROLE_TAXONOMY_VERSION
+from job_market_analyzer.analytics import SQLiteAnalyticsRepository
+from job_market_analyzer.intelligence.roles import ROLE_TAXONOMY, ROLE_TAXONOMY_VERSION
+from job_market_analyzer.services.skill_gap import compute_skill_gap
+from job_market_analyzer.storage.sqlite import connect_read_only_database
 from job_market_analyzer.normalization.remote_ok import normalize_remote_ok_job
 from job_market_analyzer.normalization.himalayas import normalize_himalayas_job
 from job_market_analyzer.normalization.jobicy import normalize_jobicy_job
@@ -125,6 +128,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         return analyze_skills(arguments.database, limit=arguments.limit)
     if arguments.command == "analyze-roles":
         return analyze_roles(arguments.database, limit=arguments.limit)
+    if arguments.command == "skill-gap":
+        return skill_gap(
+            arguments.database,
+            role_code=arguments.role,
+            skills_argument=arguments.skills,
+            top=arguments.top,
+        )
     if arguments.command == "serve":
         return serve(
             arguments.database,
@@ -518,6 +528,42 @@ def _build_parser() -> argparse.ArgumentParser:
         type=_positive_int,
         metavar="N",
         help="Maximum current postings to analyze (default: 100).",
+    )
+    gap_parser = subparsers.add_parser(
+        "skill-gap",
+        help=(
+            "Compute a deterministic read-only skill gap for one target role "
+            "from active market evidence."
+        ),
+    )
+    gap_parser.add_argument(
+        "--database",
+        required=True,
+        type=Path,
+        metavar="PATH",
+        help="Existing SQLite database path (read-only).",
+    )
+    gap_parser.add_argument(
+        "--role",
+        required=True,
+        metavar="ROLE_CODE",
+        help="Target role code, for example backend or data.",
+    )
+    gap_parser.add_argument(
+        "--skills",
+        default="",
+        metavar="SKILL[,SKILL...]",
+        help=(
+            "Comma-separated skills you already have, by code or display "
+            "name (for example: python,sql,Docker)."
+        ),
+    )
+    gap_parser.add_argument(
+        "--top",
+        default=15,
+        type=_positive_int,
+        metavar="N",
+        help="Maximum market skills to print (default: 15).",
     )
     serve_parser = subparsers.add_parser(
         "serve",
@@ -938,3 +984,90 @@ def _redact_sensitive(value: str, sensitive_values: Sequence[str]) -> str:
     for sensitive_value in sensitive_values:
         message = message.replace(sensitive_value, "[REDACTED]")
     return message
+
+
+def skill_gap(
+    database_path: Path,
+    *,
+    role_code: str,
+    skills_argument: str,
+    top: int,
+) -> int:
+    """Print a deterministic read-only skill gap for one target role."""
+
+    resolved_path = database_path.resolve(strict=True)
+    if not resolved_path.is_file():
+        print(f"Database not found: {database_path}", file=sys.stderr)
+        return 1
+    connection = connect_read_only_database(resolved_path)
+    try:
+        analytics = SQLiteAnalyticsRepository(connection)
+        known_inputs = [
+            item.strip() for item in skills_argument.split(",") if item.strip()
+        ]
+        report = compute_skill_gap(
+            analytics,
+            role_code=role_code,
+            known_skill_inputs=known_inputs,
+        )
+    except (OSError, sqlite3.Error, ValueError) as exc:
+        message = " ".join(str(exc).split()) or type(exc).__name__
+        print(f"Skill gap failed: {message}", file=sys.stderr)
+        return 1
+    finally:
+        connection.close()
+
+    if report is None:
+        recognized = ", ".join(sorted(_ROLE_CODE_HINTS))
+        print(
+            f"Unknown role code: {role_code!r}. Recognized codes: {recognized}",
+            file=sys.stderr,
+        )
+        return 1
+
+    print(f"Skill gap for {report.role_name} ({report.role_code})")
+    print(
+        f"Market evidence: {report.role_posting_count} active postings "
+        "classified with this role"
+    )
+    if report.known_recognized:
+        print(f"Your skills (recognized): {', '.join(report.known_recognized)}")
+    else:
+        print("Your skills (recognized): none")
+    if report.unknown_inputs:
+        print(
+            "Not recognized and ignored: "
+            f"{', '.join(report.unknown_inputs)}"
+        )
+
+    print()
+    print("Most mentioned skills you do NOT have yet:")
+    gaps = report.gaps[:top]
+    if not gaps:
+        print("  (none in the current market evidence)")
+    for entry in gaps:
+        share = entry.share_of_role_postings * 100
+        print(
+            f"  {entry.skill_name:24s} mentioned in {entry.posting_count:5d} "
+            f"postings ({share:4.1f}% of role postings)"
+        )
+
+    matched = report.matched_market_skills[:top]
+    if matched:
+        print()
+        print("Already on your list and present in this market:")
+        for entry in matched:
+            share = entry.share_of_role_postings * 100
+            print(
+                f"  {entry.skill_name:24s} {share:4.1f}% of role postings"
+            )
+
+    print()
+    print(
+        "Evidence is mention-level: a skill being mentioned is not proof it "
+        "is required."
+    )
+    return 0
+
+
+_ROLE_CODE_HINTS: tuple[str, ...] = tuple(role.code for role in ROLE_TAXONOMY)

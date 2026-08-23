@@ -162,6 +162,10 @@ This removes duplicates only where postings already share a `CanonicalJob`. Comp
 
 ## Phase 4 — Personal Intelligence
 
+- 🟡 Skill Gap v1 (CLI): deterministic read-only calculator — target role +
+  known skills → market-mentioned gaps ranked by posting frequency with
+  mention-level evidence (ADR-025). Web UI and saved profiles are next; no
+  persistence exists yet.
 - ⬜ User-controlled skill profile.
 - ⬜ Skill-gap analysis and job matching.
 - ⬜ Learning opportunity coverage and evidence-informed ROI indicators.
