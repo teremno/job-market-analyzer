@@ -98,6 +98,66 @@ def test_normalizes_ashby_payload_with_html_fallback() -> None:
     assert posting.source_tags == ("Engineering", "Product")
 
 
+def test_ashby_structured_salary_component_normalized() -> None:
+    payload = _ashby_payload()
+    payload["compensation"] = {
+        "summaryComponents": [
+            {
+                "compensationType": "EquityPercentage",
+                "interval": "NONE",
+                "currencyCode": None,
+                "minValue": None,
+                "maxValue": None,
+            },
+            {
+                "compensationType": "Salary",
+                "interval": "1 YEAR",
+                "currencyCode": "USD",
+                "minValue": 211400,
+                "maxValue": 290600,
+            },
+        ],
+    }
+    posting = normalize_ashby_job(_raw(ASHBY_SOURCE_PROVIDER, payload, "xyz-9"))
+
+    from decimal import Decimal
+
+    assert posting.salary_min == Decimal("211400")
+    assert posting.salary_max == Decimal("290600")
+    assert posting.salary_currency == "USD"
+    from job_market_analyzer.models import SalaryPeriod
+
+    assert posting.salary_period is SalaryPeriod.YEARLY
+
+
+def test_ashby_equity_only_yields_no_salary() -> None:
+    payload = _ashby_payload()
+    payload["compensation"] = {
+        "summaryComponents": [
+            {
+                "compensationType": "EquityPercentage",
+                "interval": "NONE",
+                "currencyCode": None,
+                "minValue": None,
+                "maxValue": None,
+            },
+        ],
+    }
+    posting = normalize_ashby_job(_raw(ASHBY_SOURCE_PROVIDER, payload, "xyz-9"))
+
+    assert posting.salary_min is None
+    assert posting.salary_max is None
+    assert posting.salary_currency is None
+    assert posting.salary_period is None
+
+
+def test_ashby_malformed_compensation_is_tolerated() -> None:
+    payload = _ashby_payload()
+    payload["compensation"] = {"summaryComponents": ["garbage", 42]}
+    posting = normalize_ashby_job(_raw(ASHBY_SOURCE_PROVIDER, payload, "xyz-9"))
+    assert posting.salary_min is None
+
+
 def test_hybrid_workplace_is_not_remote() -> None:
     payload = _lever_payload()
     payload["workplaceType"] = "hybrid"

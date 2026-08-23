@@ -75,7 +75,7 @@ def test_lever_collects_all_boards_with_identity() -> None:
 
 def test_ashby_collects_all_boards_with_identity() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
-        assert request.url.params["includeCompensation"] == "false"
+        assert request.url.params["includeCompensation"] == "true"
         return httpx.Response(
             200,
             json={"jobs": [_ashby_job("x"), _ashby_job("y")]},
@@ -152,7 +152,10 @@ def test_every_board_failing_is_systemic(collector) -> None:
 
 
 def test_curated_registrations_are_lowercase_and_bounded() -> None:
-    assert LEVER_BOARD_TOKENS == ("spotify", "palantir")
-    assert len(ASHBY_BOARD_TOKENS) == 18
-    for tokens in (LEVER_BOARD_TOKENS, ASHBY_BOARD_TOKENS):
+    assert len(LEVER_BOARD_TOKENS) == 2
+    assert len(ASHBY_BOARD_TOKENS) == 21
+    from job_market_analyzer.collectors.greenhouse import GREENHOUSE_BOARD_TOKENS
+
+    assert len(GREENHOUSE_BOARD_TOKENS) == 22
+    for tokens in (LEVER_BOARD_TOKENS, ASHBY_BOARD_TOKENS, GREENHOUSE_BOARD_TOKENS):
         assert all(token == token.strip().lower() for token in tokens)

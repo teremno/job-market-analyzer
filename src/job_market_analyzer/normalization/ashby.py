@@ -1,6 +1,7 @@
 """Normalize public Ashby postings into durable posting input."""
 
 from datetime import datetime
+from decimal import Decimal, InvalidOperation
 
 from pydantic import HttpUrl
 
@@ -9,6 +10,7 @@ from job_market_analyzer.models import (
     EmploymentType,
     NormalizedJobPosting,
     RawJob,
+    SalaryPeriod,
     normalize_source_tags,
 )
 from job_market_analyzer.normalization.jobs import html_to_text
@@ -29,6 +31,14 @@ _EMPLOYMENT_TYPES = {
     "temporary": EmploymentType.TEMPORARY,
 }
 
+_PERIOD_INTERVALS = {
+    "1 year": SalaryPeriod.YEARLY,
+    "1 month": SalaryPeriod.MONTHLY,
+    "1 week": SalaryPeriod.WEEKLY,
+    "1 day": SalaryPeriod.DAILY,
+    "1 hour": SalaryPeriod.HOURLY,
+}
+
 
 def normalize_ashby_job(raw_job: RawJob) -> NormalizedJobPosting:
     """Map board fields without inventing company or salary data."""
@@ -44,6 +54,7 @@ def normalize_ashby_job(raw_job: RawJob) -> NormalizedJobPosting:
     employment_type = _employment_type(
         _optional_text(payload.get("employmentType"), "employmentType")
     )
+    salary_min, salary_max, salary_currency, salary_period = _salary_fields(payload)
 
     return NormalizedJobPosting(
         source_provider=raw_job.source_provider,
@@ -59,7 +70,10 @@ def normalize_ashby_job(raw_job: RawJob) -> NormalizedJobPosting:
         is_remote=is_remote,
         remote_scope=None,
         employment_type=employment_type,
-        salary_text=None,
+        salary_min=salary_min,
+        salary_max=salary_max,
+        salary_currency=salary_currency,
+        salary_period=salary_period,
         published_at=_aware_datetime(payload.get("publishedAt"), "publishedAt"),
         source_updated_at=None,
     )
@@ -81,6 +95,50 @@ def _observed_labels(payload: dict[str, object]) -> tuple[str, ...]:
         if text is not None:
             labels.append(text)
     return tuple(labels)
+
+
+def _salary_fields(
+    payload: dict[str, object],
+) -> tuple[Decimal | None, Decimal | None, str | None, SalaryPeriod | None]:
+    """Extract the first structured salary component, inventing nothing.
+
+    Equity and other non-salary components are ignored. A malformed
+    compensation structure yields empty fields rather than a posting failure.
+    """
+
+    compensation = payload.get("compensation")
+    if not isinstance(compensation, dict):
+        return (None, None, None, None)
+    components = compensation.get("summaryComponents")
+    if not isinstance(components, list):
+        return (None, None, None, None)
+    for component in components:
+        if not isinstance(component, dict):
+            continue
+        if component.get("compensationType") != "Salary":
+            continue
+        minimum = _optional_decimal(component.get("minValue"))
+        maximum = _optional_decimal(component.get("maxValue"))
+        currency = component.get("currencyCode")
+        period = _PERIOD_INTERVALS.get(
+            str(component.get("interval", "")).strip().casefold()
+        )
+        if isinstance(currency, str):
+            normalized_currency = currency.strip().upper() or None
+        else:
+            normalized_currency = None
+        return (minimum, maximum, normalized_currency, period)
+    return (None, None, None, None)
+
+
+def _optional_decimal(value: object) -> Decimal | None:
+    if value is None or isinstance(value, bool):
+        return None
+    try:
+        parsed = Decimal(str(value))
+    except InvalidOperation:
+        return None
+    return parsed if parsed.is_finite() and parsed >= 0 else None
 
 
 def _employment_type(value: str | None) -> EmploymentType | None:

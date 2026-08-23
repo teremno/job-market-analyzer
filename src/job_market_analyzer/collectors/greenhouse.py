@@ -31,6 +31,12 @@ GREENHOUSE_BOARD_TOKENS: tuple[str, ...] = (
     "chainguard",
     "duolingo",
     "coursera",
+    "stripe",
+    "figma",
+    "discord",
+    "dropbox",
+    "twilio",
+    "robinhood",
 )
 
 

@@ -178,7 +178,7 @@ def test_empty_token_list_rejected() -> None:
 
 
 def test_curated_board_registry_matches_approved_pilot() -> None:
-    assert len(GREENHOUSE_BOARD_TOKENS) == 16
+    assert len(GREENHOUSE_BOARD_TOKENS) == 22
     assert "coinbase" in GREENHOUSE_BOARD_TOKENS
     assert "recordedfuture" in GREENHOUSE_BOARD_TOKENS
     assert all(token == token.strip().lower() for token in GREENHOUSE_BOARD_TOKENS)

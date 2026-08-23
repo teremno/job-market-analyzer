@@ -33,6 +33,9 @@ ASHBY_BOARD_TOKENS: tuple[str, ...] = (
     "linear",
     "modal",
     "posthog",
+    "cerebras",
+    "cognition",
+    "suno",
 )
 
 
@@ -89,7 +92,7 @@ async def collect_ashby_boards(
             try:
                 response = await client.get(
                     f"/posting-api/job-board/{token}",
-                    params={"includeCompensation": "false"},
+                    params={"includeCompensation": "true"},
                 )
                 response.raise_for_status()
                 board_jobs = _parse_board(response, token)
