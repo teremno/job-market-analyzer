@@ -112,3 +112,21 @@ license checkbox.
 - Solo-builder bus factor → mitigate by citing 800+ tests, ADR culture,
   modularity as continuity evidence.
 - Counts honesty: keep posting-level caveats inside the application itself.
+
+---
+
+## Multilingual strategy (grant-aligned, 2026-08-23)
+
+Multilingual does NOT mean Ukrainian-only. The foundation explicitly targets
+multilingual and underserved markets; the product treats language as a
+parameter, never a fork:
+
+- Analyzer registry is keyed `kind + language`; new languages are registry
+  entries, not code changes.
+- The future AI explanation layer takes an output-language parameter over the
+  same deterministic evidence base.
+- Dashboard labels live in i18n resource files (`i18n/<locale>.json`),
+  English as canonical fallback.
+- Launch order follows underserved-market priorities: en (canonical core) >
+  uk > es/pt (LATAM) > hi/ur > ar; each addition is data + resources, not
+  architecture.
