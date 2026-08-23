@@ -5,6 +5,7 @@ __pycache__/
 build/
 .env*
 !.env.example
+!.env.production.example
 .idea/
 
 # Local SQLite artifacts
