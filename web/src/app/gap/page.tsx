@@ -14,7 +14,7 @@ function valueOf(value: string | string[] | undefined): string {
 
 export default async function SkillGapPage({ searchParams }: { searchParams: SearchParams }) {
   const query = await searchParams;
-  const role = valueOf(query.role);
+  const role = valueOf(query.role).trim();
   const skills = valueOf(query.skills);
   const hasQuery = role.trim().length > 0;
 

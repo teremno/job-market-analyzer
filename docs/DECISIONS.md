@@ -1006,3 +1006,34 @@ datasets (handoff #59) before recommendations can be trusted.
 A future web UI can reuse the same pure function over the API without new
 storage. The report inherits all dataset caveats: posting-level counts,
 taxonomy coverage limits, and English-language sources.
+
+---
+
+## ADR-026: Ashby structured compensation is enabled
+
+Date: 2026-08-23
+
+Status: Accepted and committed. Amends ADR-024's "future revisions" note.
+
+### Decision
+
+The Ashby collector requests `includeCompensation=true`. The normalizer reads
+the first structured `Salary` component from
+`compensation.summaryComponents` (bounds, ISO currency, interval mapped to a
+period) directly into normalized salary fields; equity-only or malformed
+structures yield no salary rather than failing the posting. This replaces the
+ADR-024 paragraph deferring "enabling Ashby compensation" to future work.
+
+### Reason
+
+Ashby exposes exactly the structured provenance our salary contract wants —
+no text parsing and no invented numbers — so enabling it required no new
+versioning subsystem: the existing `salary/en` input hash already covers these
+normalized fields, and re-collection naturally created fresh versioned runs.
+Live effect: salary coverage rose from 104 to 1,324+ postings.
+
+### Consequences
+
+Salary data now skews toward AI-era companies that publish bands (USD-heavy,
+high medians); dashboards must keep presenting per-currency medians as
+posting-level observations, not market statistics.

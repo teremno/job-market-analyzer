@@ -332,7 +332,7 @@ MVP identity:
 - `source_scope` = the lowercase company board token (for example `coinbase`);
 - `external_id` uses the source-native numeric `id`.
 
-Curated boards (25): affirm, gusto, cockroachlabs, coinbase, ripple, fireblocks, gemini, bitgo, consensys,
+Curated boards (25): coinbase, ripple, fireblocks, gemini, bitgo, consensys,
 recordedfuture, gitlab, canonical, cloudflare, datadog, elastic, grafanalabs,
 chainguard, duolingo, coursera, stripe, figma, discord, dropbox, twilio,
 robinhood. (Order in file mirrors registry; see GREENHOUSE_BOARD_TOKENS.)
@@ -421,10 +421,11 @@ attio, warp.
 
 Normalized fields include title, description with a plain-text preference and
 safe HTML fallback, location, boolean `isRemote`, employment type mapped
-conservatively, ISO `publishedAt` as publication time, and department/team
-names as structured source tags. Company name is not part of the job payload
-and stays empty. No salary or remote-scope geography inference is performed.
-A failed board is an isolated result while later boards continue.
+conservatively, ISO `publishedAt` as publication time, department/team names
+as structured source tags, and the first structured Salary component (bounds,
+currency, period — equity ignored). Company name is not part of the job payload
+and stays empty. No salary text parsing or remote-scope geography inference is
+performed. A failed board is an isolated result while later boards continue.
 
 No Ashby code was copied; the adapter was implemented from the official
 documented contract.

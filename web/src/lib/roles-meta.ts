@@ -123,14 +123,16 @@ export function getRoleMeta(code: string): RoleMeta | null {
 
 export function groupRolesByFamily(
   roles: Array<{ code: string }>,
-): Array<{ family: RoleFamily; codes: string[] }> {
-  const byFamily = new Map<RoleFamily, string[]>();
+): Array<{ family: RoleFamily | "Other"; codes: string[] }> {
+  const byFamily = new Map<RoleFamily | "Other", string[]>();
   for (const role of roles) {
     const meta = ROLE_META[role.code];
-    if (!meta) continue;
-    const bucket = byFamily.get(meta.family) ?? [];
+    // Roles missing from this presentation map must never disappear from the
+    // page — they fall back to an explicit "Other" bucket until documented.
+    const family: RoleFamily | "Other" = meta?.family ?? "Other";
+    const bucket = byFamily.get(family) ?? [];
     bucket.push(role.code);
-    byFamily.set(meta.family, bucket);
+    byFamily.set(family, bucket);
   }
   return FAMILY_ORDER.filter((family) => byFamily.has(family)).map((family) => ({
     family,

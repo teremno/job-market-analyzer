@@ -1,12 +1,12 @@
 FROM node:22-alpine AS deps
 WORKDIR /app
-COPY web/package.json web/package-lock.json ./
+COPY package.json package-lock.json ./
 RUN npm ci
 
 FROM node:22-alpine AS build
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
-COPY web ./
+COPY . .
 # Server-side API base URL; containers reach the API service by name.
 ENV NEXT_PUBLIC_API_BASE_URL=http://api:8000
 RUN npm run build

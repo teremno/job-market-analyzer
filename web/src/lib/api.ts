@@ -227,15 +227,18 @@ export function getSkillGap(role: string, skills: string): Promise<SkillGapRepor
   if (skills) params.set("skills", skills);
   return requestJson(`/api/skill-gap?${params.toString()}`, (value): value is SkillGapReport => {
     if (!isRecord(value) || !hasString(value, "role_code") || !hasString(value, "role_name")
-      || !hasNumber(value, "role_posting_count") || !Array.isArray(value.known_recognized)
-      || !Array.isArray(value.unknown_inputs)) {
+      || !hasNumber(value, "role_posting_count")) {
       return false;
     }
     const isMarket = (item: unknown): boolean =>
       isRecord(item) && hasString(item, "skill_code") && hasString(item, "skill_name")
       && hasNumber(item, "posting_count") && hasNumber(item, "share_of_role_postings")
       && (item.status === "gap" || item.status === "known");
-    return Array.isArray(value.gaps) && value.gaps.every(isMarket)
+    const isStringArray = (item: unknown): boolean =>
+      Array.isArray(item) && item.every((v): v is string => typeof v === "string");
+    return isStringArray(value.known_recognized)
+      && isStringArray(value.unknown_inputs)
+      && Array.isArray(value.gaps) && value.gaps.every(isMarket)
       && Array.isArray(value.matched_market_skills)
       && value.matched_market_skills.every(isMarket);
   });

@@ -707,11 +707,13 @@ def _loopback_host(value: str) -> str:
     if address.is_loopback:
         return normalized
     # Containerized deployments must bind a non-loopback interface inside the
-    # container; the default stays loopback-safe for local users.
+    # container (typically 0.0.0.0); the default stays loopback-safe for local
+    # users. IPv6 remains loopback-only to avoid dual-stack surprises.
     if (
         os.getenv("JMA_SERVE_ALLOW_ANY_HOST", "").strip() == "1"
         and address.version == 4
-        and not address.is_unspecified
+        and not address.is_multicast
+        and not address.is_reserved
     ):
         return normalized
     raise argparse.ArgumentTypeError("must be a loopback host")

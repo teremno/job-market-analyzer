@@ -869,3 +869,22 @@ def test_collect_web3_career_returns_nonzero_for_systemic_exception_and_closes_d
     assert "source rejected [REDACTED]" in captured.err
     assert FAKE_WEB3_TOKEN not in captured.err
     assert connections[0].closed is True
+
+
+def test_serve_accepts_any_ipv4_host_only_with_opt_in(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Without the opt-in, non-loopback hosts stay rejected.
+    with pytest.raises(SystemExit) as rejected:
+        cli.main(["serve", "--database", "jobs.sqlite3", "--host", "0.0.0.0"])
+    assert rejected.value.code == 2
+
+    monkeypatch.setenv("JMA_SERVE_ALLOW_ANY_HOST", "1")
+    parser = cli._build_parser()
+    args = parser.parse_args(
+        ["serve", "--database", "jobs.sqlite3", "--host", "0.0.0.0"]
+    )
+    assert args.host == "0.0.0.0"
+
+    # IPv6 stays loopback-only even with the opt-in.
+    with pytest.raises(SystemExit) as v6_rejected:
+        parser.parse_args(["serve", "--host", "::"])
+    assert v6_rejected.value.code == 2

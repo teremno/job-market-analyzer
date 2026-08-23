@@ -48,7 +48,10 @@ export default async function RolePage({ params }: { params: Params }) {
         <BarList kind="skills" items={topSkills.map((skill) => ({
           code: skill.skill_code,
           name: `${skill.skill_name} · ${formatPercentage(
-            role.posting_count > 0 ? skill.posting_count / role.posting_count : 0,
+            Math.min(
+              1,
+              role.posting_count > 0 ? skill.posting_count / role.posting_count : 0,
+            ),
           )}`,
           count: skill.posting_count,
         }))} />
