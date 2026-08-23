@@ -46,3 +46,69 @@ Gap to close before applying:
 2. Add the multilingual AI-explanation layer over structured evidence.
 3. Apply with a live demo, repository, and the positioning drafted in
    PROJECT_HANDOFF §62 (never pitch "a job scraper").
+
+
+---
+
+## Application-readiness plan (deep research pass, 2026-08-23)
+
+Research verified against: sentient.foundation/grants, /product-requests
+(all 27 RFPs catalogued), the live Typeform schema (IRj7WaKH), official
+announcement, Forbes/TNW coverage, website ToS.
+
+### Key verified facts
+
+- Amount menu: $10k / $25k / $50k / >$50k (grant track).
+- Form long-text screens: problem+why-now; who-it-helps+where; one-line ≤80
+  chars; team; **"what's open about it"** (core screen); demo links REQUIRED;
+  document upload REQUIRED.
+- Screening: "conviction, real building, genuine value, not polish".
+- No career-guidance RFP exists; general banner applies ("people the market
+  forgot"). Closest RFP hooks: P1-03 education/tutor, P1-01/P1-08 information
+  access, P1-06/P2-13 language accessibility.
+- Multilingual/underserved markets are an explicit panel priority.
+- Local/on-device inference strongly preferred across all RFP prose.
+- AI use is effectively required (program funds AI products); any provider,
+  but closed-API-only wrapper fails the openness test.
+- GitHub metrics reviewed; demo links required; document upload required.
+- Grant Terms are NOT public until application time (Cayman jurisdiction).
+- No grantees announced yet as of 2026-08-23.
+
+### Readiness verdict
+
+Two hard blockers before applying:
+1. No LICENSE file at repo root (legally not open source yet).
+2. No deployed public demo (deploy kit exists, execution pending).
+
+Core gaps that make the application competitive rather than weak:
+3. AI explanation layer (provider-agnostic, grounded in evidence tables,
+   open-weight local model default, caching by input hash per ADR patterns).
+4. Ukrainian output end-to-end (`--language uk` currently fails by design).
+
+Then: README restructure for external reviewers, one-pager PDF, repo hygiene
+(CONTRIBUTING, release tag), optional 90-second walkthrough video.
+
+Estimated total to competitive submission: ~50–80 focused hours.
+
+### Positioning statement (draft)
+
+Labor-market transparency for candidates the global remote market forgot:
+English postings bury skill/seniority/salary signals; non-native candidates
+overpay coaches or misjudge reachable roles. We extract versioned, auditable
+evidence deterministically and explain it in the candidate's language using
+open-weight models by default — openness is a design constraint, not a
+license checkbox.
+
+### One-line variants (≤80 chars)
+
+- Open, private job-market evidence and skill-gap answers in your language.
+- Free local-first career intelligence from live job data — open and private.
+- Evidence-based remote-job skill gaps, explained in your own language.
+
+### Risks register
+
+- Missing LICENSE → instant credibility failure for belief #1. Fix first.
+- `--language uk` fails today → never claim shipped multilingual until it runs.
+- Solo-builder bus factor → mitigate by citing 800+ tests, ADR culture,
+  modularity as continuity evidence.
+- Counts honesty: keep posting-level caveats inside the application itself.
