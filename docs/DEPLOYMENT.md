@@ -94,3 +94,63 @@ docker run -d --name jma-web \
   --link jma-api:api \
   jma-web
 ```
+
+---
+
+## Public deployment (alpha) — step by step
+
+Goal: a public read-only site on your own domain, served over HTTPS with
+automatic certificates, from one small VPS.
+
+### Server sizing (honest minimums)
+
+| Resource | Alpha (up to ~100 visitors/day) | Notes |
+|---|---|---|
+| vCPU | 1–2 | The API is I/O-bound; analytics queries are milliseconds. |
+| RAM | 2 GB works, 4 GB comfortable | api ?150 MB, web ?120 MB, Caddy ?30 MB, OS headroom. |
+| Disk | 20 GB SSD | The SQLite dataset is tens of MB; logs are the only growth item. |
+| OS | Ubuntu 24.04 LTS | Docker + Compose installed via the official script. |
+
+Any provider works; Hetzner CX22-class (~ˆ5/month) is the reference budget.
+Do not buy managed databases or Kubernetes for this stage.
+
+### Steps
+
+1. **DNS** — in your domain registrar, point two A records at the server IP:
+   `your-domain.com` and `api.your-domain.com`. Wait for propagation
+   (`ping api.your-domain.com` returns your IP).
+2. **Server** — install Docker:
+   `curl -fsSL https://get.docker.com | sh`
+3. **Get the code + data** — clone this repository, then copy your populated
+   `job-market.sqlite3` to the repo root on the server (scp/rsync).
+4. **Configure** — copy `.env.production.example` to `.env`, set your two
+   domains. Edit `deploy/Caddyfile` placeholders if you prefer hardcoding.
+5. **Start** —
+   ```bash
+   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+   ```
+   Caddy obtains TLS certificates automatically within a minute.
+6. **Verify** — open `https://your-domain.com`; check
+   `https://api.your-domain.com/api/health`.
+
+### Updating the dataset on the server
+
+```bash
+docker compose down            # or: docker compose stop api web
+job-market-analyzer update --database ./job-market.sqlite3
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+```
+
+The database is mounted read-only into the API container; visitors can never
+mutate it.
+
+### Security posture of this alpha
+
+- Only ports 80/443 are exposed (Caddy); the API and dashboard containers are
+  reachable through the proxy only.
+- The whole product surface is GET-only against a read-only SQLite file.
+- CORS allow-list defaults to localhost and must be widened explicitly per
+  domain via `JMA_CORS_ORIGINS` (wildcards are ignored).
+- Still required before treating it as hardened: basic rate limiting,
+  log monitoring, backup automation for the SQLite file, and dependency
+  scanning (PROJECT_HANDOFF §51).

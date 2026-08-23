@@ -1,0 +1,38 @@
+# Production overlay: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# Requires a .env file next to this compose file (see .env.production.example):
+#   DOMAIN=your-domain.com
+#   API_DOMAIN=api.your-domain.com
+
+services:
+  api:
+    environment:
+      JMA_SERVE_ALLOW_ANY_HOST: "1"
+      JMA_CORS_ORIGINS: https://${DOMAIN}
+    # No host port publishing: Caddy is the only public entrypoint.
+
+  web:
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: https://${API_DOMAIN}
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: jma-caddy
+    depends_on:
+      - api
+      - web
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    environment:
+      DOMAIN: ${DOMAIN}
+      API_DOMAIN: ${API_DOMAIN}
+    restart: unless-stopped
+
+volumes:
+  caddy_data:
+  caddy_config:

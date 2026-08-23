@@ -1,0 +1,13 @@
+# Caddy reverse proxy: automatic HTTPS via Let's Encrypt.
+# Domains come from the environment (see docker-compose.prod.yml + .env).
+
+{$DOMAIN} {
+    # Public read-only dashboard.
+    reverse_proxy web:3000
+}
+
+{$API_DOMAIN} {
+    # Public API. Read-only SQLite behind it; CORS is enforced by the API
+    # itself (JMA_CORS_ORIGINS must include https://{$DOMAIN}).
+    reverse_proxy api:8000
+}

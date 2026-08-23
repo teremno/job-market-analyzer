@@ -1,6 +1,7 @@
 """FastAPI application factory for the local read-only Dashboard v0 API."""
 
 import logging
+import os
 from pathlib import Path
 from typing import Annotated
 from uuid import UUID, uuid4
@@ -48,6 +49,27 @@ LOCAL_DASHBOARD_ORIGINS = (
     "http://127.0.0.1:3000",
 )
 
+
+def _configured_cors_origins() -> list[str]:
+    """Resolve CORS origins: env override first, localhost defaults second.
+
+    ``JMA_CORS_ORIGINS`` accepts a comma-separated list of exact origins for
+    public deployments (for example ``https://example.com``). Unparseable or
+    wildcard values are ignored so the safe local default can never be
+    silently widened into ``*``.
+    """
+
+    raw = os.getenv("JMA_CORS_ORIGINS", "").strip()
+    if not raw:
+        return list(LOCAL_DASHBOARD_ORIGINS)
+    origins: list[str] = []
+    for candidate in raw.split(","):
+        origin = candidate.strip().rstrip("/")
+        if origin.startswith("http://") or origin.startswith("https://"):
+            if origin not in origins:
+                origins.append(origin)
+    return origins or list(LOCAL_DASHBOARD_ORIGINS)
+
 DatabaseSession = Annotated[ApiDatabaseSession, Depends(get_database_session)]
 Limit = Annotated[int, Query(ge=1, le=100)]
 Offset = Annotated[int, Query(ge=0, le=1_000_000)]
@@ -94,7 +116,7 @@ def create_app(database_path: Path) -> FastAPI:
 
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=list(LOCAL_DASHBOARD_ORIGINS),
+        allow_origins=_configured_cors_origins(),
         allow_credentials=False,
         allow_methods=["GET"],
         allow_headers=[],
