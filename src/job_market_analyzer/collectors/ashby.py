@@ -36,6 +36,9 @@ ASHBY_BOARD_TOKENS: tuple[str, ...] = (
     "cerebras",
     "cognition",
     "suno",
+    "vanta",
+    "attio",
+    "warp",
 )
 
 

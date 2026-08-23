@@ -37,6 +37,9 @@ GREENHOUSE_BOARD_TOKENS: tuple[str, ...] = (
     "dropbox",
     "twilio",
     "robinhood",
+    "affirm",
+    "gusto",
+    "cockroachlabs",
 )
 
 
