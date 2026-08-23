@@ -202,7 +202,7 @@ https://jobicy.com/api/v2/remote-jobs
 
 Status: implemented, offline-tested, and live-validated twice on 2026-08-21.
 
-Authentication and cost: none. The documented `count` parameter supports 1–100
+Authentication and cost: none. The documented `count` parameter supports 1вЂ“100
 records. Jobicy says API jobs are delayed by six hours, recommends polling no more
 than hourly, and restricts bulk republishing/resale; this project performs only one
 bounded request per manual command.
@@ -332,9 +332,10 @@ MVP identity:
 - `source_scope` = the lowercase company board token (for example `coinbase`);
 - `external_id` uses the source-native numeric `id`.
 
-Curated pilot boards: coinbase, ripple, fireblocks, gemini, bitgo, consensys,
+Curated boards (22): coinbase, ripple, fireblocks, gemini, bitgo, consensys,
 recordedfuture, gitlab, canonical, cloudflare, datadog, elastic, grafanalabs,
-chainguard, duolingo, coursera.
+chainguard, duolingo, coursera, stripe, figma, discord, dropbox, twilio,
+robinhood.
 
 Normalized fields include title, company name, HTML description through the
 shared safe converter, location name, `first_published` as publication time,
@@ -400,8 +401,9 @@ Status: implemented, offline-tested, and live-validated.
 
 Authentication and cost: none. Each board is one public credential-free JSON
 GET request returning listed postings. The collector performs exactly one
-request per configured board token per run and does not request compensation
-fields.
+request per configured board token per run with `includeCompensation=true`:
+the first structured Salary component populates normalized salary bounds,
+currency, and period; equity-only structures yield no salary fields.
 
 Attribution: identify the company Ashby board as the source and preserve the
 original `jobUrl`; `applyUrl` is used unmodified.
@@ -412,9 +414,9 @@ MVP identity:
 - `source_scope` = the lowercase company board token;
 - `external_id` uses the source-native `id`.
 
-Curated pilot boards: openai, elevenlabs, clickhouse, cohere, ramp, notion,
+Curated boards (21): openai, elevenlabs, clickhouse, cohere, ramp, notion,
 langchain, perplexity, baseten, replit, fireworks, supabase, temporal, sentry,
-sardine, linear, modal, posthog.
+sardine, linear, modal, posthog, cerebras, cognition, suno.
 
 Normalized fields include title, description with a plain-text preference and
 safe HTML fallback, location, boolean `isRemote`, employment type mapped
@@ -432,28 +434,28 @@ documented contract.
 
 ### Good future sources
 
-- **Greenhouse additional boards** — the adapter is source-scope driven, so new
+- **Greenhouse additional boards** вЂ” the adapter is source-scope driven, so new
   company boards are one-token additions to `GREENHOUSE_BOARD_TOKENS`.
-- **Lever and Ashby additional boards** — new company boards are one-token
+- **Lever and Ashby additional boards** вЂ” new company boards are one-token
   additions to `LEVER_BOARD_TOKENS` or `ASHBY_BOARD_TOKENS`.
 
-### Credential required — not implemented
+### Credential required вЂ” not implemented
 
-- **Adzuna** — requires registered `app_id` and `app_key`:
+- **Adzuna** вЂ” requires registered `app_id` and `app_key`:
   https://developer.adzuna.com/overview.
-- **The Muse** — its developer contract requires application registration/API-key
+- **The Muse** вЂ” its developer contract requires application registration/API-key
   usage for a production integration: https://www.themuse.com/developers/api/v2 and
   https://www.themuse.com/developers/api/v2/terms.
 
 ### Skipped or brittle
 
-- **Arbeitnow** — a JSON endpoint is referenced by third parties, but no sufficiently
+- **Arbeitnow** вЂ” a JSON endpoint is referenced by third parties, but no sufficiently
   strong official API contract was found for a durable adapter.
-- **Remote.co** — HTML-oriented listing pages without a documented structured public
+- **Remote.co** вЂ” HTML-oriented listing pages without a documented structured public
   vacancy API; skipped to avoid a brittle scraper.
-- **Wellfound** — account/interactive HTML-oriented access and anti-automation risk;
+- **Wellfound** вЂ” account/interactive HTML-oriented access and anti-automation risk;
   skipped rather than bypassing controls.
-- **CryptoJobsList and other small Web3 boards** — no better credential-free,
+- **CryptoJobsList and other small Web3 boards** вЂ” no better credential-free,
   documented broad feed was verified in this sprint; avoid duplicating Web3.career
   through brittle HTML extraction.
 
