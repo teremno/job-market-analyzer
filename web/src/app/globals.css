@@ -156,3 +156,47 @@ td > span:not(.source-pill) { margin-top: 4px; color: var(--muted); }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
+
+/* Search suggestions */
+.suggest-root { position: relative; }
+.suggest-list {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  background: #fff;
+  border: 1px solid #d8dce3;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+}
+.suggest-list button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  background: transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+}
+.suggest-list button:hover { background: #f1f4f9; }
+.suggest-list strong { flex: 1; font-weight: 600; }
+.suggest-list small { color: #667; }
+.suggest-kind {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: #eef2f8;
+  color: #33415c;
+}
+.suggest-kind-skill { background: #e5f5ec; color: #1c6b38; }
+.suggest-kind-role { background: #e9edfb; color: #2b3f8c; }

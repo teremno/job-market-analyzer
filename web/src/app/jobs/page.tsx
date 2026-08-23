@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { PostingsTable } from "@/components/postings";
+import { SearchWithSuggestions } from "@/components/search-suggest";
 import { DataError, EmptyState, PageHeader } from "@/components/ui";
 import { getJobs, getOverview, getSources, loadData } from "@/lib/api";
 import { formatNumber, formatProvider } from "@/lib/format";
@@ -46,7 +47,7 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
   return <>
       <PageHeader eyebrow="Operational browser" title="Source postings">Search title or company, then combine source, role, skill, seniority and geography filters.</PageHeader>
       <form className="filters" action="/jobs" method="get">
-        <label className="search-field"><span>Title or company</span><input type="search" name="q" defaultValue={filters.q} maxLength={200} placeholder="e.g. FastAPI or Acme" /></label>
+        <SearchWithSuggestions defaultValue={filters.q} skills={overview.top_skills} roles={overview.top_roles} />
         <label><span>Source</span><select name="source" defaultValue={filters.source}><option value="">All sources</option>{sources.map((source) => <option key={source.source_provider} value={source.source_provider}>{formatProvider(source.source_provider)} ({source.posting_count})</option>)}</select></label>
         <label><span>Role</span><select name="role" defaultValue={filters.role}><option value="">All analyzed roles</option>{overview.top_roles.map((role) => <option key={role.role_code} value={role.role_code}>{role.role_name} ({role.posting_count})</option>)}</select></label>
         <label><span>Skill</span><select name="skill" defaultValue={filters.skill}><option value="">All mentioned skills</option>{overview.top_skills.map((skill) => <option key={skill.skill_code} value={skill.skill_code}>{skill.skill_name} ({skill.posting_count})</option>)}</select></label>
