@@ -95,7 +95,8 @@ job-market-analyzer update --database .\job-market.sqlite3 --source remote_ok --
 ```
 
 `--language` means analyzer input language, not CLI display language. The CLI remains
-English. Current registrations are only `skills/en` and `roles/en`, so
+English. Current registrations are `skills/en`, `roles/en`, `seniority/en`,
+`geography/en`, and `salary/en`, so
 `--language uk` fails before collection with a clear not-implemented message; it does
 not run English rules over Ukrainian text. The summary reports source-posting counts,
 not globally deduplicated vacancies, and ends with the matching `serve` command. See
@@ -181,7 +182,7 @@ Analyze a bounded set of current durable postings already stored in SQLite:
 job-market-analyzer analyze-roles --database ./job-market.sqlite3 --limit 100
 ```
 
-`--database` is required, must identify an existing SQLite file, and `--limit` defaults to `100`. The command reads current `JobPosting` rows in deterministic `(source_provider, source_scope, external_id, id)` order, runs Role Taxonomy v1, persists versioned role runs and evidence, prints posting-level coverage plus bounded evidence, Unknown, and multi-label samples, then exits. It performs no collection or network request.
+`--database` is required, must identify an existing SQLite file, and `--limit` defaults to `100`. The command reads current `JobPosting` rows in deterministic `(source_provider, source_scope, external_id, id)` order, runs Role Taxonomy v2, persists versioned role runs and evidence, prints posting-level coverage plus bounded evidence, Unknown, and multi-label samples, then exits. It performs no collection or network request.
 
 Unknown is a successful exact-version analysis with zero `RoleEvidence`, not a failure. Repeating the command with unchanged title, description, and analyzer version reuses every exact run without duplicating evidence. A changed role input creates a historical run; company, salary, location, tags, and other non-role changes do not.
 

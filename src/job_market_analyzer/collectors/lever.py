@@ -56,6 +56,7 @@ async def collect_lever_boards(
     failures: list[CollectionFailure] = []
     metadata: dict[str, object] = {"boards_requested": len(board_tokens)}
     boards_ok = 0
+    boards_failed = 0
     seen_ids: set[tuple[str, str]] = set()
     duplicates_skipped = 0
 
@@ -78,9 +79,11 @@ async def collect_lever_boards(
                 board_jobs = _parse_board(response, token)
             except httpx.HTTPError as exc:
                 failures.append(_board_failure(token, f"HTTP failure: {type(exc).__name__}"))
+                boards_failed += 1
                 continue
             except LeverFeedError as exc:
                 failures.append(_board_failure(token, str(exc)))
+                boards_failed += 1
                 continue
 
             boards_ok += 1
@@ -111,7 +114,7 @@ async def collect_lever_boards(
     if duplicates_skipped:
         metadata["duplicates_skipped"] = duplicates_skipped
     metadata["boards_collected"] = boards_ok
-    metadata["boards_failed"] = len(failures)
+    metadata["boards_failed"] = boards_failed
     return CollectedJobs(
         fetched=len(jobs),
         jobs=tuple(jobs),

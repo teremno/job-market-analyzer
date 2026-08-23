@@ -15,15 +15,19 @@ function Badges({ items, hrefBase }: { items: Array<{ code: string; name: string
 function formatSalary(posting: Posting): string | null {
   if (!posting.salary_annual_min && !posting.salary_annual_max) return null;
   const currency = posting.salary_currency ?? "";
-  if (posting.salary_annual_min && posting.salary_annual_max) {
-    const min = Number(posting.salary_annual_min);
-    const max = Number(posting.salary_annual_max);
-    if (Number.isFinite(min) && Number.isFinite(max)) {
-      return `${currency} ${formatNumber(min)} – ${formatNumber(max)} / year`;
-    }
+  const toFinite = (value: string | null | undefined): number | null => {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  };
+  const min = toFinite(posting.salary_annual_min);
+  const max = toFinite(posting.salary_annual_max);
+  if (min !== null && max !== null) {
+    return `${currency} ${formatNumber(min)} – ${formatNumber(max)} / year`;
   }
-  const single = posting.salary_annual_min ?? posting.salary_annual_max;
-  return single ? `${currency} ${formatNumber(Number(single))} / year` : null;
+  const single = min ?? max;
+  return single !== null
+    ? `${currency} ${formatNumber(single)} / year`
+    : null;
 }
 
 export function PostingsTable({ postings }: { postings: Posting[] }) {

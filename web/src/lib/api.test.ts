@@ -19,6 +19,17 @@ describe("runtime API validators", () => {
       postings_by_source: [{ source_provider: "remote_ok", posting_count: 6 }],
       top_roles: [{ role_code: "backend", role_name: "Backend", posting_count: 2 }],
       top_skills: [{ skill_code: "python", skill_name: "Python", posting_count: 2 }],
+      top_seniority: [{ term_code: "senior", term_name: "Senior", posting_count: 1 }],
+      arrangement_counts: [
+        { term_code: "arrangement_remote", term_name: "Remote", posting_count: 3 },
+      ],
+      region_counts: [
+        { term_code: "region_worldwide", term_name: "Worldwide", posting_count: 2 },
+      ],
+      salary_posting_count: 4,
+      salary_currencies: [
+        { currency: "USD", postings: 4, median_annual_min: "120000" },
+      ],
     }), true);
   });
 
@@ -31,6 +42,25 @@ describe("runtime API validators", () => {
       postings_by_source: [{ source_provider: "remote_ok", posting_count: "6" }],
       top_roles: [],
       top_skills: [],
+      top_seniority: [],
+      arrangement_counts: [],
+      region_counts: [],
+      salary_posting_count: 0,
+      salary_currencies: [],
+    }), false);
+    assert.equal(isOverview({
+      posting_count: 6,
+      source_count: 1,
+      role_analysis: analysisCounts,
+      skill_analysis: analysisCounts,
+      postings_by_source: [],
+      top_roles: [],
+      top_skills: [],
+      top_seniority: [{ term_code: "senior", term_name: "Senior" }],
+      arrangement_counts: [],
+      region_counts: [],
+      salary_posting_count: 0,
+      salary_currencies: [],
     }), false);
   });
 

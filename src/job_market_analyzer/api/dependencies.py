@@ -79,6 +79,15 @@ def get_database_session(request: Request) -> Iterator[ApiDatabaseSession]:
         )
     except (OSError, sqlite3.Error) as exc:
         raise DatabaseUnavailableError("The analytics database is unavailable.") from exc
+    except RuntimeError as exc:
+        # Route-level errors (for example ApiNotFoundError) propagate through
+        # this generator during teardown; only schema/runtime storage failures
+        # map to the 503 envelope.
+        if isinstance(exc, DatabaseSchemaError):
+            raise DatabaseUnavailableError(
+                "The analytics database is unavailable."
+            ) from exc
+        raise
     finally:
         if connection is not None:
             connection.close()

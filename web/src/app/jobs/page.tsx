@@ -53,7 +53,7 @@ export default async function JobsPage({ searchParams }: { searchParams: SearchP
         <label><span>Seniority</span><select name="seniority" defaultValue={filters.seniority}><option value="">Any seniority</option>{overview.top_seniority.map((term) => <option key={term.term_code} value={term.term_code}>{term.term_name} ({term.posting_count})</option>)}</select></label>
         <label><span>Geography</span><select name="geography" defaultValue={filters.geography}><option value="">Any geography</option>{[...overview.arrangement_counts, ...overview.region_counts].map((term) => <option key={term.term_code} value={term.term_code}>{term.term_name} ({term.posting_count})</option>)}</select></label>
         <label><span>Salary</span><select name="has_salary" defaultValue={filters.has_salary}><option value="">With or without salary</option><option value="true">Only with salary estimate</option></select></label>
-        <div className="filter-actions"><button type="submit">Apply filters</button><Link href="/jobs">Clear filters</Link></div>
+        <div className="filter-actions"><button type="submit">Apply filters</button><a href="/jobs">Clear filters</a></div>
       </form>
       <div className="result-summary" aria-live="polite"><p><strong>{formatNumber(jobs.total)}</strong> matching source postings</p>{jobs.total > 0 && <span>Showing {formatNumber(jobs.offset + 1)}–{formatNumber(Math.min(jobs.offset + jobs.items.length, jobs.total))}</span>}</div>
       {jobs.items.length ? <PostingsTable postings={jobs.items} /> : <EmptyState title="No postings match these filters.">Clear one or more filters, or try a broader title/company search.</EmptyState>}

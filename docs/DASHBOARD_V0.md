@@ -36,7 +36,7 @@ global CSS. There is no state framework, chart library, component suite, proxy,
 frontend API route, or duplicated analytics logic.
 
 `web/src/lib/api.ts` is the typed HTTP boundary. Every fetch is read-only, uncached,
-and has a five-second timeout. Lightweight runtime guards reject malformed JSON
+and has a fifteen-second timeout. Lightweight runtime guards reject malformed JSON
 shapes. Expected API/network failures become explicit product states; unexpected
 render errors remain eligible for framework error boundaries.
 
@@ -109,7 +109,8 @@ the same database used by `serve`.
 ## Known limitations
 
 - No complete cross-source canonical deduplication.
-- No normalized salary, seniority, or remote geography intelligence.
+- Salary, seniority, and remote-geography intelligence is exposed through the
+  API and dashboard v2 surfaces; counts stay posting-level and mention-level.
 - Search is the API's bounded SQLite title/company substring search.
 - Pagination is offset-based and fixed at 25 postings per dashboard page.
 - Role and skill taxonomies are conservative, English-oriented, and may classify a

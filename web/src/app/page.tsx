@@ -37,7 +37,12 @@ export default async function OverviewPage() {
         <article className="panel"><div className="panel-heading"><div><p className="eyebrow">Eligibility</p><h2>Regions</h2></div><Link href="/jobs?geography=region_worldwide">Worldwide</Link></div><BarList kind="roles" items={data.region_counts.map((r) => ({ code: r.term_code, name: r.term_name, count: r.posting_count }))} /></article>
         <article className="panel"><div className="panel-heading"><div><p className="eyebrow">Compensation</p><h2>Salary estimates</h2></div><Link href="/jobs?has_salary=true">With salary</Link></div>
           {data.salary_currencies.length ? (
-            <ul>{data.salary_currencies.map((item) => <li key={item.currency}><strong>{item.currency}</strong><span>{formatNumber(item.postings)} postings</span><b>{item.median_annual_min ? `median from ${formatNumber(Number(item.median_annual_min))}` : "no annual data"}</b></li>)}</ul>
+            <ul>{data.salary_currencies.map((item) => {
+              const median = item.median_annual_min !== null && Number.isFinite(Number(item.median_annual_min))
+                ? formatNumber(Number(item.median_annual_min))
+                : null;
+              return <li key={item.currency}><strong>{item.currency}</strong><span>{formatNumber(item.postings)} postings</span><b>{median ? `median from ${median}` : "no annual data"}</b></li>;
+            })}</ul>
           ) : (
             <p className="muted">No salary estimates in the active dataset yet.</p>
           )}

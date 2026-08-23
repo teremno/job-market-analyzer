@@ -325,8 +325,10 @@ class SQLiteAnalyticsRepository:
             (self._active_cutoff(), *parameters),
         ).fetchone()
 
-        # One grouped pass yields per-currency counts and the annual-minimum
-        # distribution; medians are computed in Python from the repeats.
+        # One grouped pass yields per-currency counts and the full annual-minimum
+        # distribution; medians are computed in Python from the repeats. No
+        # global LIMIT: truncating groups would silently bias medians once the
+        # dataset has many distinct values per currency.
         grouped_rows = self._connection.execute(
             ctes
             + """
@@ -342,15 +344,10 @@ class SQLiteAnalyticsRepository:
                   AND job_salaries.annual_min IS NOT NULL
                 GROUP BY 1, 2
                 ORDER BY 1 ASC, 2 ASC
-                LIMIT ?
             )
             SELECT currency, annual_min, posting_count FROM salary_currencies
             """,
-            (
-                self._active_cutoff(),
-                *parameters,
-                MAX_AGGREGATE_LIMIT,
-            ),
+            (self._active_cutoff(), *parameters),
         ).fetchall()
 
         postings_by_currency: dict[str, int] = {}
@@ -361,9 +358,8 @@ class SQLiteAnalyticsRepository:
             postings_by_currency[currency] = (
                 postings_by_currency.get(currency, 0) + count
             )
-            repeat = max(1, min(count, MAX_AGGREGATE_LIMIT))
             values_by_currency.setdefault(currency, []).extend(
-                [row["annual_min"]] * repeat
+                [row["annual_min"]] * count
             )
 
         summaries: list[SalaryCurrencySummary] = []
@@ -376,7 +372,10 @@ class SQLiteAnalyticsRepository:
             if not values:
                 median = None
             elif len(values) % 2 == 1:
-                median = values[middle]
+                try:
+                    median = _decimal_string(Decimal(values[middle]))
+                except (InvalidOperation, ValueError):
+                    median = values[middle]
             else:
                 try:
                     low = Decimal(values[middle - 1])
@@ -397,11 +396,6 @@ class SQLiteAnalyticsRepository:
             ),
             "salary_currencies": tuple(summaries),
         }
-
-    def _active_condition(self, *, include_stale: bool) -> tuple[str, list[str]]:
-        if include_stale:
-            return "1 = 1", []
-        return "job_postings.last_seen_at >= ?", [self._active_cutoff()]
 
     def _active_condition(self, *, include_stale: bool) -> tuple[str, list[str]]:
         if include_stale:

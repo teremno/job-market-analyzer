@@ -49,7 +49,7 @@ Interactive OpenAPI remains enabled at `/docs`; the machine schema is
 Confirms that the API can open and query the configured database:
 
 ```json
-{"status": "ok", "schema_version": 3}
+{"status": "ok", "schema_version": 6}
 ```
 
 It does not report collector health or source freshness and never returns a database
@@ -60,6 +60,8 @@ path.
 Returns `posting_count`, `source_count`, role and skill three-state counts,
 `postings_by_source`, `top_roles`, and `top_skills`. Role/skill/source codes remain
 first-class identity fields. Aggregate counts are distinct posting counts.
+`salary_posting_count` counts postings carrying any salary estimate; currency
+buckets additionally require an annual figure.
 
 The optional `top_limit` query parameter is an integer from 1 to 100 and defaults to
 10. Dashboard list and filter views request 100 so every observed role and skill in
@@ -90,13 +92,6 @@ item additionally carries optional intelligence projections: `seniority`,
 `arrangement`, `regions`, `salary_currency`, `salary_annual_min`, and
 `salary_annual_max` resolved through exact-current analysis runs. Ordering
 is the deterministic ordering documented in `ANALYTICS_QUERY_CONTRACT.md`.
-
-### `GET /api/overview`
-
-Additionally returns `top_seniority`, `arrangement_counts`, `region_counts`,
-`salary_posting_count`, and per-currency `salary_currencies` summaries with
-posting-level median annual minimums. All counts remain distinct-posting counts
-over active postings only.
 
 ### Posting freshness (lifecycle v1)
 

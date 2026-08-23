@@ -83,8 +83,8 @@ flowchart LR
 - ✅ Guided one-shot update flow: source/analyzer registries, partial source failure,
   credential skip, English capability validation, idempotency, and dashboard handoff
   are implemented, tested, and committed.
-- 🟡 Run one real personal-use six-source update/dashboard cycle and record observed
-  product friction and concrete data-quality findings. Job lifecycle (active/stale
+- ✅ Real nine-source update/dashboard cycle completed; findings recorded in
+  `DATA_QUALITY_NOTES.md`. Job lifecycle (active/stale
   status instead of deletion) is the first planned vertical sprint after that audit.
   Ukrainian skill/role intelligence can then be a concrete next language sprint if
   desired; it is not implemented or implied now.
@@ -181,7 +181,7 @@ This track remains research until its methods are validated. It must not be pres
 
 ## Phase 5 — Product API / Hosted Backend
 
-- ✅ Local read-only FastAPI boundary for Dashboard v0, with existing schema v3,
+- ✅ Local read-only FastAPI boundary for Dashboard v0, with existing schema v6,
   explicit database selection, bounded GET routes, and per-request connections.
 - ⬜ PostgreSQL when dataset size or hosted concurrency justifies migration.
 - ⬜ Hosted deployment, authentication, and multi-user API policy when required.

@@ -109,10 +109,13 @@ def _is_remote(workplace_type: str | None, field_name: str) -> bool | None:
     if workplace_type is None:
         return None
     normalized = workplace_type.strip().casefold()
-    if normalized == "remote":
+    if normalized in {"remote"}:
         return True
     if normalized in {"hybrid", "onsite", "on-site", "in-office"}:
         return False
+    if normalized == "unspecified":
+        # The source explicitly declines to say; invent nothing.
+        return None
     raise LeverNormalizationError(
         f"Lever field '{field_name}' has an unsupported value"
     )

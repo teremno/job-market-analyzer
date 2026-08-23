@@ -214,6 +214,9 @@ Current registry:
 ```text
 skills/en
 roles/en
+seniority/en
+geography/en
+salary/en
 ```
 
 Ukrainian intelligence is not implemented yet.
@@ -627,7 +630,7 @@ Do not delete old analysis history as part of ordinary updates.
 
 ---
 
-# 16. Role Classification v1
+# 16. Role Classification (taxonomy v2)
 
 Role extraction is deterministic.
 
@@ -772,6 +775,10 @@ The jobs endpoint supports parameters such as:
 - role
 - skill
 - q
+- include_stale
+- seniority
+- geography
+- has_salary
 
 API behavior includes:
 
@@ -837,7 +844,7 @@ The API client:
 
 - defaults to `http://127.0.0.1:8000`;
 - supports `NEXT_PUBLIC_API_BASE_URL`;
-- uses a 5-second timeout;
+- uses a 15-second timeout;
 - uses `no-store`;
 - performs runtime validation.
 
@@ -863,7 +870,8 @@ It orchestrates:
 4. roles analysis;
 5. seniority analysis;
 6. geography analysis;
-7. summary output.
+7. salary analysis;
+8. summary output.
 
 Current collection order:
 
@@ -886,6 +894,7 @@ skills
 roles
 seniority
 geography
+salary
 ```
 
 The update system is registry-driven.
@@ -933,7 +942,6 @@ This is an intentional extension seam for future analysis kinds and languages.
 Future possibilities:
 
 ```text
-salary/en
 skills/uk
 roles/uk
 ```
@@ -1027,7 +1035,7 @@ Latest full audit (2026-08-22, after lifecycle/seniority/geography and ATS
 source sprints):
 
 - Python 3.13.7
-- 812 Python tests passed
+- 826 Python tests passed
 - Ruff: all checks passed
 - `git diff --check`: clean
 - frontend: npm test / lint / typecheck all clean
@@ -1078,9 +1086,6 @@ Intentionally not implemented yet:
 
 - cross-source canonical deduplication;
 - job lifecycle expiry states beyond the freshness heuristic (removed/expired);
-- salary normalization/intelligence;
-- seniority and geography exposure in dashboard/API (analyzers persist runs;
-  analytics surfaces are postponed until validated);
 - multilingual vacancy detection/extraction;
 - user profiles;
 - skill-gap analysis;
@@ -1109,7 +1114,7 @@ Recommended priority:
 1. ~~job lifecycle / stale postings~~ ✅ implemented (freshness boundary v1)
 2. ~~seniority~~ ✅ implemented (`seniority/en`, schema v4)
 3. ~~geography / remote eligibility~~ ✅ implemented (`geography/en`, schema v5)
-4. salary normalization
+4. ~~salary normalization~~ ✅ implemented (`salary/en`, schema v6)
 5. cross-source canonical deduplication v1
 
 Exact ordering may change based on real dataset observations.

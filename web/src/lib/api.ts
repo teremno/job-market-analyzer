@@ -93,6 +93,28 @@ function isNamedSkill(value: unknown): boolean {
   return isRecord(value) && hasString(value, "skill_code") && hasString(value, "skill_name");
 }
 
+function isTermCount(value: unknown): boolean {
+  return isRecord(value) && hasString(value, "term_code")
+    && hasString(value, "term_name") && hasNumber(value, "posting_count");
+}
+
+function isSalaryCurrencySummary(value: unknown): boolean {
+  return isRecord(value) && hasString(value, "currency")
+    && hasNumber(value, "postings")
+    && hasNullableString(value, "median_annual_min");
+}
+
+function isNamedTerm(value: unknown): boolean {
+  return isRecord(value) && hasString(value, "code") && hasString(value, "name");
+}
+
+function hasFiniteString(value: Record<string, unknown>, key: string): boolean {
+  if (value[key] === null) return true;
+  if (typeof value[key] !== "string") return false;
+  const parsed = Number(value[key]);
+  return Number.isFinite(parsed);
+}
+
 function isAnalysisStatus(value: unknown): boolean {
   return value === "not_analyzed" || value === "analyzed_zero"
     || value === "analyzed_with_results";
@@ -104,7 +126,12 @@ export function isOverview(value: unknown): value is Overview {
     && isAnalysisCounts(value.role_analysis) && isAnalysisCounts(value.skill_analysis)
     && Array.isArray(value.postings_by_source) && value.postings_by_source.every(isSourceCount)
     && Array.isArray(value.top_roles) && value.top_roles.every(isRoleCount)
-    && Array.isArray(value.top_skills) && value.top_skills.every(isSkillCount);
+    && Array.isArray(value.top_skills) && value.top_skills.every(isSkillCount)
+    && Array.isArray(value.top_seniority) && value.top_seniority.every(isTermCount)
+    && Array.isArray(value.arrangement_counts) && value.arrangement_counts.every(isTermCount)
+    && Array.isArray(value.region_counts) && value.region_counts.every(isTermCount)
+    && hasNumber(value, "salary_posting_count")
+    && Array.isArray(value.salary_currencies) && value.salary_currencies.every(isSalaryCurrencySummary);
 }
 
 function isPosting(value: unknown): boolean {
@@ -117,7 +144,14 @@ function isPosting(value: unknown): boolean {
     && isAnalysisStatus(value.role_analysis_status)
     && isAnalysisStatus(value.skill_analysis_status)
     && Array.isArray(value.roles) && value.roles.every(isNamedRole)
-    && Array.isArray(value.skills) && value.skills.every(isNamedSkill);
+    && Array.isArray(value.skills) && value.skills.every(isNamedSkill)
+    && (value.seniority === null || value.seniority === undefined || isNamedTerm(value.seniority))
+    && (value.arrangement === null || value.arrangement === undefined || isNamedTerm(value.arrangement))
+    && (value.regions === null || value.regions === undefined
+      || (Array.isArray(value.regions) && value.regions.every(isNamedTerm)))
+    && (!("salary_currency" in value) || hasNullableString(value, "salary_currency"))
+    && (!("salary_annual_min" in value) || hasFiniteString(value, "salary_annual_min"))
+    && (!("salary_annual_max" in value) || hasFiniteString(value, "salary_annual_max"));
 }
 
 export function isJobsResponse(value: unknown): value is JobsResponse {
