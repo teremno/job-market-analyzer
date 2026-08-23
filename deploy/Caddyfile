@@ -6,6 +6,11 @@
     reverse_proxy web:3000
 }
 
+www.{$DOMAIN} {
+    # Canonical redirect: www → apex (Caddy issues its own certificate).
+    redir https://{$DOMAIN}{uri} permanent
+}
+
 {$API_DOMAIN} {
     # Public API. Read-only SQLite behind it; CORS is enforced by the API
     # itself (JMA_CORS_ORIGINS must include https://{$DOMAIN}).
