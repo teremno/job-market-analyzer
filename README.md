@@ -270,3 +270,9 @@ Open `http://localhost:3000`. Current counts remain **source postings**, not glo
 unique jobs, because complete cross-source canonical linking is not implemented.
 See [Dashboard v0](docs/DASHBOARD_V0.md) for product scope and troubleshooting and
 [Local API Contract](docs/API_CONTRACT.md) for exact HTTP semantics.
+
+## License
+
+MIT — see [LICENSE](LICENSE). The collected dataset files are yours; source
+attribution requirements of each job source are documented in
+[docs/SOURCES.md](docs/SOURCES.md).
