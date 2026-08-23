@@ -1035,7 +1035,7 @@ Latest full audit (2026-08-22, after lifecycle/seniority/geography and ATS
 source sprints):
 
 - Python 3.13.7
-- 826 Python tests passed
+- 837 Python tests passed
 - Ruff: all checks passed
 - `git diff --check`: clean
 - frontend: npm test / lint / typecheck all clean
@@ -1853,7 +1853,7 @@ spend hours manually wiring internal modules
 
 Existing individual CLI commands must remain useful for debugging and source-specific operations.
 
-Current commands include:
+Current commands include (recently added `skill-gap`):
 
 - collect-remote-ok
 - collect-web3-career
@@ -1864,6 +1864,7 @@ Current commands include:
 - analyze-skills
 - analyze-roles
 - update
+- skill-gap
 - serve
 
 `update` is orchestration, not a replacement for lower-level commands.

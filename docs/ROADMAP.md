@@ -41,6 +41,10 @@ This roadmap is directional. It describes meaningful product milestones, not a r
 | Seniority v1 (`seniority/en`) | ✅ | Title-only experience-axis analyzer persisted behind schema v4; live-validated on 2,871 postings |
 | Geography v1 (`geography/en`) | ✅ | Arrangement plus region eligibility behind schema v5; live pass classified 86.2% of 5,548 postings |
 | Unified personal-use dataset audit | ✅ | Real nine-source guided update run; findings recorded in `DATA_QUALITY_NOTES.md` |
+| Ashby structured compensation | ✅ | `includeCompensation=true` feeds normalized salary bounds; live salary coverage rose from 104 to 1,324 postings |
+| Dashboard v2 intelligence exposure | ✅ | Overview aggregates plus jobs filters for seniority/geography/has_salary; item-level projections |
+| Skill Gap v1 | ✅ | CLI + API + dashboard `/gap` page over exact-current analytics |
+| Deployment foundation | 🟡 | Dockerfiles, Compose, loopback-safe any-host opt-in, GitHub Actions CI; public TLS/reverse proxy pending |
 | Salary normalization v1 (`salary/en`) | ✅ | Deterministic structured/text salary normalization with provenance, confidence, and guarded annualization behind schema v6; live pass estimated 104 postings (salary data remains thin because ATS endpoints do not publish it) |
 | Deployment foundation (Docker, CI, hosted alpha) | ⬜ | Required before the public read-only website |
 
@@ -162,7 +166,9 @@ This removes duplicates only where postings already share a `CanonicalJob`. Comp
 
 ## Phase 4 — Personal Intelligence
 
-- 🟡 Skill Gap v1 (CLI): deterministic read-only calculator — target role +
+- ✅ Skill Gap v1: deterministic read-only calculator delivered through the
+  CLI (`skill-gap`), `GET /api/skill-gap`, and a dashboard page (`/gap`) with
+  role/skills form and evidence bars (ADR-025). Saved profiles remain future work. — target role +
   known skills → market-mentioned gaps ranked by posting frequency with
   mention-level evidence (ADR-025). Web UI and saved profiles are next; no
   persistence exists yet.
