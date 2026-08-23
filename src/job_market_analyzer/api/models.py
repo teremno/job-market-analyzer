@@ -124,6 +124,24 @@ class NamedTermResponse(ApiModel):
     name: str
 
 
+class MarketSkillResponse(ApiModel):
+    skill_code: str
+    skill_name: str
+    posting_count: int
+    share_of_role_postings: float
+    status: str
+
+
+class SkillGapResponse(ApiModel):
+    role_code: str
+    role_name: str
+    role_posting_count: int
+    known_recognized: tuple[str, ...]
+    unknown_inputs: tuple[str, ...]
+    gaps: tuple[MarketSkillResponse, ...]
+    matched_market_skills: tuple[MarketSkillResponse, ...]
+
+
 class AnalyticsOverviewResponse(ApiModel):
     posting_count: int
     source_count: int

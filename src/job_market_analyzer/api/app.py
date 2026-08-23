@@ -25,10 +25,13 @@ from job_market_analyzer.api.models import (
     ErrorResponse,
     HealthResponse,
     JobsResponse,
+    MarketSkillResponse,
     RoleDetailResponse,
     SkillDetailResponse,
+    SkillGapResponse,
     SourceSummaryResponse,
 )
+from job_market_analyzer.services.skill_gap import compute_skill_gap
 from job_market_analyzer.storage.sqlite import CURRENT_SCHEMA_VERSION
 
 
@@ -265,6 +268,62 @@ def create_app(database_path: Path) -> FastAPI:
             include_stale=include_stale,
         )
         return JobsResponse.from_dto(page)
+
+    @app.get(
+        "/api/skill-gap",
+        response_model=SkillGapResponse,
+        summary="Compute a deterministic read-only skill gap for one role",
+    )
+    def skill_gap(
+        session: DatabaseSession,
+        role: RoleFilter,
+        skills: Annotated[
+            str | None,
+            Query(
+                alias="skills",
+                max_length=500,
+                description=(
+                    "Comma-separated skills you already have, by code or "
+                    "display name."
+                ),
+            ),
+        ] = None,
+        top: TopLimit = 15,
+    ) -> SkillGapResponse:
+        report = compute_skill_gap(
+            session.analytics,
+            role_code=role,
+            known_skill_inputs=(skills or "").split(","),
+        )
+        if report is None:
+            raise ApiNotFoundError("unknown_role", "The role code is not recognized.")
+        return SkillGapResponse(
+            role_code=report.role_code,
+            role_name=report.role_name,
+            role_posting_count=report.role_posting_count,
+            known_recognized=report.known_recognized,
+            unknown_inputs=report.unknown_inputs,
+            gaps=tuple(
+                MarketSkillResponse(
+                    skill_code=item.skill_code,
+                    skill_name=item.skill_name,
+                    posting_count=item.posting_count,
+                    share_of_role_postings=item.share_of_role_postings,
+                    status=item.status,
+                )
+                for item in report.gaps[:top]
+            ),
+            matched_market_skills=tuple(
+                MarketSkillResponse(
+                    skill_code=item.skill_code,
+                    skill_name=item.skill_name,
+                    posting_count=item.posting_count,
+                    share_of_role_postings=item.share_of_role_postings,
+                    status=item.status,
+                )
+                for item in report.matched_market_skills[:top]
+            ),
+        )
 
     @app.get(
         "/api/roles/{role_code}",

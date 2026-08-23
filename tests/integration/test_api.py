@@ -592,3 +592,24 @@ def _persist(
 def test_fixture_tracks_active_analyzer_contract() -> None:
     assert ROLE_TAXONOMY_VERSION == "2"
     assert SKILL_TAXONOMY_VERSION == "2"
+
+
+def test_skill_gap_endpoint_computes_and_validates(api_database: Path) -> None:
+    app = _frozen_app(api_database)
+    with TestClient(app) as client:
+        known = client.get(
+            "/api/skill-gap",
+            params={"role": "backend", "skills": "python,Docker,zzz-unknown"},
+        )
+        assert known.status_code == 200
+        payload = known.json()
+        assert payload["role_code"] == "backend"
+        assert set(payload["known_recognized"]) >= {"python", "docker"}
+        assert "zzz-unknown" in payload["unknown_inputs"]
+        for entry in payload["gaps"] + payload["matched_market_skills"]:
+            assert entry["status"] in {"gap", "known"}
+            assert 0 <= entry["share_of_role_postings"] <= 1
+
+        unknown = client.get("/api/skill-gap", params={"role": "not-a-role"})
+        assert unknown.status_code == 404
+        assert unknown.json()["error"]["code"] == "unknown_role"

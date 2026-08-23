@@ -2,6 +2,10 @@ export function formatNumber(value: number): string {
   return new Intl.NumberFormat("en-US").format(value);
 }
 
+export function formatPercentage(value: number): string {
+  return `${(value * 100).toFixed(1)}%`;
+}
+
 export function formatDate(value: string | null): string {
   if (!value) return "—";
   const date = new Date(value);

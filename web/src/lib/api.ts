@@ -4,6 +4,7 @@ import type {
   Overview,
   RoleDetail,
   SkillDetail,
+  SkillGapReport,
   SourceSummary,
 } from "@/lib/types";
 
@@ -219,6 +220,25 @@ async function requestJson<T>(path: string, validate: (value: unknown) => value 
 
 export function getHealth(): Promise<HealthResponse> {
   return requestJson("/api/health", isHealth);
+}
+
+export function getSkillGap(role: string, skills: string): Promise<SkillGapReport> {
+  const params = new URLSearchParams({ role });
+  if (skills) params.set("skills", skills);
+  return requestJson(`/api/skill-gap?${params.toString()}`, (value): value is SkillGapReport => {
+    if (!isRecord(value) || !hasString(value, "role_code") || !hasString(value, "role_name")
+      || !hasNumber(value, "role_posting_count") || !Array.isArray(value.known_recognized)
+      || !Array.isArray(value.unknown_inputs)) {
+      return false;
+    }
+    const isMarket = (item: unknown): boolean =>
+      isRecord(item) && hasString(item, "skill_code") && hasString(item, "skill_name")
+      && hasNumber(item, "posting_count") && hasNumber(item, "share_of_role_postings")
+      && (item.status === "gap" || item.status === "known");
+    return Array.isArray(value.gaps) && value.gaps.every(isMarket)
+      && Array.isArray(value.matched_market_skills)
+      && value.matched_market_skills.every(isMarket);
+  });
 }
 
 export function getOverview(topLimit = 10): Promise<Overview> {

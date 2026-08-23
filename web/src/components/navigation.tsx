@@ -8,7 +8,8 @@ const links = [
   ["/jobs", "Jobs", "02"],
   ["/roles", "Roles", "03"],
   ["/skills", "Skills", "04"],
-  ["/sources", "Sources", "05"],
+  ["/gap", "Skill gap", "05"],
+  ["/sources", "Sources", "06"],
 ] as const;
 
 export function Navigation() {

@@ -42,6 +42,24 @@ export interface NamedRole { role_code: string; role_name: string; }
 export interface NamedSkill { skill_code: string; skill_name: string; }
 export interface NamedTerm { code: string; name: string; }
 
+export interface MarketSkill {
+  skill_code: string;
+  skill_name: string;
+  posting_count: number;
+  share_of_role_postings: number;
+  status: "gap" | "known";
+}
+
+export interface SkillGapReport {
+  role_code: string;
+  role_name: string;
+  role_posting_count: number;
+  known_recognized: string[];
+  unknown_inputs: string[];
+  gaps: MarketSkill[];
+  matched_market_skills: MarketSkill[];
+}
+
 export interface Posting {
   job_posting_id: string;
   canonical_job_id: string;
