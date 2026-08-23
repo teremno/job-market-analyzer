@@ -6,6 +6,7 @@ from collections import defaultdict
 from collections.abc import Callable, Iterable
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal, InvalidOperation
+from functools import lru_cache
 from uuid import UUID
 
 from job_market_analyzer.analytics.models import (
@@ -93,10 +94,8 @@ active_postings AS (
 )
 """
 
-_CURRENT_RUNS_CTES = (
-    "WITH "
-    + _ACTIVE_POSTINGS_CTE
-    + """,
+_KIND_RUN_CTES: dict[str, str] = {
+    ROLE_ANALYZER_KIND: """
 current_role_runs AS (
     SELECT analysis_runs.id, analysis_runs.job_posting_id
     FROM analysis_runs
@@ -109,7 +108,8 @@ current_role_runs AS (
           active_postings.title,
           active_postings.description_text
       )
-),
+)""",
+    SKILL_ANALYZER_KIND: """
 current_skill_runs AS (
     SELECT analysis_runs.id, analysis_runs.job_posting_id
     FROM analysis_runs
@@ -123,7 +123,8 @@ current_skill_runs AS (
           active_postings.description_text,
           active_postings.source_tags_json
       )
-),
+)""",
+    SENIORITY_ANALYZER_KIND: """
 current_seniority_runs AS (
     SELECT analysis_runs.id, analysis_runs.job_posting_id
     FROM analysis_runs
@@ -135,7 +136,8 @@ current_seniority_runs AS (
       AND analysis_runs.input_hash = jma_seniority_input_hash(
           active_postings.title
       )
-),
+)""",
+    GEOGRAPHY_ANALYZER_KIND: """
 current_geography_runs AS (
     SELECT analysis_runs.id, analysis_runs.job_posting_id
     FROM analysis_runs
@@ -149,7 +151,8 @@ current_geography_runs AS (
           active_postings.location_text,
           active_postings.is_remote
       )
-),
+)""",
+    SALARY_ANALYZER_KIND: """
 current_salary_runs AS (
     SELECT analysis_runs.id, analysis_runs.job_posting_id
     FROM analysis_runs
@@ -165,9 +168,33 @@ current_salary_runs AS (
           active_postings.salary_currency,
           active_postings.salary_period
       )
-)
-"""
-)
+)""",
+}
+
+
+def _runs_ctes(*analyzer_kinds: str) -> tuple[str, tuple[str, ...]]:
+    """Compose exact-current run CTEs for only the requested analyzer kinds.
+
+    Each excluded kind skips its expensive Python-UDF input-hash evaluation,
+    so narrow queries stay proportional to the hashes they actually need.
+    """
+
+    kind_versions = {
+        ROLE_ANALYZER_KIND: ROLE_TAXONOMY_VERSION,
+        SKILL_ANALYZER_KIND: SKILL_TAXONOMY_VERSION,
+        SENIORITY_ANALYZER_KIND: SENIORITY_TAXONOMY_VERSION,
+        GEOGRAPHY_ANALYZER_KIND: GEOGRAPHY_TAXONOMY_VERSION,
+        SALARY_ANALYZER_KIND: SALARY_TAXONOMY_VERSION,
+    }
+    ordered_kinds = [
+        kind for kind in _KIND_RUN_CTES if kind in analyzer_kinds
+    ]
+    ctes = ",\n".join(_KIND_RUN_CTES[kind] for kind in ordered_kinds)
+    parameters: tuple[str, ...] = ()
+    for kind in ordered_kinds:
+        version = kind_versions[kind]
+        parameters = (*parameters, kind, version, version)
+    return f"WITH {_ACTIVE_POSTINGS_CTE}, {ctes}", parameters
 
 
 class SQLiteAnalyticsRepository:
@@ -223,12 +250,10 @@ class SQLiteAnalyticsRepository:
         cutoff = self._now_provider() - timedelta(days=ACTIVE_POSTING_WINDOW_DAYS)
         return serialize_utc_datetime(cutoff)
 
-    def _current_parameters_with_cutoff(self) -> tuple[str, ...]:
-        return (self._active_cutoff(), *self._current_run_parameters())
-
     def _top_seniority_counts(self, limit: int) -> tuple[TermCount, ...]:
+        ctes, parameters = _runs_ctes(SENIORITY_ANALYZER_KIND)
         rows = self._connection.execute(
-            _CURRENT_RUNS_CTES
+            ctes
             + """
             , seniority_counts AS (
                 SELECT job_seniority.seniority_code AS code,
@@ -241,7 +266,7 @@ class SQLiteAnalyticsRepository:
             )
             SELECT code, posting_count FROM seniority_counts
             """,
-            (*self._current_parameters_with_cutoff(), limit),
+            (self._active_cutoff(), *parameters, limit),
         ).fetchall()
         return tuple(
             TermCount(
@@ -254,26 +279,28 @@ class SQLiteAnalyticsRepository:
 
     def _geography_dimension_counts(
         self,
-        dimension: str,
         limit: int,
     ) -> tuple[TermCount, ...]:
+        """Return both geography dimensions in one scan, region codes prefixed."""
+
+        ctes, parameters = _runs_ctes(GEOGRAPHY_ANALYZER_KIND)
         rows = self._connection.execute(
-            _CURRENT_RUNS_CTES
+            ctes
             + """
             , geography_dimension_counts AS (
                 SELECT job_geography.geography_code AS code,
+                       gt.dimension AS dimension,
                        COUNT(DISTINCT current_geography_runs.job_posting_id)
                            AS posting_count
                 FROM current_geography_runs
                 JOIN job_geography
                   ON job_geography.analysis_run_id = current_geography_runs.id
                 JOIN geography_terms gt ON gt.code = job_geography.geography_code
-                WHERE gt.dimension = ?
-                GROUP BY 1 ORDER BY 2 DESC LIMIT ?
+                GROUP BY 1 ORDER BY 3 DESC, 1 ASC LIMIT ?
             )
-            SELECT code, posting_count FROM geography_dimension_counts
+            SELECT code, dimension, posting_count FROM geography_dimension_counts
             """,
-            (*self._current_parameters_with_cutoff(), dimension, limit),
+            (self._active_cutoff(), *parameters, limit * 2),
         ).fetchall()
         return tuple(
             TermCount(
@@ -285,8 +312,9 @@ class SQLiteAnalyticsRepository:
         )
 
     def _salary_summary(self) -> dict[str, object]:
+        ctes, parameters = _runs_ctes(SALARY_ANALYZER_KIND)
         count_row = self._connection.execute(
-            _CURRENT_RUNS_CTES
+            ctes
             + """
             SELECT COUNT(DISTINCT current_salary_runs.job_posting_id)
                        AS salary_postings
@@ -294,83 +322,86 @@ class SQLiteAnalyticsRepository:
             JOIN job_salaries
               ON job_salaries.analysis_run_id = current_salary_runs.id
             """,
-            self._current_parameters_with_cutoff(),
+            (self._active_cutoff(), *parameters),
         ).fetchone()
 
-        currency_rows = self._connection.execute(
-            _CURRENT_RUNS_CTES
+        # One grouped pass yields per-currency counts and the annual-minimum
+        # distribution; medians are computed in Python from the repeats.
+        grouped_rows = self._connection.execute(
+            ctes
             + """
             , salary_currencies AS (
                 SELECT job_salaries.currency AS currency,
+                       job_salaries.annual_min AS annual_min,
                        COUNT(DISTINCT current_salary_runs.job_posting_id)
-                           AS posting_count,
-                       MIN(job_salaries.annual_min) AS lowest_annual_min
+                           AS posting_count
                 FROM current_salary_runs
                 JOIN job_salaries
                   ON job_salaries.analysis_run_id = current_salary_runs.id
                 WHERE job_salaries.currency IS NOT NULL
                   AND job_salaries.annual_min IS NOT NULL
-                GROUP BY 1 ORDER BY 2 DESC, 1 ASC LIMIT ?
+                GROUP BY 1, 2
+                ORDER BY 1 ASC, 2 ASC
+                LIMIT ?
             )
-            SELECT currency, posting_count, lowest_annual_min
-            FROM salary_currencies
+            SELECT currency, annual_min, posting_count FROM salary_currencies
             """,
             (
-                *self._current_parameters_with_cutoff(),
+                self._active_cutoff(),
+                *parameters,
                 MAX_AGGREGATE_LIMIT,
             ),
         ).fetchall()
-        summaries = []
-        for row in currency_rows:
-            median = self._median_annual_min(row["currency"])
+
+        postings_by_currency: dict[str, int] = {}
+        values_by_currency: dict[str, list[str]] = {}
+        for row in grouped_rows:
+            currency = row["currency"]
+            count = row["posting_count"]
+            postings_by_currency[currency] = (
+                postings_by_currency.get(currency, 0) + count
+            )
+            repeat = max(1, min(count, MAX_AGGREGATE_LIMIT))
+            values_by_currency.setdefault(currency, []).extend(
+                [row["annual_min"]] * repeat
+            )
+
+        summaries: list[SalaryCurrencySummary] = []
+        for currency in sorted(
+            postings_by_currency,
+            key=lambda item: (-postings_by_currency[item], item),
+        )[:MAX_AGGREGATE_LIMIT]:
+            values = values_by_currency[currency]
+            middle = len(values) // 2
+            if not values:
+                median = None
+            elif len(values) % 2 == 1:
+                median = values[middle]
+            else:
+                try:
+                    low = Decimal(values[middle - 1])
+                    high = Decimal(values[middle])
+                    median = _decimal_string((low + high) / 2)
+                except (InvalidOperation, ValueError):
+                    median = values[middle - 1]
             summaries.append(
                 SalaryCurrencySummary(
-                    currency=row["currency"],
-                    postings=row["posting_count"],
+                    currency=currency,
+                    postings=postings_by_currency[currency],
                     median_annual_min=median,
                 )
             )
         return {
-            "salary_posting_count": count_row["salary_postings"] if count_row else 0,
+            "salary_posting_count": (
+                count_row["salary_postings"] if count_row else 0
+            ),
             "salary_currencies": tuple(summaries),
         }
 
-    def _median_annual_min(self, currency: str) -> str | None:
-        rows = self._connection.execute(
-            _CURRENT_RUNS_CTES
-            + """
-            SELECT job_salaries.currency AS currency,
-                   job_salaries.annual_min AS annual_min,
-                   COUNT(DISTINCT current_salary_runs.job_posting_id) AS pc
-            FROM current_salary_runs
-            JOIN job_salaries
-              ON job_salaries.analysis_run_id = current_salary_runs.id
-            WHERE job_salaries.currency = ?
-              AND job_salaries.annual_min IS NOT NULL
-            GROUP BY job_salaries.currency, job_salaries.annual_min
-            ORDER BY annual_min
-            LIMIT ?
-            """,
-            (
-                *self._current_parameters_with_cutoff(),
-                currency,
-                MAX_AGGREGATE_LIMIT,
-            ),
-        ).fetchall()
-        values: list[str] = []
-        for row in rows:
-            repeat = max(1, min(row["pc"], MAX_AGGREGATE_LIMIT))
-            values.extend([row["annual_min"]] * repeat)
-        if not values:
-            return None
-        middle = len(values) // 2
-        if len(values) % 2 == 1:
-            return values[middle]
-        try:
-            low, high = Decimal(values[middle - 1]), Decimal(values[middle])
-        except InvalidOperation:
-            return values[middle - 1]
-        return _decimal_string((low + high) / 2)
+    def _active_condition(self, *, include_stale: bool) -> tuple[str, list[str]]:
+        if include_stale:
+            return "1 = 1", []
+        return "job_postings.last_seen_at >= ?", [self._active_cutoff()]
 
     def _active_condition(self, *, include_stale: bool) -> tuple[str, list[str]]:
         if include_stale:
@@ -381,8 +412,11 @@ class SQLiteAnalyticsRepository:
         """Return current posting-level counts without evidence inflation."""
 
         _validate_bounded_limit(top_limit, "top_limit", MAX_AGGREGATE_LIMIT)
+        overview_ctes, overview_parameters = _runs_ctes(
+            ROLE_ANALYZER_KIND, SKILL_ANALYZER_KIND
+        )
         row = self._connection.execute(
-            _CURRENT_RUNS_CTES
+            overview_ctes
             + """
             , role_evidence_counts AS (
                 SELECT analysis_run_id, COUNT(*) AS evidence_count
@@ -499,7 +533,7 @@ class SQLiteAnalyticsRepository:
             """,
             (
                 self._active_cutoff(),
-                *self._current_run_parameters(),
+                *overview_parameters,
                 self._active_cutoff(),
                 self._active_cutoff(),
                 top_limit,
@@ -530,10 +564,20 @@ class SQLiteAnalyticsRepository:
             top_roles=tuple(_role_count_dict(item) for item in role_rows),
             top_skills=tuple(_skill_count_dict(item) for item in skill_rows),
             top_seniority=self._top_seniority_counts(top_limit),
-            arrangement_counts=self._geography_dimension_counts("arrangement", top_limit),
-            region_counts=self._geography_dimension_counts("region", top_limit),
+            **self._geography_overview_terms(top_limit),
             **self._salary_summary(),
         )
+
+    def _geography_overview_terms(self, limit: int) -> dict[str, object]:
+        all_terms = self._geography_dimension_counts(limit)
+        return {
+            "arrangement_counts": tuple(
+                term for term in all_terms if term.term_code.startswith("arrangement_")
+            ),
+            "region_counts": tuple(
+                term for term in all_terms if term.term_code.startswith("region_")
+            ),
+        }
 
     def list_postings(
         self,
@@ -887,8 +931,11 @@ class SQLiteAnalyticsRepository:
     def list_source_summaries(self) -> tuple[SourceSummary, ...]:
         """Return provider-level freshness and exact-current coverage."""
 
+        summaries_ctes, summaries_parameters = _runs_ctes(
+            ROLE_ANALYZER_KIND, SKILL_ANALYZER_KIND
+        )
         rows = self._connection.execute(
-            _CURRENT_RUNS_CTES
+            summaries_ctes
             + """
             , role_state AS (
                 SELECT current_role_runs.job_posting_id,
@@ -934,7 +981,7 @@ class SQLiteAnalyticsRepository:
             """,
             (
                 self._active_cutoff(),
-                *self._current_run_parameters(),
+                *summaries_parameters,
                 self._active_cutoff(),
             ),
         ).fetchall()
@@ -1225,6 +1272,7 @@ class SQLiteAnalyticsRepository:
         )
 
 
+@lru_cache(maxsize=8192)
 def _calculate_persisted_skill_input_hash(
     title: str,
     description_text: str | None,
@@ -1237,10 +1285,12 @@ def _calculate_persisted_skill_input_hash(
     )
 
 
+@lru_cache(maxsize=8192)
 def _calculate_persisted_seniority_input_hash(title: str) -> str:
     return calculate_seniority_input_hash(title)
 
 
+@lru_cache(maxsize=8192)
 def _calculate_persisted_geography_input_hash(
     description_text: str | None,
     location_text: str | None,
@@ -1254,6 +1304,7 @@ def _calculate_persisted_geography_input_hash(
     )
 
 
+@lru_cache(maxsize=8192)
 def _calculate_persisted_salary_input_hash(
     salary_text: str | None,
     salary_min: str | None,

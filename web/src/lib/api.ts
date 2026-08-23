@@ -8,7 +8,7 @@ import type {
 } from "@/lib/types";
 
 const DEFAULT_API_BASE_URL = "http://127.0.0.1:8000";
-const REQUEST_TIMEOUT_MS = 5_000;
+const REQUEST_TIMEOUT_MS = 15_000;
 type ApiErrorKind = "unavailable" | "not_found" | "invalid_response" | "api";
 
 export class ApiClientError extends Error {
