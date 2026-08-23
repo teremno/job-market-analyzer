@@ -704,9 +704,17 @@ def _loopback_host(value: str) -> str:
         address = ipaddress.ip_address(normalized)
     except ValueError as exc:
         raise argparse.ArgumentTypeError("must be a loopback host") from exc
-    if not address.is_loopback:
-        raise argparse.ArgumentTypeError("must be a loopback host")
-    return normalized
+    if address.is_loopback:
+        return normalized
+    # Containerized deployments must bind a non-loopback interface inside the
+    # container; the default stays loopback-safe for local users.
+    if (
+        os.getenv("JMA_SERVE_ALLOW_ANY_HOST", "").strip() == "1"
+        and address.version == 4
+        and not address.is_unspecified
+    ):
+        return normalized
+    raise argparse.ArgumentTypeError("must be a loopback host")
 
 
 def _configure_console_streams() -> None:

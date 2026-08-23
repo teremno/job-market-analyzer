@@ -1,0 +1,23 @@
+services:
+  api:
+    build: .
+    container_name: jma-api
+    environment:
+      # Required for the containerized bind; see docs/DEPLOYMENT.md.
+      JMA_SERVE_ALLOW_ANY_HOST: "1"
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - ./job-market.sqlite3:/data/jobs.sqlite3:ro
+    restart: unless-stopped
+
+  web:
+    build: ./web
+    container_name: jma-web
+    depends_on:
+      - api
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: http://api:8000
+    ports:
+      - "127.0.0.1:3000:3000"
+    restart: unless-stopped
