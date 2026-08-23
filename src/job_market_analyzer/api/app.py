@@ -230,12 +230,34 @@ def create_app(database_path: Path) -> FastAPI:
                 )
             ),
         ] = False,
+        seniority: Annotated[
+            str | None,
+            Query(alias="seniority", min_length=1, max_length=100),
+        ] = None,
+        geography: Annotated[
+            str | None,
+            Query(
+                alias="geography",
+                min_length=1,
+                max_length=100,
+                description=(
+                    "Arrangement or region code, for example "
+                    "'arrangement_remote' or 'region_worldwide'."
+                ),
+            ),
+        ] = None,
+        has_salary: Annotated[
+            bool | None, Query(description="Only postings with a salary estimate.")
+        ] = None,
     ) -> JobsResponse:
         page = session.analytics.list_postings(
             PostingSearchFilters(
                 source_provider=source,
                 role_code=role,
                 skill_code=skill,
+                seniority_code=seniority,
+                geography_code=geography,
+                has_salary=has_salary,
                 search_text=q,
             ),
             limit=limit,

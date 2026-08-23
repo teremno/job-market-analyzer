@@ -5,6 +5,7 @@ import sqlite3
 from collections import defaultdict
 from collections.abc import Callable, Iterable
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal, InvalidOperation
 from uuid import UUID
 
 from job_market_analyzer.analytics.models import (
@@ -12,27 +13,45 @@ from job_market_analyzer.analytics.models import (
     AnalyticsOverview,
     NamedRole,
     NamedSkill,
+    NamedTerm,
     PagedPostings,
     PostingListItem,
     PostingSearchFilters,
     RoleCount,
     RoleDetail,
+    SalaryCurrencySummary,
     SkillCount,
     SkillDetail,
     SourcePostingCount,
     SourceSummary,
+    TermCount,
+)
+from job_market_analyzer.intelligence.geography import (
+    GEOGRAPHY_TERMS,
+    GEOGRAPHY_TAXONOMY_VERSION,
 )
 from job_market_analyzer.intelligence.hashing import (
+    calculate_geography_input_hash,
     calculate_role_input_hash,
+    calculate_salary_input_hash,
+    calculate_seniority_input_hash,
     calculate_skill_input_hash,
 )
 from job_market_analyzer.intelligence.repository import (
+    GEOGRAPHY_ANALYZER_KIND,
     ROLE_ANALYZER_KIND,
+    SALARY_ANALYZER_KIND,
+    SENIORITY_ANALYZER_KIND,
     SKILL_ANALYZER_KIND,
 )
 from job_market_analyzer.intelligence.roles import (
     ROLE_TAXONOMY,
     ROLE_TAXONOMY_VERSION,
+)
+from job_market_analyzer.intelligence.salaries import SALARY_TAXONOMY_VERSION
+from job_market_analyzer.intelligence.seniority import (
+    SENIORITY_TAXONOMY,
+    SENIORITY_TAXONOMY_VERSION,
 )
 from job_market_analyzer.intelligence.skills import (
     SKILL_TAXONOMY,
@@ -53,13 +72,22 @@ def _utc_now() -> datetime:
 
 _ROLE_NAMES = {role.code: role.name for role in ROLE_TAXONOMY}
 _SKILL_NAMES = {skill.code: skill.name for skill in SKILL_TAXONOMY}
+_SENIORITY_NAMES = {level.code: level.name for level in SENIORITY_TAXONOMY}
+_GEOGRAPHY_NAMES = {term.code: term.name for term in GEOGRAPHY_TERMS}
 
 _ACTIVE_POSTINGS_CTE = """
 active_postings AS (
     SELECT job_postings.id,
            job_postings.title,
            job_postings.description_text,
-           job_postings.source_tags_json
+           job_postings.source_tags_json,
+           job_postings.location_text,
+           job_postings.is_remote,
+           job_postings.salary_text,
+           job_postings.salary_min,
+           job_postings.salary_max,
+           job_postings.salary_currency,
+           job_postings.salary_period
     FROM job_postings
     WHERE job_postings.last_seen_at >= ?
 )
@@ -95,6 +123,48 @@ current_skill_runs AS (
           active_postings.description_text,
           active_postings.source_tags_json
       )
+),
+current_seniority_runs AS (
+    SELECT analysis_runs.id, analysis_runs.job_posting_id
+    FROM analysis_runs
+    JOIN active_postings
+      ON active_postings.id = analysis_runs.job_posting_id
+    WHERE analysis_runs.analyzer_kind = ?
+      AND analysis_runs.taxonomy_version = ?
+      AND analysis_runs.extractor_version = ?
+      AND analysis_runs.input_hash = jma_seniority_input_hash(
+          active_postings.title
+      )
+),
+current_geography_runs AS (
+    SELECT analysis_runs.id, analysis_runs.job_posting_id
+    FROM analysis_runs
+    JOIN active_postings
+      ON active_postings.id = analysis_runs.job_posting_id
+    WHERE analysis_runs.analyzer_kind = ?
+      AND analysis_runs.taxonomy_version = ?
+      AND analysis_runs.extractor_version = ?
+      AND analysis_runs.input_hash = jma_geography_input_hash(
+          active_postings.description_text,
+          active_postings.location_text,
+          active_postings.is_remote
+      )
+),
+current_salary_runs AS (
+    SELECT analysis_runs.id, analysis_runs.job_posting_id
+    FROM analysis_runs
+    JOIN active_postings
+      ON active_postings.id = analysis_runs.job_posting_id
+    WHERE analysis_runs.analyzer_kind = ?
+      AND analysis_runs.taxonomy_version = ?
+      AND analysis_runs.extractor_version = ?
+      AND analysis_runs.input_hash = jma_salary_input_hash(
+          active_postings.salary_text,
+          active_postings.salary_min,
+          active_postings.salary_max,
+          active_postings.salary_currency,
+          active_postings.salary_period
+      )
 )
 """
 )
@@ -128,12 +198,179 @@ class SQLiteAnalyticsRepository:
             _calculate_persisted_skill_input_hash,
             deterministic=True,
         )
+        connection.create_function(
+            "jma_seniority_input_hash",
+            1,
+            _calculate_persisted_seniority_input_hash,
+            deterministic=True,
+        )
+        connection.create_function(
+            "jma_geography_input_hash",
+            3,
+            _calculate_persisted_geography_input_hash,
+            deterministic=True,
+        )
+        connection.create_function(
+            "jma_salary_input_hash",
+            5,
+            _calculate_persisted_salary_input_hash,
+            deterministic=True,
+        )
 
     def _active_cutoff(self) -> str:
         """Return the serialized cutoff separating active from stale postings."""
 
         cutoff = self._now_provider() - timedelta(days=ACTIVE_POSTING_WINDOW_DAYS)
         return serialize_utc_datetime(cutoff)
+
+    def _current_parameters_with_cutoff(self) -> tuple[str, ...]:
+        return (self._active_cutoff(), *self._current_run_parameters())
+
+    def _top_seniority_counts(self, limit: int) -> tuple[TermCount, ...]:
+        rows = self._connection.execute(
+            _CURRENT_RUNS_CTES
+            + """
+            , seniority_counts AS (
+                SELECT job_seniority.seniority_code AS code,
+                       COUNT(DISTINCT current_seniority_runs.job_posting_id)
+                           AS posting_count
+                FROM current_seniority_runs
+                JOIN job_seniority
+                  ON job_seniority.analysis_run_id = current_seniority_runs.id
+                GROUP BY 1 ORDER BY 2 DESC LIMIT ?
+            )
+            SELECT code, posting_count FROM seniority_counts
+            """,
+            (*self._current_parameters_with_cutoff(), limit),
+        ).fetchall()
+        return tuple(
+            TermCount(
+                term_code=row["code"],
+                term_name=_SENIORITY_NAMES.get(row["code"], row["code"]),
+                posting_count=row["posting_count"],
+            )
+            for row in rows
+        )
+
+    def _geography_dimension_counts(
+        self,
+        dimension: str,
+        limit: int,
+    ) -> tuple[TermCount, ...]:
+        rows = self._connection.execute(
+            _CURRENT_RUNS_CTES
+            + """
+            , geography_dimension_counts AS (
+                SELECT job_geography.geography_code AS code,
+                       COUNT(DISTINCT current_geography_runs.job_posting_id)
+                           AS posting_count
+                FROM current_geography_runs
+                JOIN job_geography
+                  ON job_geography.analysis_run_id = current_geography_runs.id
+                JOIN geography_terms gt ON gt.code = job_geography.geography_code
+                WHERE gt.dimension = ?
+                GROUP BY 1 ORDER BY 2 DESC LIMIT ?
+            )
+            SELECT code, posting_count FROM geography_dimension_counts
+            """,
+            (*self._current_parameters_with_cutoff(), dimension, limit),
+        ).fetchall()
+        return tuple(
+            TermCount(
+                term_code=row["code"],
+                term_name=_GEOGRAPHY_NAMES.get(row["code"], row["code"]),
+                posting_count=row["posting_count"],
+            )
+            for row in rows
+        )
+
+    def _salary_summary(self) -> dict[str, object]:
+        count_row = self._connection.execute(
+            _CURRENT_RUNS_CTES
+            + """
+            SELECT COUNT(DISTINCT current_salary_runs.job_posting_id)
+                       AS salary_postings
+            FROM current_salary_runs
+            JOIN job_salaries
+              ON job_salaries.analysis_run_id = current_salary_runs.id
+            """,
+            self._current_parameters_with_cutoff(),
+        ).fetchone()
+
+        currency_rows = self._connection.execute(
+            _CURRENT_RUNS_CTES
+            + """
+            , salary_currencies AS (
+                SELECT job_salaries.currency AS currency,
+                       COUNT(DISTINCT current_salary_runs.job_posting_id)
+                           AS posting_count,
+                       MIN(job_salaries.annual_min) AS lowest_annual_min
+                FROM current_salary_runs
+                JOIN job_salaries
+                  ON job_salaries.analysis_run_id = current_salary_runs.id
+                WHERE job_salaries.currency IS NOT NULL
+                  AND job_salaries.annual_min IS NOT NULL
+                GROUP BY 1 ORDER BY 2 DESC, 1 ASC LIMIT ?
+            )
+            SELECT currency, posting_count, lowest_annual_min
+            FROM salary_currencies
+            """,
+            (
+                *self._current_parameters_with_cutoff(),
+                MAX_AGGREGATE_LIMIT,
+            ),
+        ).fetchall()
+        summaries = []
+        for row in currency_rows:
+            median = self._median_annual_min(row["currency"])
+            summaries.append(
+                SalaryCurrencySummary(
+                    currency=row["currency"],
+                    postings=row["posting_count"],
+                    median_annual_min=median,
+                )
+            )
+        return {
+            "salary_posting_count": count_row["salary_postings"] if count_row else 0,
+            "salary_currencies": tuple(summaries),
+        }
+
+    def _median_annual_min(self, currency: str) -> str | None:
+        rows = self._connection.execute(
+            _CURRENT_RUNS_CTES
+            + """
+            SELECT job_salaries.currency AS currency,
+                   job_salaries.annual_min AS annual_min,
+                   COUNT(DISTINCT current_salary_runs.job_posting_id) AS pc
+            FROM current_salary_runs
+            JOIN job_salaries
+              ON job_salaries.analysis_run_id = current_salary_runs.id
+            WHERE job_salaries.currency = ?
+              AND job_salaries.annual_min IS NOT NULL
+            GROUP BY job_salaries.currency, job_salaries.annual_min
+            ORDER BY annual_min
+            LIMIT ?
+            """,
+            (
+                *self._current_parameters_with_cutoff(),
+                currency,
+                MAX_AGGREGATE_LIMIT,
+            ),
+        ).fetchall()
+        values: list[str] = []
+        for row in rows:
+            repeat = max(1, min(row["pc"], MAX_AGGREGATE_LIMIT))
+            values.extend([row["annual_min"]] * repeat)
+        if not values:
+            return None
+        middle = len(values) // 2
+        if len(values) % 2 == 1:
+            return values[middle]
+        try:
+            low, high = Decimal(values[middle - 1]), Decimal(values[middle])
+        except InvalidOperation:
+            return values[middle - 1]
+        return _decimal_string((low + high) / 2)
 
     def _active_condition(self, *, include_stale: bool) -> tuple[str, list[str]]:
         if include_stale:
@@ -292,6 +529,10 @@ class SQLiteAnalyticsRepository:
             ),
             top_roles=tuple(_role_count_dict(item) for item in role_rows),
             top_skills=tuple(_skill_count_dict(item) for item in skill_rows),
+            top_seniority=self._top_seniority_counts(top_limit),
+            arrangement_counts=self._geography_dimension_counts("arrangement", top_limit),
+            region_counts=self._geography_dimension_counts("region", top_limit),
+            **self._salary_summary(),
         )
 
     def list_postings(
@@ -341,7 +582,10 @@ class SQLiteAnalyticsRepository:
                 job_postings.source_url,
                 job_postings.application_url,
                 role_runs.id AS role_run_id,
-                skill_runs.id AS skill_run_id
+                skill_runs.id AS skill_run_id,
+                seniority_runs.id AS seniority_run_id,
+                geography_runs.id AS geography_run_id,
+                salary_runs.id AS salary_run_id
             FROM job_postings
             LEFT JOIN analysis_runs role_runs
               ON role_runs.job_posting_id = job_postings.id
@@ -361,6 +605,36 @@ class SQLiteAnalyticsRepository:
                  job_postings.title,
                  job_postings.description_text,
                  job_postings.source_tags_json
+             )
+            LEFT JOIN analysis_runs seniority_runs
+              ON seniority_runs.job_posting_id = job_postings.id
+             AND seniority_runs.analyzer_kind = ?
+             AND seniority_runs.taxonomy_version = ?
+             AND seniority_runs.extractor_version = ?
+             AND seniority_runs.input_hash = jma_seniority_input_hash(
+                 job_postings.title
+             )
+            LEFT JOIN analysis_runs geography_runs
+              ON geography_runs.job_posting_id = job_postings.id
+             AND geography_runs.analyzer_kind = ?
+             AND geography_runs.taxonomy_version = ?
+             AND geography_runs.extractor_version = ?
+             AND geography_runs.input_hash = jma_geography_input_hash(
+                 job_postings.description_text,
+                 job_postings.location_text,
+                 job_postings.is_remote
+             )
+            LEFT JOIN analysis_runs salary_runs
+              ON salary_runs.job_posting_id = job_postings.id
+             AND salary_runs.analyzer_kind = ?
+             AND salary_runs.taxonomy_version = ?
+             AND salary_runs.extractor_version = ?
+             AND salary_runs.input_hash = jma_salary_input_hash(
+                 job_postings.salary_text,
+                 job_postings.salary_min,
+                 job_postings.salary_max,
+                 job_postings.salary_currency,
+                 job_postings.salary_period
              )
             WHERE {where_sql}
               AND {active_sql}
@@ -385,6 +659,9 @@ class SQLiteAnalyticsRepository:
         (
             roles_by_posting,
             skills_by_posting,
+            seniority_by_posting,
+            geography_by_posting,
+            salary_by_posting,
             current_role_posting_ids,
             current_skill_posting_ids,
         ) = self._page_intelligence(rows)
@@ -394,6 +671,9 @@ class SQLiteAnalyticsRepository:
                     row,
                     roles_by_posting.get(row["id"], ()),
                     skills_by_posting.get(row["id"], ()),
+                    seniority=seniority_by_posting.get(row["id"]),
+                    geography=geography_by_posting.get(row["id"], ()),
+                    salary=salary_by_posting.get(row["id"]),
                     role_run_is_current=row["id"] in current_role_posting_ids,
                     skill_run_is_current=row["id"] in current_skill_posting_ids,
                 )
@@ -666,20 +946,39 @@ class SQLiteAnalyticsRepository:
     ) -> tuple[
         dict[str, tuple[NamedRole, ...]],
         dict[str, tuple[NamedSkill, ...]],
+        dict[str, NamedTerm],
+        dict[str, tuple[NamedTerm, ...]],
+        dict[str, sqlite3.Row],
         frozenset[str],
         frozenset[str],
     ]:
         rows = tuple(rows)
         if not rows:
-            return {}, {}, frozenset(), frozenset()
+            return {}, {}, {}, {}, {}, frozenset(), frozenset()
         role_run_ids = tuple(
             row["role_run_id"] for row in rows if row["role_run_id"] is not None
         )
         skill_run_ids = tuple(
             row["skill_run_id"] for row in rows if row["skill_run_id"] is not None
         )
+        seniority_run_ids = tuple(
+            row["seniority_run_id"]
+            for row in rows
+            if row["seniority_run_id"] is not None
+        )
+        geography_run_ids = tuple(
+            row["geography_run_id"]
+            for row in rows
+            if row["geography_run_id"] is not None
+        )
+        salary_run_ids = tuple(
+            row["salary_run_id"] for row in rows if row["salary_run_id"] is not None
+        )
         roles = self._page_role_rows(role_run_ids)
         skills = self._page_skill_rows(skill_run_ids)
+        seniority_rows = self._page_seniority_rows(seniority_run_ids)
+        geography_rows = self._page_geography_rows(geography_run_ids)
+        salary_rows = self._page_salary_rows(salary_run_ids)
         roles_by_posting: defaultdict[str, list[NamedRole]] = defaultdict(list)
         for row in roles:
             if row["role_code"] is None:
@@ -700,11 +999,144 @@ class SQLiteAnalyticsRepository:
                     skill_name=_SKILL_NAMES.get(row["skill_code"], row["skill_code"]),
                 )
             )
+        seniority_by_posting: dict[str, NamedTerm] = {}
+        for row in seniority_rows:
+            if row["seniority_code"] is None:
+                continue
+            seniority_by_posting[row["job_posting_id"]] = NamedTerm(
+                code=row["seniority_code"],
+                name=_SENIORITY_NAMES.get(
+                    row["seniority_code"], row["seniority_code"]
+                ),
+            )
+        geography_terms_by_posting: defaultdict[str, list[NamedTerm]] = defaultdict(
+            list
+        )
+        for row in geography_rows:
+            if row["geography_code"] is None:
+                continue
+            geography_terms_by_posting[row["job_posting_id"]].append(
+                NamedTerm(
+                    code=row["geography_code"],
+                    name=row["geography_name"]
+                    or _GEOGRAPHY_NAMES.get(row["geography_code"], row["geography_code"]),
+                )
+            )
+        salary_by_posting = {row["job_posting_id"]: row for row in salary_rows}
+        geography_by_posting = {
+            key: tuple(value)
+            for key, value in geography_terms_by_posting.items()
+        }
         return (
             {key: tuple(value) for key, value in roles_by_posting.items()},
             {key: tuple(value) for key, value in skills_by_posting.items()},
+            seniority_by_posting,
+            geography_by_posting,
+            salary_by_posting,
             frozenset(row["job_posting_id"] for row in roles),
             frozenset(row["job_posting_id"] for row in skills),
+        )
+
+    def _page_seniority_rows(
+        self, run_ids: tuple[str, ...]
+    ) -> tuple[sqlite3.Row, ...]:
+        if not run_ids:
+            return ()
+        placeholders = ", ".join("?" for _ in run_ids)
+        return tuple(
+            self._connection.execute(
+                f"""
+                SELECT analysis_runs.job_posting_id,
+                       job_seniority.seniority_code
+                FROM analysis_runs
+                JOIN job_postings
+                  ON job_postings.id = analysis_runs.job_posting_id
+                JOIN job_seniority
+                  ON job_seniority.analysis_run_id = analysis_runs.id
+                WHERE analysis_runs.id IN ({placeholders})
+                  AND analysis_runs.analyzer_kind = ?
+                  AND analysis_runs.taxonomy_version = ?
+                  AND analysis_runs.extractor_version = ?
+                  AND analysis_runs.input_hash = jma_seniority_input_hash(
+                      job_postings.title
+                  )
+                ORDER BY analysis_runs.job_posting_id
+                """,
+                (
+                    *run_ids,
+                    SENIORITY_ANALYZER_KIND,
+                    SENIORITY_TAXONOMY_VERSION,
+                    SENIORITY_TAXONOMY_VERSION,
+                ),
+            ).fetchall()
+        )
+
+    def _page_geography_rows(
+        self, run_ids: tuple[str, ...]
+    ) -> tuple[sqlite3.Row, ...]:
+        if not run_ids:
+            return ()
+        placeholders = ", ".join("?" for _ in run_ids)
+        return tuple(
+            self._connection.execute(
+                f"""
+                SELECT DISTINCT analysis_runs.job_posting_id,
+                       job_geography.geography_code,
+                       job_geography.geography_name
+                FROM analysis_runs
+                JOIN job_postings
+                  ON job_postings.id = analysis_runs.job_posting_id
+                JOIN job_geography
+                  ON job_geography.analysis_run_id = analysis_runs.id
+                WHERE analysis_runs.id IN ({placeholders})
+                  AND analysis_runs.analyzer_kind = ?
+                  AND analysis_runs.taxonomy_version = ?
+                  AND analysis_runs.extractor_version = ?
+                  AND analysis_runs.input_hash = jma_geography_input_hash(
+                      job_postings.description_text,
+                      job_postings.location_text,
+                      job_postings.is_remote
+                  )
+                ORDER BY analysis_runs.job_posting_id,
+                         job_geography.geography_code
+                """,
+                (
+                    *run_ids,
+                    GEOGRAPHY_ANALYZER_KIND,
+                    GEOGRAPHY_TAXONOMY_VERSION,
+                    GEOGRAPHY_TAXONOMY_VERSION,
+                ),
+            ).fetchall()
+        )
+
+    def _page_salary_rows(
+        self, run_ids: tuple[str, ...]
+    ) -> tuple[sqlite3.Row, ...]:
+        if not run_ids:
+            return ()
+        placeholders = ", ".join("?" for _ in run_ids)
+        return tuple(
+            self._connection.execute(
+                f"""
+                SELECT analysis_runs.job_posting_id,
+                       job_salaries.currency,
+                       job_salaries.annual_min,
+                       job_salaries.annual_max
+                FROM analysis_runs
+                JOIN job_salaries
+                  ON job_salaries.analysis_run_id = analysis_runs.id
+                WHERE analysis_runs.id IN ({placeholders})
+                  AND analysis_runs.analyzer_kind = ?
+                  AND analysis_runs.taxonomy_version = ?
+                  AND analysis_runs.extractor_version = ?
+                """,
+                (
+                    *run_ids,
+                    SALARY_ANALYZER_KIND,
+                    SALARY_TAXONOMY_VERSION,
+                    SALARY_TAXONOMY_VERSION,
+                ),
+            ).fetchall()
         )
 
     def _page_role_rows(self, run_ids: tuple[str, ...]) -> tuple[sqlite3.Row, ...]:
@@ -781,6 +1213,15 @@ class SQLiteAnalyticsRepository:
             SKILL_ANALYZER_KIND,
             SKILL_TAXONOMY_VERSION,
             SKILL_TAXONOMY_VERSION,
+            SENIORITY_ANALYZER_KIND,
+            SENIORITY_TAXONOMY_VERSION,
+            SENIORITY_TAXONOMY_VERSION,
+            GEOGRAPHY_ANALYZER_KIND,
+            GEOGRAPHY_TAXONOMY_VERSION,
+            GEOGRAPHY_TAXONOMY_VERSION,
+            SALARY_ANALYZER_KIND,
+            SALARY_TAXONOMY_VERSION,
+            SALARY_TAXONOMY_VERSION,
         )
 
 
@@ -794,6 +1235,45 @@ def _calculate_persisted_skill_input_hash(
         description_text,
         deserialize_source_tags(source_tags_json),
     )
+
+
+def _calculate_persisted_seniority_input_hash(title: str) -> str:
+    return calculate_seniority_input_hash(title)
+
+
+def _calculate_persisted_geography_input_hash(
+    description_text: str | None,
+    location_text: str | None,
+    is_remote: int | None,
+) -> str:
+    is_remote_flag = None if is_remote is None else bool(is_remote)
+    return calculate_geography_input_hash(
+        description_text,
+        location_text=location_text,
+        is_remote=is_remote_flag,
+    )
+
+
+def _calculate_persisted_salary_input_hash(
+    salary_text: str | None,
+    salary_min: str | None,
+    salary_max: str | None,
+    salary_currency: str | None,
+    salary_period: str | None,
+) -> str:
+    return calculate_salary_input_hash(
+        salary_text,
+        salary_min=salary_min,
+        salary_max=salary_max,
+        salary_currency=salary_currency,
+        salary_period=salary_period,
+    )
+
+
+def _decimal_string(value: Decimal) -> str:
+    quantized = value.quantize(Decimal("0.01"))
+    formatted = format(quantized, "f").rstrip("0").rstrip(".")
+    return formatted or "0"
 
 
 def _validate_bounded_limit(value: int, name: str, maximum: int) -> None:
@@ -864,6 +1344,86 @@ def _posting_filter_sql(filters: PostingSearchFilters) -> tuple[str, tuple[objec
                 filters.skill_code,
             )
         )
+    if filters.seniority_code is not None:
+        clauses.append(
+            """EXISTS (
+                SELECT 1
+                FROM analysis_runs filtered_seniority_runs
+                JOIN job_seniority filtered_seniority
+                  ON filtered_seniority.analysis_run_id =
+                     filtered_seniority_runs.id
+                WHERE filtered_seniority_runs.job_posting_id = job_postings.id
+                  AND filtered_seniority_runs.analyzer_kind = ?
+                  AND filtered_seniority_runs.taxonomy_version = ?
+                  AND filtered_seniority_runs.extractor_version = ?
+                  AND filtered_seniority_runs.input_hash =
+                      jma_seniority_input_hash(job_postings.title)
+                  AND filtered_seniority.seniority_code = ?
+            )"""
+        )
+        parameters.extend(
+            (
+                SENIORITY_ANALYZER_KIND,
+                SENIORITY_TAXONOMY_VERSION,
+                SENIORITY_TAXONOMY_VERSION,
+                filters.seniority_code,
+            )
+        )
+    if filters.geography_code is not None:
+        clauses.append(
+            """EXISTS (
+                SELECT 1
+                FROM analysis_runs filtered_geography_runs
+                JOIN job_geography filtered_geography
+                  ON filtered_geography.analysis_run_id =
+                     filtered_geography_runs.id
+                WHERE filtered_geography_runs.job_posting_id = job_postings.id
+                  AND filtered_geography_runs.analyzer_kind = ?
+                  AND filtered_geography_runs.taxonomy_version = ?
+                  AND filtered_geography_runs.extractor_version = ?
+                  AND filtered_geography_runs.input_hash =
+                      jma_geography_input_hash(
+                          job_postings.description_text,
+                          job_postings.location_text,
+                          job_postings.is_remote
+                      )
+                  AND filtered_geography.geography_code = ?
+            )"""
+        )
+        parameters.extend(
+            (
+                GEOGRAPHY_ANALYZER_KIND,
+                GEOGRAPHY_TAXONOMY_VERSION,
+                GEOGRAPHY_TAXONOMY_VERSION,
+                filters.geography_code,
+            )
+        )
+    if filters.has_salary is not None:
+        clause = (
+            "EXISTS ("
+            "SELECT 1 FROM analysis_runs filtered_salary_runs"
+            " JOIN job_salaries filtered_salaries"
+            " ON filtered_salaries.analysis_run_id = filtered_salary_runs.id"
+            " WHERE filtered_salary_runs.job_posting_id = job_postings.id"
+            " AND filtered_salary_runs.analyzer_kind = ?"
+            " AND filtered_salary_runs.taxonomy_version = ?"
+            " AND filtered_salary_runs.extractor_version = ?"
+            " AND filtered_salary_runs.input_hash = jma_salary_input_hash("
+            " job_postings.salary_text, job_postings.salary_min,"
+            " job_postings.salary_max, job_postings.salary_currency,"
+            " job_postings.salary_period)"
+            ")"
+        )
+        if not filters.has_salary:
+            clause = f"NOT {clause}"
+        clauses.append(clause)
+        parameters.extend(
+            (
+                SALARY_ANALYZER_KIND,
+                SALARY_TAXONOMY_VERSION,
+                SALARY_TAXONOMY_VERSION,
+            )
+        )
     if filters.search_text is not None:
         escaped = _escape_like(filters.search_text)
         clauses.append(
@@ -886,9 +1446,17 @@ def _posting_list_item(
     roles: tuple[NamedRole, ...],
     skills: tuple[NamedSkill, ...],
     *,
+    seniority: NamedTerm | None,
+    geography: tuple[NamedTerm, ...],
+    salary: sqlite3.Row | None,
     role_run_is_current: bool,
     skill_run_is_current: bool,
 ) -> PostingListItem:
+    arrangement = next(
+        (term for term in geography if term.code.startswith("arrangement_")),
+        None,
+    )
+    regions = tuple(term for term in geography if term.code.startswith("region_"))
     return PostingListItem(
         job_posting_id=UUID(row["id"]),
         canonical_job_id=UUID(row["canonical_job_id"]),
@@ -905,6 +1473,12 @@ def _posting_list_item(
         skill_analysis_status=_analysis_status(skill_run_is_current, skills),
         roles=roles,
         skills=skills,
+        seniority=seniority,
+        arrangement=arrangement,
+        regions=regions,
+        salary_currency=salary["currency"] if salary is not None else None,
+        salary_annual_min=salary["annual_min"] if salary is not None else None,
+        salary_annual_max=salary["annual_max"] if salary is not None else None,
     )
 
 

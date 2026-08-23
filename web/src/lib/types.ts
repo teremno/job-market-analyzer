@@ -15,6 +15,12 @@ export interface AnalysisCoverage extends AnalysisCounts {
 
 export interface RoleCount { role_code: string; role_name: string; posting_count: number; }
 export interface SkillCount { skill_code: string; skill_name: string; posting_count: number; }
+export interface TermCount { term_code: string; term_name: string; posting_count: number; }
+export interface SalaryCurrencySummary {
+  currency: string;
+  postings: number;
+  median_annual_min: string | null;
+}
 export interface SourcePostingCount { source_provider: string; posting_count: number; }
 
 export interface Overview {
@@ -25,10 +31,16 @@ export interface Overview {
   postings_by_source: SourcePostingCount[];
   top_roles: RoleCount[];
   top_skills: SkillCount[];
+  top_seniority: TermCount[];
+  arrangement_counts: TermCount[];
+  region_counts: TermCount[];
+  salary_posting_count: number;
+  salary_currencies: SalaryCurrencySummary[];
 }
 
 export interface NamedRole { role_code: string; role_name: string; }
 export interface NamedSkill { skill_code: string; skill_name: string; }
+export interface NamedTerm { code: string; name: string; }
 
 export interface Posting {
   job_posting_id: string;
@@ -46,6 +58,12 @@ export interface Posting {
   skill_analysis_status: AnalysisStatus;
   roles: NamedRole[];
   skills: NamedSkill[];
+  seniority?: NamedTerm | null;
+  arrangement?: NamedTerm | null;
+  regions?: NamedTerm[];
+  salary_currency?: string | null;
+  salary_annual_min?: string | null;
+  salary_annual_max?: string | null;
 }
 
 export interface JobsResponse { items: Posting[]; limit: number; offset: number; total: number; }

@@ -33,6 +33,32 @@ class SkillCount:
 
 
 @dataclass(frozen=True, slots=True)
+class TermCount:
+    """Posting-level count for one seniority or geography term."""
+
+    term_code: str
+    term_name: str
+    posting_count: int
+
+
+@dataclass(frozen=True, slots=True)
+class NamedTerm:
+    """Stable seniority/geography identity with a display label."""
+
+    code: str
+    name: str
+
+
+@dataclass(frozen=True, slots=True)
+class SalaryCurrencySummary:
+    """Posting-level salary coverage for one currency."""
+
+    currency: str
+    postings: int
+    median_annual_min: str | None
+
+
+@dataclass(frozen=True, slots=True)
 class SourcePostingCount:
     """Current durable posting count for one source provider."""
 
@@ -55,6 +81,11 @@ class AnalyticsOverview:
     postings_by_source: tuple[SourcePostingCount, ...]
     top_roles: tuple[RoleCount, ...]
     top_skills: tuple[SkillCount, ...]
+    top_seniority: tuple[TermCount, ...]
+    arrangement_counts: tuple[TermCount, ...]
+    region_counts: tuple[TermCount, ...]
+    salary_posting_count: int
+    salary_currencies: tuple[SalaryCurrencySummary, ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -64,6 +95,9 @@ class PostingSearchFilters:
     source_provider: str | None = None
     role_code: str | None = None
     skill_code: str | None = None
+    seniority_code: str | None = None
+    geography_code: str | None = None
+    has_salary: bool | None = None
     search_text: str | None = None
 
     def __post_init__(self) -> None:
@@ -73,6 +107,8 @@ class PostingSearchFilters:
             "source_provider",
             "role_code",
             "skill_code",
+            "seniority_code",
+            "geography_code",
             "search_text",
         ):
             value = getattr(self, field_name)
@@ -120,6 +156,12 @@ class PostingListItem:
     skill_analysis_status: AnalysisStatus
     roles: tuple[NamedRole, ...]
     skills: tuple[NamedSkill, ...]
+    seniority: NamedTerm | None = None
+    arrangement: NamedTerm | None = None
+    regions: tuple[NamedTerm, ...] = ()
+    salary_currency: str | None = None
+    salary_annual_min: str | None = None
+    salary_annual_max: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

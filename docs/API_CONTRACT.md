@@ -79,11 +79,24 @@ Query parameters:
 | `skill` | exact active skill code, maximum 100 characters |
 | `q` | literal title/company substring, maximum 200 characters |
 | `include_stale` | boolean; default `false`. When `true`, the response also includes postings whose `last_seen_at` is older than the 30-day freshness window. Historical rows are never deleted; by default only postings observed recently (active) are returned |
+| `seniority` | exact active seniority code, maximum 100 characters (for example `senior`) |
+| `geography` | exact active arrangement or region code, maximum 100 characters (for example `arrangement_remote`, `region_worldwide`) |
+| `has_salary` | boolean; when `true`, only postings carrying a salary estimate are returned |
 
 Filters may be combined. Whitespace-only and overlong strings are rejected. Literal
 search retains the analytics layer's escaping and ASCII-oriented case-insensitive
-SQLite behavior. Response fields are `items`, `limit`, `offset`, and `total`; ordering
+SQLite behavior. Response fields are `items`, `limit`, `offset`, and `total`; each
+item additionally carries optional intelligence projections: `seniority`,
+`arrangement`, `regions`, `salary_currency`, `salary_annual_min`, and
+`salary_annual_max` resolved through exact-current analysis runs. Ordering
 is the deterministic ordering documented in `ANALYTICS_QUERY_CONTRACT.md`.
+
+### `GET /api/overview`
+
+Additionally returns `top_seniority`, `arrangement_counts`, `region_counts`,
+`salary_posting_count`, and per-currency `salary_currencies` summaries with
+posting-level median annual minimums. All counts remain distinct-posting counts
+over active postings only.
 
 ### Posting freshness (lifecycle v1)
 

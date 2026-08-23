@@ -11,10 +11,12 @@ from job_market_analyzer.analytics import (
     PostingListItem,
     RoleCount,
     RoleDetail,
+    SalaryCurrencySummary,
     SkillCount,
     SkillDetail,
     SourcePostingCount,
     SourceSummary,
+    TermCount,
 )
 
 
@@ -89,6 +91,39 @@ class SourcePostingCountResponse(ApiModel):
         )
 
 
+class TermCountResponse(ApiModel):
+    term_code: str
+    term_name: str
+    posting_count: int
+
+    @classmethod
+    def from_dto(cls, value: TermCount) -> "TermCountResponse":
+        return cls(
+            term_code=value.term_code,
+            term_name=value.term_name,
+            posting_count=value.posting_count,
+        )
+
+
+class SalaryCurrencySummaryResponse(ApiModel):
+    currency: str
+    postings: int
+    median_annual_min: str | None
+
+    @classmethod
+    def from_dto(cls, value: SalaryCurrencySummary) -> "SalaryCurrencySummaryResponse":
+        return cls(
+            currency=value.currency,
+            postings=value.postings,
+            median_annual_min=value.median_annual_min,
+        )
+
+
+class NamedTermResponse(ApiModel):
+    code: str
+    name: str
+
+
 class AnalyticsOverviewResponse(ApiModel):
     posting_count: int
     source_count: int
@@ -97,6 +132,11 @@ class AnalyticsOverviewResponse(ApiModel):
     postings_by_source: tuple[SourcePostingCountResponse, ...]
     top_roles: tuple[RoleCountResponse, ...]
     top_skills: tuple[SkillCountResponse, ...]
+    top_seniority: tuple[TermCountResponse, ...]
+    arrangement_counts: tuple[TermCountResponse, ...]
+    region_counts: tuple[TermCountResponse, ...]
+    salary_posting_count: int
+    salary_currencies: tuple[SalaryCurrencySummaryResponse, ...]
 
     @classmethod
     def from_dto(cls, value: AnalyticsOverview) -> "AnalyticsOverviewResponse":
@@ -120,6 +160,20 @@ class AnalyticsOverviewResponse(ApiModel):
             top_roles=tuple(RoleCountResponse.from_dto(item) for item in value.top_roles),
             top_skills=tuple(
                 SkillCountResponse.from_dto(item) for item in value.top_skills
+            ),
+            top_seniority=tuple(
+                TermCountResponse.from_dto(item) for item in value.top_seniority
+            ),
+            arrangement_counts=tuple(
+                TermCountResponse.from_dto(item) for item in value.arrangement_counts
+            ),
+            region_counts=tuple(
+                TermCountResponse.from_dto(item) for item in value.region_counts
+            ),
+            salary_posting_count=value.salary_posting_count,
+            salary_currencies=tuple(
+                SalaryCurrencySummaryResponse.from_dto(item)
+                for item in value.salary_currencies
             ),
         )
 
@@ -150,6 +204,12 @@ class PostingResponse(ApiModel):
     skill_analysis_status: str
     roles: tuple[NamedRoleResponse, ...]
     skills: tuple[NamedSkillResponse, ...]
+    seniority: NamedTermResponse | None = None
+    arrangement: NamedTermResponse | None = None
+    regions: tuple[NamedTermResponse, ...] = ()
+    salary_currency: str | None = None
+    salary_annual_min: str | None = None
+    salary_annual_max: str | None = None
 
     @classmethod
     def from_dto(cls, value: PostingListItem) -> "PostingResponse":
@@ -175,6 +235,21 @@ class PostingResponse(ApiModel):
                 NamedSkillResponse(skill_code=item.skill_code, skill_name=item.skill_name)
                 for item in value.skills
             ),
+            seniority=None
+            if value.seniority is None
+            else NamedTermResponse(code=value.seniority.code, name=value.seniority.name),
+            arrangement=None
+            if value.arrangement is None
+            else NamedTermResponse(
+                code=value.arrangement.code, name=value.arrangement.name
+            ),
+            regions=tuple(
+                NamedTermResponse(code=item.code, name=item.name)
+                for item in value.regions
+            ),
+            salary_currency=value.salary_currency,
+            salary_annual_min=value.salary_annual_min,
+            salary_annual_max=value.salary_annual_max,
         )
 
 

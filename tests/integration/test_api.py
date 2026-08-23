@@ -17,11 +17,17 @@ from job_market_analyzer.api.dependencies import (
 from job_market_analyzer.intelligence.roles import ROLE_TAXONOMY_VERSION
 from job_market_analyzer.intelligence.skills import SKILL_TAXONOMY_VERSION
 from job_market_analyzer.models import NormalizedJobPosting, RawJob
+from job_market_analyzer.services.geography_analysis import analyze_job_geography
 from job_market_analyzer.services.role_analysis import analyze_job_roles
+from job_market_analyzer.services.salary_analysis import analyze_job_salary
+from job_market_analyzer.services.seniority_analysis import analyze_job_seniority
 from job_market_analyzer.services.skill_analysis import analyze_job_skills
 from job_market_analyzer.storage.sqlite import connect_database, initialize_database
 from job_market_analyzer.storage.sqlite_intelligence_repository import (
+    SQLiteGeographyIntelligenceRepository,
     SQLiteRoleIntelligenceRepository,
+    SQLiteSalaryIntelligenceRepository,
+    SQLiteSeniorityIntelligenceRepository,
     SQLiteSkillIntelligenceRepository,
 )
 from job_market_analyzer.storage.sqlite_repository import SQLiteJobRepository
@@ -458,6 +464,74 @@ def test_unexpected_failure_is_generic_and_does_not_leak_internals(
     assert "SQL" not in response.text
 
 
+def test_jobs_intelligence_filters_and_salary_fields(api_database: Path) -> None:
+    with closing(connect_database(api_database)) as connection:
+        jobs = SQLiteJobRepository(connection)
+        senior_id = _persist(
+            jobs,
+            source="remote_ok",
+            external_id="senior-paid",
+            title="Senior Python Developer",
+            company="Paid Corp",
+            description="Build services. This is a fully remote position.",
+            tags=("Python",),
+            published_at=BASE_TIME + timedelta(days=5),
+            salary_text="$120k - $150k a year",
+        )
+        postings = {item.id: item for item in jobs.list_job_postings(limit=100)}
+        role_repository = SQLiteRoleIntelligenceRepository(connection)
+        skill_repository = SQLiteSkillIntelligenceRepository(connection)
+        seniority_repository = SQLiteSeniorityIntelligenceRepository(connection)
+        salary_repository = SQLiteSalaryIntelligenceRepository(connection)
+        posting = postings[senior_id]
+        analyze_job_roles(posting, role_repository)
+        analyze_job_skills(posting, skill_repository)
+        analyze_job_seniority(posting, seniority_repository)
+        analyze_job_salary(posting, salary_repository)
+        analyze_job_geography(posting, SQLiteGeographyIntelligenceRepository(connection))
+
+    app = _frozen_app(api_database)
+    with TestClient(app) as client:
+        by_seniority = client.get(
+            "/api/jobs", params={"seniority": "senior", "limit": 100}
+        )
+        assert by_seniority.status_code == 200
+        items = by_seniority.json()["items"]
+        assert any(item["title"] == "Senior Python Developer" for item in items)
+
+        remote_only = client.get(
+            "/api/jobs",
+            params={"geography": "arrangement_remote", "limit": 100},
+        )
+        assert remote_only.status_code == 200
+        assert any(
+            item["title"] == "Senior Python Developer"
+            and any(
+                region["code"] == "region_worldwide" for region in item["regions"]
+            )
+            for item in remote_only.json()["items"]
+        )
+
+        paid = client.get("/api/jobs", params={"has_salary": "true", "limit": 100})
+        assert paid.status_code == 200
+        paid_items = [
+            item
+            for item in paid.json()["items"]
+            if item["title"] == "Senior Python Developer"
+        ]
+        assert len(paid_items) == 1
+        assert paid_items[0]["salary_currency"] == "USD"
+        assert paid_items[0]["salary_annual_min"] == "120000"
+        assert paid_items[0]["salary_annual_max"] == "150000"
+        assert paid_items[0]["seniority"]["code"] == "senior"
+
+        overview = client.get("/api/overview").json()
+        assert overview["salary_posting_count"] >= 1
+        assert any(
+            item["term_code"] == "senior" for item in overview["top_seniority"]
+        )
+
+
 class TrackingConnection:
     def __init__(self, connection: sqlite3.Connection) -> None:
         self._connection = connection
@@ -482,6 +556,7 @@ def _persist(
     tags: tuple[str, ...],
     published_at: datetime | None,
     fetched_at: datetime | None = None,
+    salary_text: str | None = None,
 ):
     source_url = f"https://example.test/{source}/{external_id}"
     result = repository.persist_observation(
@@ -508,6 +583,7 @@ def _persist(
             source_tags=tags,
             location_text="Worldwide",
             published_at=published_at,
+            salary_text=salary_text,
         ),
     )
     return result.job_posting_id
