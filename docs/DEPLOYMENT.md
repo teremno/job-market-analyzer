@@ -30,6 +30,42 @@ export WEB3_CAREER_API_TOKEN=...   # optional; missing token skips one source
 job-market-analyzer update --database ./job-market.sqlite3
 ```
 
+## Buying your first server (beginner walkthrough)
+
+If you have never rented a server before, this is the whole mystery:
+
+A **server** is just a computer in a data center that stays on 24/7. You rent
+it by the month, and connect to it over the internet with SSH (a remote
+terminal). Recommended spec for this product:
+
+- **Provider:** Hetzner (hetzner.com/cloud) â€” or any provider offering
+  "Cloud" servers.
+- **Plan:** CX22 class â€” **2 vCPU / 4 GB RAM / 40 GB SSD**, ~â‚¬5/month.
+- **Image/OS:** Ubuntu 24.04.
+- **Location:** pick the region closest to your main audience (Nuremberg or
+  Helsinki work well for Europe/Ukraine).
+- **Authentication:** choose **SSH key** (not password) when prompted.
+
+After purchase the panel shows the server's **public IPv4 address** â€” write
+it down; DNS setup needs it.
+
+### First connection (from Windows PowerShell, no extra tools needed)
+
+```powershell
+ssh root@YOUR_SERVER_IP
+```
+
+First time it asks to trust the fingerprint â€” type `yes`, then you are inside
+the server's terminal. Everything below happens in that terminal.
+
+### Install Docker on the server (one command)
+
+```bash
+curl -fsSL https://get.docker.com | sh
+```
+
+Verify: `docker compose version` prints a version number.
+
 ## Run with Docker Compose
 
 From the repository root:
@@ -97,7 +133,7 @@ docker run -d --name jma-web \
 
 ---
 
-## Public deployment (alpha) — step by step
+## Public deployment (alpha) ï¿½ step by step
 
 Goal: a public read-only site on your own domain, served over HTTPS with
 automatic certificates, from one small VPS.
@@ -106,31 +142,31 @@ automatic certificates, from one small VPS.
 
 | Resource | Alpha (up to ~100 visitors/day) | Notes |
 |---|---|---|
-| vCPU | 1–2 | The API is I/O-bound; analytics queries are milliseconds. |
+| vCPU | 1ï¿½2 | The API is I/O-bound; analytics queries are milliseconds. |
 | RAM | 2 GB works, 4 GB comfortable | api ?150 MB, web ?120 MB, Caddy ?30 MB, OS headroom. |
 | Disk | 20 GB SSD | The SQLite dataset is tens of MB; logs are the only growth item. |
 | OS | Ubuntu 24.04 LTS | Docker + Compose installed via the official script. |
 
-Any provider works; Hetzner CX22-class (~ˆ5/month) is the reference budget.
+Any provider works; Hetzner CX22-class (~ï¿½5/month) is the reference budget.
 Do not buy managed databases or Kubernetes for this stage.
 
 ### Steps
 
-1. **DNS** — in your domain registrar, point two A records at the server IP:
+1. **DNS** ï¿½ in your domain registrar, point two A records at the server IP:
    `your-domain.com` and `api.your-domain.com`. Wait for propagation
    (`ping api.your-domain.com` returns your IP).
-2. **Server** — install Docker:
+2. **Server** ï¿½ install Docker:
    `curl -fsSL https://get.docker.com | sh`
-3. **Get the code + data** — clone this repository, then copy your populated
+3. **Get the code + data** ï¿½ clone this repository, then copy your populated
    `job-market.sqlite3` to the repo root on the server (scp/rsync).
-4. **Configure** — copy `.env.production.example` to `.env`, set your two
+4. **Configure** ï¿½ copy `.env.production.example` to `.env`, set your two
    domains. Edit `deploy/Caddyfile` placeholders if you prefer hardcoding.
-5. **Start** —
+5. **Start** ï¿½
    ```bash
    docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
    ```
    Caddy obtains TLS certificates automatically within a minute.
-6. **Verify** — open `https://your-domain.com`; check
+6. **Verify** ï¿½ open `https://your-domain.com`; check
    `https://api.your-domain.com/api/health`.
 
 ### Updating the dataset on the server
@@ -153,4 +189,4 @@ mutate it.
   domain via `JMA_CORS_ORIGINS` (wildcards are ignored).
 - Still required before treating it as hardened: basic rate limiting,
   log monitoring, backup automation for the SQLite file, and dependency
-  scanning (PROJECT_HANDOFF §51).
+  scanning (PROJECT_HANDOFF ï¿½51).

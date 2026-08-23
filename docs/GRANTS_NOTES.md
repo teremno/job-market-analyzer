@@ -130,3 +130,24 @@ parameter, never a fork:
 - Launch order follows underserved-market priorities: en (canonical core) >
   uk > es/pt (LATAM) > hi/ur > ar; each addition is data + resources, not
   architecture.
+
+---
+
+## Language scope decision (2026-08-23)
+
+Target languages: top ~20 world languages by speakers — en, uk, es, pt, fr,
+de, hi, ur, ar, zh, id, bn, ja, ru, tr, it, ko, vi, pl, nl. Ukrainian first
+(founder market), then underserved-market priorities.
+
+Explanation layer provider strategy: a single OpenAI-compatible endpoint.
+Groq (fast, free tier) / OpenRouter / OpenAI are interchangeable via base-url
++ api-key environment variables; no vendor SDK imports. Languages are an
+output parameter over the same deterministic evidence base.
+
+## Payment & spending control (open questions at application time)
+
+Payout method and spending-reporting rules are NOT publicly disclosed; the
+Grant Terms shown at application time govern them. Context expectation:
+bank transfer or stablecoins (founder is Polygon co-founder). Our own policy
+regardless: publish a transparent budget table in the repository and a final
+spending report — matches the openness evaluation criterion.
