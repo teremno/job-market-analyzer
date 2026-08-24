@@ -377,8 +377,9 @@ def test_current_registries_have_exact_source_and_english_analyzer_capabilities(
         "lever",
         "ashby",
         "the_muse",
+        "adzuna",
     )
-    assert len({source.provider_code for source in REAL_SOURCE_REGISTRY}) == 10
+    assert len({source.provider_code for source in REAL_SOURCE_REGISTRY}) == 11
     assert {(analyzer.kind, analyzer.language) for analyzer in ANALYZER_REGISTRY} == {
         ("skills", "en"),
         ("roles", "en"),

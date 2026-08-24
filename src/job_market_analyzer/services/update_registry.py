@@ -2,6 +2,10 @@
 
 import sqlite3
 
+from job_market_analyzer.collectors.adzuna import (
+    ADZUNA_SOURCE_PROVIDER,
+    AdzunaCollector,
+)
 from job_market_analyzer.collectors.ashby import (
     ASHBY_SOURCE_PROVIDER,
     AshbyCollector,
@@ -48,6 +52,7 @@ from job_market_analyzer.intelligence.roles import ROLE_TAXONOMY_VERSION
 from job_market_analyzer.intelligence.salaries import SALARY_TAXONOMY_VERSION
 from job_market_analyzer.intelligence.seniority import SENIORITY_TAXONOMY_VERSION
 from job_market_analyzer.intelligence.skills import SKILL_TAXONOMY_VERSION
+from job_market_analyzer.normalization.adzuna import normalize_adzuna_job
 from job_market_analyzer.normalization.ashby import normalize_ashby_job
 from job_market_analyzer.normalization.the_muse import normalize_the_muse_job
 from job_market_analyzer.normalization.greenhouse import normalize_greenhouse_job
@@ -142,6 +147,13 @@ SOURCE_REGISTRY: tuple[SourceAdapter, ...] = (
         "The Muse",
         TheMuseCollector,
         normalize_the_muse_job,
+    ),
+    SourceAdapter(
+        ADZUNA_SOURCE_PROVIDER,
+        "Adzuna",
+        AdzunaCollector,
+        normalize_adzuna_job,
+        credential_env="ADZUNA_APP_KEY",
     ),
 )
 

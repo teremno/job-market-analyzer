@@ -579,3 +579,27 @@ Design notes: country-scoped searches (`source_scope` = country code),
 plain-text descriptions, structured `salary_min`/`salary_max` normalized
 directly, `created` as publication time, `redirect_url` preserved for
 attribution. Free tier: 250 calls/day.
+
+---
+
+### Adzuna Jobs API (LIVE)
+
+Official documentation: https://developer.adzuna.com
+
+Status: implemented, offline-tested, and live-validated (200/200 first run,
+0 failed). Credentials are read from `ADZUNA_APP_ID` + `ADZUNA_APP_KEY`
+environment variables (free tier: 250 calls/day).
+
+MVP identity: `source_provider = "adzuna"`, `source_scope` = country code
+(`gb`, `us`), `external_id` = native numeric `id`.
+
+Normalized fields: title, plain-text description, company display name,
+location display name, structured `salary_min`/`salary_max` with country-
+mapped currency (GBP/USD), ISO `created` as publication time, contract type
+mapped conservatively, category label as source tag. Adzuna-predicted
+salaries (`salary_is_predicted=1`) are deliberately skipped — only actually
+advertised figures are recorded. Bounded at 2 pages x 50 results per
+country, `what=remote` keyword search, `max_days_old=30`.
+
+No Adzuna code was copied; the adapter was implemented from the official
+API contract and live-validated responses.
