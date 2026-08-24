@@ -6,6 +6,10 @@ from job_market_analyzer.collectors.ashby import (
     ASHBY_SOURCE_PROVIDER,
     AshbyCollector,
 )
+from job_market_analyzer.collectors.the_muse import (
+    THE_MUSE_SOURCE_PROVIDER,
+    TheMuseCollector,
+)
 from job_market_analyzer.collectors.greenhouse import (
     GREENHOUSE_SOURCE_PROVIDER,
     GreenhouseCollector,
@@ -45,6 +49,7 @@ from job_market_analyzer.intelligence.salaries import SALARY_TAXONOMY_VERSION
 from job_market_analyzer.intelligence.seniority import SENIORITY_TAXONOMY_VERSION
 from job_market_analyzer.intelligence.skills import SKILL_TAXONOMY_VERSION
 from job_market_analyzer.normalization.ashby import normalize_ashby_job
+from job_market_analyzer.normalization.the_muse import normalize_the_muse_job
 from job_market_analyzer.normalization.greenhouse import normalize_greenhouse_job
 from job_market_analyzer.normalization.himalayas import normalize_himalayas_job
 from job_market_analyzer.normalization.jobicy import normalize_jobicy_job
@@ -131,6 +136,12 @@ SOURCE_REGISTRY: tuple[SourceAdapter, ...] = (
         "Ashby",
         AshbyCollector,
         normalize_ashby_job,
+    ),
+    SourceAdapter(
+        THE_MUSE_SOURCE_PROVIDER,
+        "The Muse",
+        TheMuseCollector,
+        normalize_the_muse_job,
     ),
 )
 

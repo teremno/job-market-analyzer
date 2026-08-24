@@ -535,3 +535,47 @@ Before copying or adapting code from an external repository:
 3. Record the files or concepts used.
 4. Preserve any attribution required by the license.
 5. Prefer adapting ideas over copying large code sections when practical.
+
+---
+
+### The Muse Public Jobs API
+
+Endpoint:
+https://www.themuse.com/api/public/jobs
+
+Status: implemented, offline-tested, and live-validated (60/60 first run).
+
+Authentication: optional. Anonymous access is limited to 500 requests/hour;
+a free registered app key (themuse.com/developers/api/v2/apps) raises it to
+3,600/hour via the `api_key` query parameter. The collector reads the key
+from `THE_MUSE_API_KEY` when set and works anonymously otherwise.
+
+Attribution: identify The Muse as the source and preserve the original
+`refs.landing_page`, used as both `source_url` and `application_url`.
+
+MVP identity: `source_provider = "the_muse"`, `source_scope = "global"`,
+`external_id` = native numeric `id`.
+
+Normalized fields: title (`name`), HTML description through the shared safe
+converter, joined location names, company name, ISO `publication_date`,
+category/level names as structured source tags. No salary and no remote
+inference (the public API exposes no remote flag). Bounded at three pages
+(20 listings each) per run.
+
+No The Muse code was copied; the adapter was implemented from the public
+API contract and live-validated responses.
+
+---
+
+### Adzuna Jobs API (implemented, pending credentials)
+
+Official documentation: https://developer.adzuna.com
+
+Status: collector/normalizer implemented and offline-tested; live smoke
+pending the `ADZUNA_APP_ID` (the `ADZUNA_APP_KEY` is already provisioned in
+the environment). Adzuna requires both `app_id` and `app_key` on every call.
+
+Design notes: country-scoped searches (`source_scope` = country code),
+plain-text descriptions, structured `salary_min`/`salary_max` normalized
+directly, `created` as publication time, `redirect_url` preserved for
+attribution. Free tier: 250 calls/day.
