@@ -10,7 +10,7 @@ from job_market_analyzer.intelligence.models import (
     SkillEvidence,
 )
 
-SKILL_TAXONOMY_VERSION = "4"
+SKILL_TAXONOMY_VERSION = "5"
 
 
 class ContextRule(StrEnum):

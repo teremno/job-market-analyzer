@@ -31,7 +31,7 @@ def test_taxonomy_v2_has_unique_stable_contracts() -> None:
         for alias in skill.aliases
     ]
 
-    assert SKILL_TAXONOMY_VERSION == "4"
+    assert SKILL_TAXONOMY_VERSION == "5"
     assert len(SKILL_TAXONOMY) == 122
     assert skill_codes_in_taxonomy == sorted(skill_codes_in_taxonomy)
     assert len(skill_codes_in_taxonomy) == len(set(skill_codes_in_taxonomy))

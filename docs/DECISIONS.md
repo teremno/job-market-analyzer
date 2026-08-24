@@ -122,9 +122,9 @@ The system will distinguish between a job posting published on a specific source
 
 The data model will use three levels:
 
-1. RawJob — original payload collected from a source.
-2. JobPosting — normalized representation of a posting on one specific source.
-3. CanonicalJob — a logical real-world vacancy that may be represented by multiple JobPostings.
+1. RawJob вЂ” original payload collected from a source.
+2. JobPosting вЂ” normalized representation of a posting on one specific source.
+3. CanonicalJob вЂ” a logical real-world vacancy that may be represented by multiple JobPostings.
 
 ### Reason
 
@@ -1026,8 +1026,8 @@ ADR-024 paragraph deferring "enabling Ashby compensation" to future work.
 
 ### Reason
 
-Ashby exposes exactly the structured provenance our salary contract wants —
-no text parsing and no invented numbers — so enabling it required no new
+Ashby exposes exactly the structured provenance our salary contract wants вЂ”
+no text parsing and no invented numbers вЂ” so enabling it required no new
 versioning subsystem: the existing `salary/en` input hash already covers these
 normalized fields, and re-collection naturally created fresh versioned runs.
 Live effect: salary coverage rose from 104 to 1,324+ postings.
@@ -1097,7 +1097,9 @@ customer success, account management, sales operations), support
 (troubleshooting, Zendesk), finance (financial reporting, budgeting), and
 security/compliance (incident response, vulnerability management,
 penetration testing, OWASP, SIEM, AML). The single
-taxonomy/extractor version advances to `4`.
+taxonomy/extractor version advances to `4` (amended same day to `5` after
+contextual-guard hardening of Excel/Spark/Positioning/Airflow/ML aliases — the
+guarded semantics required a fresh version once v4 runs had been persisted).
 
 ### Reason
 
@@ -1105,7 +1107,7 @@ The marketing-only v3 revision fixed one family but left identical blind
 spots in every other role. Cross-family mining exposed two classes of
 phrases: genuine skills (added) and context words appearing everywhere as
 company-topic boilerplate (compliance, HR, recruitment, roadmap,
-onboarding, documentation) — the latter are deliberately excluded because
+onboarding, documentation) вЂ” the latter are deliberately excluded because
 they describe what the employer talks about, not what the candidate must
 know.
 

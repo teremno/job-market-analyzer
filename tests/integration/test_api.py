@@ -591,7 +591,7 @@ def _persist(
 
 def test_fixture_tracks_active_analyzer_contract() -> None:
     assert ROLE_TAXONOMY_VERSION == "2"
-    assert SKILL_TAXONOMY_VERSION == "4"
+    assert SKILL_TAXONOMY_VERSION == "5"
 
 
 def test_skill_gap_endpoint_computes_and_validates(api_database: Path) -> None:
