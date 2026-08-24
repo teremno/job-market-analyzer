@@ -1037,3 +1037,40 @@ Live effect: salary coverage rose from 104 to 1,324+ postings.
 Salary data now skews toward AI-era companies that publish bands (USD-heavy,
 high medians); dashboards must keep presenting per-currency medians as
 posting-level observations, not market statistics.
+
+---
+
+## ADR-027: Skill Taxonomy v3 adds the marketing and communications family
+
+Date: 2026-08-23
+
+Status: Accepted and committed.
+
+### Decision
+
+Add 26 canonical marketing/growth/communications skills to the taxonomy
+(positioning, go-to-market, brand marketing, campaign management, marketing
+funnel, marketing strategy, growth marketing, B2B marketing, copywriting,
+CRM, social media marketing, content marketing, paid media, performance
+marketing, SEO, email marketing, public relations, influencer marketing,
+market research, A/B testing, Google Ads, Google Analytics, digital
+marketing, lead generation, community management, marketing analytics,
+Canva), grounded in a frequency-mining pass over 216 live marketing_growth
+postings. The single taxonomy/extractor version advances to `3`; v2 runs
+remain preserved and exact-current resolution selects v3 automatically.
+
+### Reason
+
+The first real user pass over the Skill Gap page exposed a coverage blind
+spot: the marketing role showed DeFi/AWS/SQL as "top skills" because the
+taxonomy had zero marketing-domain entries. Mining showed 39 frequent
+marketing phrases, all missing. Ambiguous bare words (brand, PR, GTM) are
+deliberately excluded or guarded (PR strategy, GTM strategy only) to avoid
+pull-request and Google-Tag-Manager false positives.
+
+### Consequences
+
+Live re-analysis of 7,413 postings: 15,044 evidence records created;
+marketing gap now leads with Positioning (45.4%) and Go-to-Market (44.4%).
+The same mining approach should be repeated per role family before further
+taxonomy revisions.

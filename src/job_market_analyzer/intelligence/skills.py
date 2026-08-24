@@ -10,7 +10,7 @@ from job_market_analyzer.intelligence.models import (
     SkillEvidence,
 )
 
-SKILL_TAXONOMY_VERSION = "2"
+SKILL_TAXONOMY_VERSION = "3"
 
 
 class ContextRule(StrEnum):
@@ -82,6 +82,15 @@ def _contextual(
 
 SKILL_TAXONOMY: tuple[SkillDefinition, ...] = (
     SkillDefinition(
+        "ab_testing",
+        "A/B Testing",
+        (
+            _exact("ab_testing.slash", "A/B testing"),
+            _exact("ab_testing.plain", "AB testing"),
+            _exact("ab_testing.split", "Split testing"),
+        ),
+    ),
+    SkillDefinition(
         "angular",
         "Angular",
         (
@@ -111,6 +120,14 @@ SKILL_TAXONOMY: tuple[SkillDefinition, ...] = (
         ),
     ),
     SkillDefinition(
+        "b2b_marketing",
+        "B2B Marketing",
+        (
+            _exact("b2b_marketing.b2b_marketing", "B2B marketing"),
+            _exact("b2b_marketing.b2b_saas_marketing", "B2B SaaS marketing"),
+        ),
+    ),
+    SkillDefinition(
         "bash",
         "Bash",
         (
@@ -118,7 +135,31 @@ SKILL_TAXONOMY: tuple[SkillDefinition, ...] = (
             _contextual("bash.bash", "Bash", ContextRule.BASH_SHELL),
         ),
     ),
+    SkillDefinition(
+        "brand_marketing",
+        "Brand Marketing",
+        (
+            _exact("brand_marketing.branding", "Branding"),
+            _exact("brand_marketing.brand_marketing", "Brand marketing"),
+            _exact("brand_marketing.brand_strategy", "Brand strategy"),
+            _exact("brand_marketing.brand_management", "Brand management"),
+        ),
+    ),
     SkillDefinition("c", "C", (_contextual("c.c", "C", ContextRule.C_LANGUAGE, case_sensitive=True),)),
+    SkillDefinition(
+        "campaign_management",
+        "Campaign Management",
+        (
+            _exact("campaign_management.management", "Campaign management"),
+            _exact("campaign_management.campaigns_plural", "Marketing campaigns"),
+            _exact("campaign_management.campaign_singular", "Marketing campaign"),
+        ),
+    ),
+    SkillDefinition(
+        "canva",
+        "Canva",
+        (_exact("canva.named", "Canva"),),
+    ),
     SkillDefinition(
         "cicd",
         "CI/CD",
@@ -128,6 +169,28 @@ SKILL_TAXONOMY: tuple[SkillDefinition, ...] = (
             _exact("cicd.ci_slash_cd_spaced", "CI / CD"),
             _exact("cicd.ci_cd", "CI/CD"),
             _exact("cicd.cicd", "CICD"),
+        ),
+    ),
+    SkillDefinition(
+        "community_management",
+        "Community Management",
+        (_exact("community_management.named", "Community management"),),
+    ),
+    SkillDefinition(
+        "content_marketing",
+        "Content Marketing",
+        (
+            _exact("content_marketing.named", "Content marketing"),
+            _exact("content_marketing.creation", "Content creation"),
+            _exact("content_marketing.strategy", "Content strategy"),
+        ),
+    ),
+    SkillDefinition(
+        "copywriting",
+        "Copywriting",
+        (
+            _exact("copywriting.named", "Copywriting"),
+            _exact("copywriting.spaced", "Copy writing"),
         ),
     ),
     SkillDefinition(
@@ -151,6 +214,15 @@ SKILL_TAXONOMY: tuple[SkillDefinition, ...] = (
         ),
     ),
     SkillDefinition(
+        "crm",
+        "CRM",
+        (
+            _exact("crm.acronym", "CRM"),
+            _exact("crm.full_name", "Customer relationship management"),
+            _exact("crm.hubspot", "HubSpot"),
+        ),
+    ),
+    SkillDefinition(
         "csharp",
         "C#",
         (
@@ -167,6 +239,11 @@ SKILL_TAXONOMY: tuple[SkillDefinition, ...] = (
         ),
     ),
     SkillDefinition("defi", "DeFi", (_exact("defi.defi", "DeFi"), _exact("defi.decentralized_finance", "decentralized finance"))),
+    SkillDefinition(
+        "digital_marketing",
+        "Digital Marketing",
+        (_exact("digital_marketing.named", "Digital marketing"),),
+    ),
     SkillDefinition("django", "Django", (_exact("django.django", "Django"),)),
     SkillDefinition("docker", "Docker", (_exact("docker.docker", "Docker"),)),
     SkillDefinition(
@@ -252,8 +329,42 @@ SKILL_TAXONOMY: tuple[SkillDefinition, ...] = (
             _contextual("go.go", "Go", ContextRule.GO_LANGUAGE),
         ),
     ),
+    SkillDefinition(
+        "go_to_market",
+        "Go-to-Market",
+        (
+            _exact("go_to_market.hyphenated", "Go-to-market"),
+            _exact("go_to_market.spaced", "Go to market"),
+            _exact("go_to_market.gtm_strategy", "GTM strategy"),
+        ),
+    ),
+    SkillDefinition(
+        "google_ads",
+        "Google Ads",
+        (
+            _exact("google_ads.named", "Google Ads"),
+            _exact("google_ads.adwords", "Google AdWords"),
+            _exact("google_ads.adwords_bare", "AdWords"),
+        ),
+    ),
+    SkillDefinition(
+        "google_analytics",
+        "Google Analytics",
+        (
+            _exact("google_analytics.named", "Google Analytics"),
+            _exact("google_analytics.ga4", "GA4"),
+        ),
+    ),
     SkillDefinition("grafana", "Grafana", (_exact("grafana.grafana", "Grafana"),)),
     SkillDefinition("graphql", "GraphQL", (_exact("graphql.graphql", "GraphQL"),)),
+    SkillDefinition(
+        "growth_marketing",
+        "Growth Marketing",
+        (
+            _exact("growth_marketing.named", "Growth marketing"),
+            _exact("growth_marketing.growth_lead", "Growth lead"),
+        ),
+    ),
     SkillDefinition(
         "hardhat",
         "Hardhat",
@@ -268,6 +379,14 @@ SKILL_TAXONOMY: tuple[SkillDefinition, ...] = (
         (
             _exact("html.html5", "HTML5", case_sensitive=True),
             _exact("html.html", "HTML", case_sensitive=True),
+        ),
+    ),
+    SkillDefinition(
+        "influencer_marketing",
+        "Influencer Marketing",
+        (
+            _exact("influencer_marketing.named", "Influencer marketing"),
+            _exact("influencer_marketing.influencers", "Influencers"),
         ),
     ),
     SkillDefinition(
@@ -305,7 +424,38 @@ SKILL_TAXONOMY: tuple[SkillDefinition, ...] = (
             _exact("kubernetes.k8s", "K8s"),
         ),
     ),
+    SkillDefinition(
+        "lead_generation",
+        "Lead Generation",
+        (_exact("lead_generation.named", "Lead generation"),),
+    ),
     SkillDefinition("linux", "Linux", (_exact("linux.linux", "Linux"),)),
+    SkillDefinition(
+        "market_research",
+        "Market Research",
+        (_exact("market_research.named", "Market research"),),
+    ),
+    SkillDefinition(
+        "marketing_analytics",
+        "Marketing Analytics",
+        (_exact("marketing_analytics.named", "Marketing analytics"),),
+    ),
+    SkillDefinition(
+        "marketing_funnel",
+        "Marketing Funnel",
+        (
+            _exact("marketing_funnel.funnel", "Funnel"),
+            _exact("marketing_funnel.marketing_funnel", "Marketing funnel"),
+            _exact("marketing_funnel.sales_funnel", "Sales funnel"),
+            _exact("marketing_funnel.conversion_funnel", "Conversion funnel"),
+            _exact("marketing_funnel.full_funnel", "Full-funnel"),
+        ),
+    ),
+    SkillDefinition(
+        "marketing_strategy",
+        "Marketing Strategy",
+        (_exact("marketing_strategy.named", "Marketing strategy"),),
+    ),
     SkillDefinition("mongodb", "MongoDB", (_exact("mongodb.mongodb", "MongoDB"), _exact("mongodb.mongo", "Mongo"))),
     SkillDefinition("mysql", "MySQL", (_exact("mysql.mysql", "MySQL"),)),
     SkillDefinition(
@@ -334,6 +484,26 @@ SKILL_TAXONOMY: tuple[SkillDefinition, ...] = (
         ),
     ),
     SkillDefinition(
+        "paid_media",
+        "Paid Media",
+        (
+            _exact("paid_media.named", "Paid media"),
+            _exact("paid_media.paid_social", "Paid social"),
+            _exact("paid_media.paid_search", "Paid search"),
+            _exact("paid_media.ppc", "PPC"),
+        ),
+    ),
+    SkillDefinition(
+        "performance_marketing",
+        "Performance Marketing",
+        (_exact("performance_marketing.named", "Performance marketing"),),
+    ),
+    SkillDefinition(
+        "positioning",
+        "Positioning",
+        (_exact("positioning.positioning", "Positioning"),),
+    ),
+    SkillDefinition(
         "postgresql",
         "PostgreSQL",
         (
@@ -351,6 +521,14 @@ SKILL_TAXONOMY: tuple[SkillDefinition, ...] = (
                 "Prometheus",
                 ContextRule.PROMETHEUS_MONITORING,
             ),
+        ),
+    ),
+    SkillDefinition(
+        "public_relations",
+        "Public Relations",
+        (
+            _exact("pr.full_name", "Public relations"),
+            _exact("pr.pr_strategy", "PR strategy"),
         ),
     ),
     SkillDefinition("pytest", "pytest", (_exact("pytest.pytest", "pytest"), _exact("pytest.py_dot_test", "py.test"), _exact("pytest.py_test", "py test"))),
@@ -387,6 +565,14 @@ SKILL_TAXONOMY: tuple[SkillDefinition, ...] = (
         (_contextual("rust.rust", "Rust", ContextRule.RUST_LANGUAGE),),
     ),
     SkillDefinition(
+        "seo",
+        "SEO",
+        (
+            _exact("seo.acronym", "SEO"),
+            _exact("seo.full_name", "Search engine optimization"),
+        ),
+    ),
+    SkillDefinition(
         "snowflake",
         "Snowflake",
         (
@@ -397,6 +583,15 @@ SKILL_TAXONOMY: tuple[SkillDefinition, ...] = (
                 "Snowflake",
                 ContextRule.SNOWFLAKE_DATA,
             ),
+        ),
+    ),
+    SkillDefinition(
+        "social_media_marketing",
+        "Social Media Marketing",
+        (
+            _exact("smm.social_media", "Social media"),
+            _exact("smm.marketing", "Social media marketing"),
+            _exact("smm.management", "Social media management"),
         ),
     ),
     SkillDefinition(
@@ -441,6 +636,7 @@ SKILL_TAXONOMY: tuple[SkillDefinition, ...] = (
             _exact("web3js.web3js", "Web3JS"),
         ),
     ),
+
 )
 
 

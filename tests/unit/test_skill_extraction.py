@@ -31,8 +31,8 @@ def test_taxonomy_v2_has_unique_stable_contracts() -> None:
         for alias in skill.aliases
     ]
 
-    assert SKILL_TAXONOMY_VERSION == "2"
-    assert len(SKILL_TAXONOMY) == 60
+    assert SKILL_TAXONOMY_VERSION == "3"
+    assert len(SKILL_TAXONOMY) == 86
     assert skill_codes_in_taxonomy == sorted(skill_codes_in_taxonomy)
     assert len(skill_codes_in_taxonomy) == len(set(skill_codes_in_taxonomy))
     assert len(rule_ids) == len(set(rule_ids))
@@ -374,7 +374,10 @@ def test_ambiguous_bare_source_tags_remain_direct_tag_evidence() -> None:
 
 
 def test_ambiguous_alias_inside_a_general_source_tag_is_not_skill_evidence() -> None:
-    assert extract_skills("", None, ("go to market", "point de vue")) == ()
+    # "go to market" became a direct v3 skill alias, so this guard test uses a
+    # phrase that is still taxonomy-foreign even though its words overlap with
+    # known aliases.
+    assert extract_skills("", None, ("market strategy view", "point de vue")) == ()
 
 
 @pytest.mark.parametrize("version", ["11", "14", "17", "20", "23"])
