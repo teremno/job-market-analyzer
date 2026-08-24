@@ -45,7 +45,7 @@ A technically capable user should eventually be able to clone the repository, pr
 
 # 2. Core product philosophy
 
-The project is not primarily a вЂњjob scraper.вЂќ
+The project is not primarily a РІР‚Сљjob scraper.РІР‚Сњ
 
 The project is a career-intelligence system.
 
@@ -55,30 +55,30 @@ The complete intended value chain is:
 
 ```text
 Global job sources
-        в†“
+        РІвЂ вЂњ
 Collection
-        в†“
+        РІвЂ вЂњ
 Normalization
-        в†“
+        РІвЂ вЂњ
 Durable job dataset
-        в†“
+        РІвЂ вЂњ
 Role / skill / salary / geography / seniority intelligence
-        в†“
+        РІвЂ вЂњ
 Market analytics
-        в†“
+        РІвЂ вЂњ
 User profile
-        в†“
+        РІвЂ вЂњ
 Skill gap
-        в†“
+        РІвЂ вЂњ
 Learning recommendations
-        в†“
+        РІвЂ вЂњ
 AI leverage recommendations
-        в†“
+        РІвЂ вЂњ
 Portfolio recommendations
-        в†“
+        РІвЂ вЂњ
 Job targeting
-        в†“
-Explanation in the userвЂ™s preferred language
+        РІвЂ вЂњ
+Explanation in the userРІР‚в„ўs preferred language
 ```
 
 The system should be evidence-driven.
@@ -184,9 +184,9 @@ The preferred near-term multilingual path is:
 
 ```text
 English job data
-        в†“
+        РІвЂ вЂњ
 English / language-neutral structured intelligence
-        в†“
+        РІвЂ вЂњ
 multilingual explanation layer
 ```
 
@@ -270,11 +270,11 @@ Likely architecture:
 
 ```text
 Internet
-   в†“
+   РІвЂ вЂњ
 Domain / DNS
-   в†“
+   РІвЂ вЂњ
 Reverse proxy
-   в†“
+   РІвЂ вЂњ
 Frontend
 API
 Worker/update process
@@ -285,11 +285,11 @@ Later:
 
 ```text
                     Web
-                     в”‚
-Telegram в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ API в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ WhatsApp
-                     в”‚
+                     РІвЂќвЂљ
+Telegram РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚ API РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚ WhatsApp
+                     РІвЂќвЂљ
                   Discord
-                     в”‚
+                     РІвЂќвЂљ
                     CLI
 ```
 
@@ -319,8 +319,8 @@ The early hosted product should be deployable on a reasonably small Linux VPS.
 
 Likely initial category:
 
-- 2вЂ“4 vCPU
-- 4вЂ“8 GB RAM
+- 2РІР‚вЂњ4 vCPU
+- 4РІР‚вЂњ8 GB RAM
 - SSD/NVMe storage
 
 This is not a final capacity recommendation. Benchmark before purchase.
@@ -355,21 +355,21 @@ The core ingestion pipeline is:
 
 ```text
 source
-  в†“
+  РІвЂ вЂњ
 collector
-  в†“
+  РІвЂ вЂњ
 RawJob
-  в†“
+  РІвЂ вЂњ
 source-specific normalizer
-  в†“
+  РІвЂ вЂњ
 NormalizedJobPosting
-  в†“
+  РІвЂ вЂњ
 generic collection service
-  в†“
+  РІвЂ вЂњ
 JobRepository / persistence
-  в†“
+  РІвЂ вЂњ
 durable JobPosting
-  в†“
+  РІвЂ вЂњ
 CanonicalJob
 ```
 
@@ -508,7 +508,7 @@ It does NOT mean:
 Example:
 
 ```text
-A в†’ B в†’ A
+A РІвЂ вЂ™ B РІвЂ вЂ™ A
 ```
 
 must preserve all three raw versions.
@@ -517,7 +517,7 @@ Current normalized state follows event-time freshness.
 
 A stale/out-of-order raw observation should still be persisted but must not roll back newer durable normalized state.
 
-Do not replace these rules with naive вЂњlatest timestamp winsвЂќ logic without understanding existing tests.
+Do not replace these rules with naive РІР‚Сљlatest timestamp winsРІР‚Сњ logic without understanding existing tests.
 
 ---
 
@@ -575,7 +575,7 @@ Skill extraction is deterministic.
 
 Current taxonomy:
 
-- 86 canonical skills (taxonomy v3 adds the marketing/communications family).
+- 122 canonical skills (taxonomy v4 covers all role families from cross-family mining).
 
 Main extraction contract:
 
@@ -1111,10 +1111,10 @@ Before the product becomes strongly personalized, high-value structured job dime
 
 Recommended priority:
 
-1. ~~job lifecycle / stale postings~~ вњ… implemented (freshness boundary v1)
-2. ~~seniority~~ вњ… implemented (`seniority/en`, schema v4)
-3. ~~geography / remote eligibility~~ вњ… implemented (`geography/en`, schema v5)
-4. ~~salary normalization~~ вњ… implemented (`salary/en`, schema v6)
+1. ~~job lifecycle / stale postings~~ РІСљвЂ¦ implemented (freshness boundary v1)
+2. ~~seniority~~ РІСљвЂ¦ implemented (`seniority/en`, schema v4)
+3. ~~geography / remote eligibility~~ РІСљвЂ¦ implemented (`geography/en`, schema v5)
+4. ~~salary normalization~~ РІСљвЂ¦ implemented (`salary/en`, schema v6)
 5. cross-source canonical deduplication v1
 
 Exact ordering may change based on real dataset observations.
@@ -1355,7 +1355,7 @@ user profile
 target role
         +
 current market evidence
-        в†“
+        РІвЂ вЂњ
 skill gap
 ```
 
@@ -1407,7 +1407,7 @@ Do not claim guaranteed employment outcomes.
 
 # 39. AI leverage recommendations
 
-The product should not merely say вЂњlearn AI.вЂќ
+The product should not merely say РІР‚Сљlearn AI.РІР‚Сњ
 
 It should help users understand where AI tools improve their work.
 
@@ -1475,12 +1475,12 @@ Potential provider interface:
 
 ```text
 AIProvider
-в”њв”Ђв”Ђ OpenAI-compatible
-в”њв”Ђв”Ђ Groq
-в”њв”Ђв”Ђ OpenRouter
-в”њв”Ђв”Ђ DeepSeek-compatible
-в”њв”Ђв”Ђ local model
-в””в”Ђв”Ђ future providers
+РІвЂќСљРІвЂќР‚РІвЂќР‚ OpenAI-compatible
+РІвЂќСљРІвЂќР‚РІвЂќР‚ Groq
+РІвЂќСљРІвЂќР‚РІвЂќР‚ OpenRouter
+РІвЂќСљРІвЂќР‚РІвЂќР‚ DeepSeek-compatible
+РІвЂќСљРІвЂќР‚РІвЂќР‚ local model
+РІвЂќвЂќРІвЂќР‚РІвЂќР‚ future providers
 ```
 
 Use low-cost/free options where feasible.
@@ -1491,11 +1491,11 @@ Preferred architecture:
 
 ```text
 Database / analytics
-        в†“
+        РІвЂ вЂњ
 structured market evidence
-        в†“
+        РІвЂ вЂњ
 recommendation engine
-        в†“
+        РІвЂ вЂњ
 LLM explanation
 ```
 
@@ -1533,19 +1533,19 @@ Recommended deployment sequence:
 
 ```text
 Current local MVP
-        в†“
+        РІвЂ вЂњ
 Data quality improvements
-        в†“
+        РІвЂ вЂњ
 Deployment foundation
-        в†“
+        РІвЂ вЂњ
 Hosted read-only alpha
-        в†“
+        РІвЂ вЂњ
 Accounts / personalization
-        в†“
+        РІвЂ вЂњ
 AI advisor
-        в†“
+        РІвЂ вЂњ
 Bots
-        в†“
+        РІвЂ вЂњ
 Public beta / v1
 ```
 
@@ -1574,16 +1574,16 @@ Likely early production architecture:
 
 ```text
 Domain
-  в†“
+  РІвЂ вЂњ
 Cloudflare or DNS provider
-  в†“
+  РІвЂ вЂњ
 Reverse proxy
-  в†“
+  РІвЂ вЂњ
 Docker Compose on Linux VPS
-  в”њв”Ђв”Ђ frontend
-  в”њв”Ђв”Ђ API
-  в”њв”Ђв”Ђ worker
-  в””в”Ђв”Ђ PostgreSQL
+  РІвЂќСљРІвЂќР‚РІвЂќР‚ frontend
+  РІвЂќСљРІвЂќР‚РІвЂќР‚ API
+  РІвЂќСљРІвЂќР‚РІвЂќР‚ worker
+  РІвЂќвЂќРІвЂќР‚РІвЂќР‚ PostgreSQL
 ```
 
 Possible reverse proxies:
@@ -1619,7 +1619,7 @@ Preferred long-term design:
 
 ```text
 repository interfaces
-        в†“
+        РІвЂ вЂњ
 SQLite implementation
 PostgreSQL implementation
 ```
@@ -1652,13 +1652,13 @@ Likely:
 
 ```text
 scheduler
-   в†“
+   РІвЂ вЂњ
 update worker
-   в†“
+   РІвЂ вЂњ
 source collectors
-   в†“
+   РІвЂ вЂњ
 database
-   в†“
+   РІвЂ вЂњ
 analysis
 ```
 
@@ -1709,21 +1709,21 @@ Future model:
 
 ```text
 Telegram bot
-      в†“
+      РІвЂ вЂњ
 API
-      в†“
+      РІвЂ вЂњ
 same core
 
 WhatsApp bot
-      в†“
+      РІвЂ вЂњ
 API
-      в†“
+      РІвЂ вЂњ
 same core
 
 Discord bot
-      в†“
+      РІвЂ вЂњ
 API
-      в†“
+      РІвЂ вЂњ
 same core
 ```
 
@@ -1921,7 +1921,7 @@ After major data/intelligence changes:
 6. compare dashboard output;
 7. document problems.
 
-The userвЂ™s own dataset is an important product-development feedback loop.
+The userРІР‚в„ўs own dataset is an important product-development feedback loop.
 
 ---
 
@@ -1981,13 +1981,13 @@ Useful future evals:
 - recommendation relevance;
 - multilingual output quality.
 
-Prefer small reviewed gold datasets over vague вЂњlooks goodвЂќ checks.
+Prefer small reviewed gold datasets over vague РІР‚Сљlooks goodРІР‚Сњ checks.
 
 ---
 
 # 60. Recommended next development phases
 
-## Phase 1 вЂ” Stabilize personal/global dataset
+## Phase 1 РІР‚вЂќ Stabilize personal/global dataset
 
 - run guided six-source update;
 - inspect real dashboard;
@@ -1996,7 +1996,7 @@ Prefer small reviewed gold datasets over vague вЂњlooks goodвЂќ checks.
 - improve high-value parsing;
 - preserve all existing invariants.
 
-## Phase 2 вЂ” Data Quality v1
+## Phase 2 РІР‚вЂќ Data Quality v1
 
 - seniority;
 - geography;
@@ -2004,7 +2004,7 @@ Prefer small reviewed gold datasets over vague вЂњlooks goodвЂќ checks.
 - lifecycle;
 - conservative canonical deduplication.
 
-## Phase 3 вЂ” Global Source Expansion v2
+## Phase 3 РІР‚вЂќ Global Source Expansion v2
 
 Prioritize:
 
@@ -2016,7 +2016,7 @@ Continue other global sources selectively.
 
 Do not stop at six sources.
 
-## Phase 4 вЂ” Deployment Foundation
+## Phase 4 РІР‚вЂќ Deployment Foundation
 
 - cross-platform audit;
 - Docker;
@@ -2027,7 +2027,7 @@ Do not stop at six sources.
 - health/readiness;
 - production reverse proxy.
 
-## Phase 5 вЂ” Hosted Read-Only Alpha
+## Phase 5 РІР‚вЂќ Hosted Read-Only Alpha
 
 Deploy:
 
@@ -2039,35 +2039,35 @@ Deploy:
 
 No login initially required.
 
-## Phase 6 вЂ” User Intelligence
+## Phase 6 РІР‚вЂќ User Intelligence
 
 - user profile;
 - target role;
 - skill gap;
 - market-backed recommendations.
 
-## Phase 7 вЂ” AI Advisor
+## Phase 7 РІР‚вЂќ AI Advisor
 
 - provider abstraction;
 - low-cost model support;
 - structured evidence input;
 - natural-language explanation.
 
-## Phase 8 вЂ” Multilingual Experience
+## Phase 8 РІР‚вЂќ Multilingual Experience
 
 - multilingual user output;
 - localized UI;
 - conversational language preferences;
 - later multilingual vacancy analysis where needed.
 
-## Phase 9 вЂ” Learning + Portfolio
+## Phase 9 РІР‚вЂќ Learning + Portfolio
 
 - learning sequence;
 - project recommendations;
 - AI-tool recommendations;
 - evidence-based explanations.
 
-## Phase 10 вЂ” Bots
+## Phase 10 РІР‚вЂќ Bots
 
 - Telegram;
 - WhatsApp;
@@ -2075,7 +2075,7 @@ No login initially required.
 
 All use the same API.
 
-## Phase 11 вЂ” Local Market Expansion
+## Phase 11 РІР‚вЂќ Local Market Expansion
 
 Country/region-specific sources and language-aware ingestion after the global core is mature.
 
@@ -2133,18 +2133,18 @@ Do not pitch the project as:
 
 A stronger positioning:
 
-> An open-source AI career-intelligence platform that helps anyone understand the global job market, identify missing skills, decide what to learn and build next, and target realistic jobs вЂ” with evidence from real market data and explanations in the userвЂ™s language.
+> An open-source AI career-intelligence platform that helps anyone understand the global job market, identify missing skills, decide what to learn and build next, and target realistic jobs РІР‚вЂќ with evidence from real market data and explanations in the userРІР‚в„ўs language.
 
 Possible product positioning:
 
 ```text
-SkillSignal вЂ” Open Career Intelligence for Everyone
+SkillSignal РІР‚вЂќ Open Career Intelligence for Everyone
 ```
 
 or:
 
 ```text
-SkillSignal вЂ” An Open AI Career Navigator for the Global Workforce
+SkillSignal РІР‚вЂќ An Open AI Career Navigator for the Global Workforce
 ```
 
 Branding is not finalized.
@@ -2198,17 +2198,17 @@ This should be a real product capability, not a hackathon-only mockup.
 Long-term architecture:
 
 ```text
-                         в”Њв”Ђв”Ђ Web Dashboard
-                         в”‚
-                         в”њв”Ђв”Ђ Telegram Bot
-                         в”‚
-Core / API в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”јв”Ђв”Ђ WhatsApp Bot
-                         в”‚
-                         в”њв”Ђв”Ђ Discord Bot
-                         в”‚
-                         в”њв”Ђв”Ђ CLI
-                         в”‚
-                         в””в”Ђв”Ђ Third-party API
+                         РІвЂќРЉРІвЂќР‚РІвЂќР‚ Web Dashboard
+                         РІвЂќвЂљ
+                         РІвЂќСљРІвЂќР‚РІвЂќР‚ Telegram Bot
+                         РІвЂќвЂљ
+Core / API РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќР‚РІвЂќСРІвЂќР‚РІвЂќР‚ WhatsApp Bot
+                         РІвЂќвЂљ
+                         РІвЂќСљРІвЂќР‚РІвЂќР‚ Discord Bot
+                         РІвЂќвЂљ
+                         РІвЂќСљРІвЂќР‚РІвЂќР‚ CLI
+                         РІвЂќвЂљ
+                         РІвЂќвЂќРІвЂќР‚РІвЂќР‚ Third-party API
 ```
 
 No interface owns market logic.
@@ -2493,9 +2493,9 @@ Preferred boundary:
 
 ```text
 source weirdness
-в†’ collector / normalizer
-в†’ stable normalized model
-в†’ generic persistence
+РІвЂ вЂ™ collector / normalizer
+РІвЂ вЂ™ stable normalized model
+РІвЂ вЂ™ generic persistence
 ```
 
 ---
@@ -2574,7 +2574,7 @@ Initial pages:
 
 Potential additions:
 
-- вЂњlast updatedвЂќ timestamp;
+- РІР‚Сљlast updatedРІР‚Сњ timestamp;
 - source health;
 - market coverage disclaimer.
 
@@ -2933,10 +2933,10 @@ Why are you telling me this?
 
 Examples:
 
-- вЂњDocker appears in X% of matching backend postings.вЂќ
-- вЂњAWS is frequently paired with Python in your target role.вЂќ
-- вЂњYour current profile already matches A/B/C requirements.вЂќ
-- вЂњThis portfolio project demonstrates three of your highest-value gaps.вЂќ
+- РІР‚СљDocker appears in X% of matching backend postings.РІР‚Сњ
+- РІР‚СљAWS is frequently paired with Python in your target role.РІР‚Сњ
+- РІР‚СљYour current profile already matches A/B/C requirements.РІР‚Сњ
+- РІР‚СљThis portfolio project demonstrates three of your highest-value gaps.РІР‚Сњ
 
 The explanation should come from evidence, not persuasion.
 
@@ -3021,19 +3021,19 @@ The strategic direction is:
 
 ```text
 MORE HIGH-QUALITY GLOBAL SOURCES
-        в†“
+        РІвЂ вЂњ
 BETTER STRUCTURED JOB INTELLIGENCE
-        в†“
+        РІвЂ вЂњ
 HOSTED GLOBAL WEBSITE
-        в†“
+        РІвЂ вЂњ
 USER PROFILE + SKILL GAP
-        в†“
+        РІвЂ вЂњ
 AI + MULTILINGUAL EXPLANATION
-        в†“
+        РІвЂ вЂњ
 LEARNING + PORTFOLIO GUIDANCE
-        в†“
+        РІвЂ вЂњ
 TELEGRAM / WHATSAPP / DISCORD
-        в†“
+        РІвЂ вЂњ
 LOCAL MARKET EXPANSION
 ```
 
@@ -3072,7 +3072,7 @@ Then inspect the actual implementation, migrations, tests, CLI, API and frontend
 Run the existing quality gates and verify the repository state before proposing changes.
 
 The product mission is to build a global, open-source career-intelligence platform:
-real job-market data в†’ structured intelligence в†’ skill gap в†’ learning/portfolio/AI recommendations в†’ multilingual user experience.
+real job-market data РІвЂ вЂ™ structured intelligence РІвЂ вЂ™ skill gap РІвЂ вЂ™ learning/portfolio/AI recommendations РІвЂ вЂ™ multilingual user experience.
 
 The current six job sources are only the first source set. Continue expanding high-quality global sources over time, especially ATS-backed sources such as Greenhouse, Lever and Ashby, without rewriting the orchestration architecture.
 
@@ -3093,4 +3093,4 @@ Always optimize for the real product:
 
 > Help a person understand the market, understand themselves, close the right gaps, and move toward better work.
 
-Everything else вЂ” sources, AI, website, bots, grants, infrastructure вЂ” exists to support that goal.
+Everything else РІР‚вЂќ sources, AI, website, bots, grants, infrastructure РІР‚вЂќ exists to support that goal.

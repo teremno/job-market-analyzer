@@ -10,7 +10,7 @@ from job_market_analyzer.intelligence.models import (
     SkillEvidence,
 )
 
-SKILL_TAXONOMY_VERSION = "3"
+SKILL_TAXONOMY_VERSION = "4"
 
 
 class ContextRule(StrEnum):
@@ -91,6 +91,27 @@ SKILL_TAXONOMY: tuple[SkillDefinition, ...] = (
         ),
     ),
     SkillDefinition(
+        "account_management",
+        "Account Management",
+        (_exact("account_management.named", "Account management"),),
+    ),
+    SkillDefinition(
+        "airflow",
+        "Airflow",
+        (
+            _exact("airflow.apache_airflow", "Apache Airflow"),
+            _exact("airflow.airflow", "Airflow"),
+        ),
+    ),
+    SkillDefinition(
+        "aml",
+        "AML",
+        (
+            _exact("aml.acronym", "AML"),
+            _exact("aml.full_name", "Anti-money laundering"),
+        ),
+    ),
+    SkillDefinition(
         "angular",
         "Angular",
         (
@@ -136,6 +157,11 @@ SKILL_TAXONOMY: tuple[SkillDefinition, ...] = (
         ),
     ),
     SkillDefinition(
+        "bigquery",
+        "BigQuery",
+        (_exact("bigquery.named", "BigQuery"),),
+    ),
+    SkillDefinition(
         "brand_marketing",
         "Brand Marketing",
         (
@@ -144,6 +170,11 @@ SKILL_TAXONOMY: tuple[SkillDefinition, ...] = (
             _exact("brand_marketing.brand_strategy", "Brand strategy"),
             _exact("brand_marketing.brand_management", "Brand management"),
         ),
+    ),
+    SkillDefinition(
+        "budgeting",
+        "Budgeting",
+        (_exact("budgeting.named", "Budgeting"),),
     ),
     SkillDefinition("c", "C", (_contextual("c.c", "C", ContextRule.C_LANGUAGE, case_sensitive=True),)),
     SkillDefinition(
@@ -238,7 +269,46 @@ SKILL_TAXONOMY: tuple[SkillDefinition, ...] = (
             _exact("css.css", "CSS", case_sensitive=True),
         ),
     ),
+    SkillDefinition(
+        "customer_success",
+        "Customer Success",
+        (
+            _exact("customer_success.named", "Customer success"),
+            _exact("customer_success.manager", "Customer success manager"),
+        ),
+    ),
+    SkillDefinition(
+        "data_analysis",
+        "Data Analysis",
+        (_exact("data_analysis.named", "Data analysis"),),
+    ),
+    SkillDefinition(
+        "data_modeling",
+        "Data Modeling",
+        (
+            _exact("data_modeling.modeling", "Data modeling"),
+            _exact("data_modeling.modelling", "Data modelling"),
+        ),
+    ),
+    SkillDefinition(
+        "dbt",
+        "dbt",
+        (_exact("dbt.named", "dbt", case_sensitive=True),),
+    ),
+    SkillDefinition(
+        "deep_learning",
+        "Deep Learning",
+        (_exact("deep_learning.named", "Deep learning"),),
+    ),
     SkillDefinition("defi", "DeFi", (_exact("defi.defi", "DeFi"), _exact("defi.decentralized_finance", "decentralized finance"))),
+    SkillDefinition(
+        "design_system",
+        "Design Systems",
+        (
+            _exact("design_system.singular", "Design system"),
+            _exact("design_system.plural", "Design systems"),
+        ),
+    ),
     SkillDefinition(
         "digital_marketing",
         "Digital Marketing",
@@ -255,6 +325,11 @@ SKILL_TAXONOMY: tuple[SkillDefinition, ...] = (
             _exact("dotnet.dotnet", ".NET"),
         ),
     ),
+    SkillDefinition(
+        "enterprise_sales",
+        "Enterprise Sales",
+        (_exact("enterprise_sales.named", "Enterprise sales"),),
+    ),
     SkillDefinition("ethereum", "Ethereum", (_exact("ethereum.ethereum", "Ethereum"),)),
     SkillDefinition(
         "ethersjs",
@@ -265,11 +340,24 @@ SKILL_TAXONOMY: tuple[SkillDefinition, ...] = (
         ),
     ),
     SkillDefinition(
+        "etl",
+        "ETL",
+        (_exact("etl.acronym", "ETL"),),
+    ),
+    SkillDefinition(
         "evm",
         "EVM",
         (
             _exact("evm.ethereum_virtual_machine", "Ethereum Virtual Machine"),
             _exact("evm.evm", "EVM", case_sensitive=True),
+        ),
+    ),
+    SkillDefinition(
+        "excel",
+        "Excel",
+        (
+            _exact("excel.microsoft_excel", "Microsoft Excel"),
+            _exact("excel.excel", "Excel"),
         ),
     ),
     SkillDefinition(
@@ -294,11 +382,34 @@ SKILL_TAXONOMY: tuple[SkillDefinition, ...] = (
         ),
     ),
     SkillDefinition(
+        "financial_reporting",
+        "Financial Reporting",
+        (_exact("financial_reporting.named", "Financial reporting"),),
+    ),
+    SkillDefinition(
+        "fine_tuning",
+        "Fine-Tuning",
+        (
+            _exact("fine_tuning.hyphenated", "Fine-tuning"),
+            _exact("fine_tuning.fine_tuning_spaced", "Fine tuning"),
+            _exact("fine_tuning.model_fine_tuning", "Model fine-tuning"),
+        ),
+    ),
+    SkillDefinition(
         "flask",
         "Flask",
         (
             _exact("flask.flask_framework", "Flask framework"),
             _contextual("flask.flask", "Flask", ContextRule.FLASK_FRAMEWORK),
+        ),
+    ),
+    SkillDefinition(
+        "forecasting",
+        "Forecasting",
+        (
+            _exact("forecasting.bare", "Forecasting"),
+            _exact("forecasting.sales", "Sales forecasting"),
+            _exact("forecasting.financial", "Financial forecasting"),
         ),
     ),
     SkillDefinition(
@@ -313,6 +424,14 @@ SKILL_TAXONOMY: tuple[SkillDefinition, ...] = (
             _exact("gcp.google_cloud_platform", "Google Cloud Platform"),
             _exact("gcp.google_cloud", "Google Cloud"),
             _exact("gcp.gcp", "GCP"),
+        ),
+    ),
+    SkillDefinition(
+        "generative_ai",
+        "Generative AI",
+        (
+            _exact("generative_ai.named", "Generative AI"),
+            _exact("generative_ai.genai", "GenAI"),
         ),
     ),
     SkillDefinition("git", "Git", (_exact("git.git", "Git"),)),
@@ -382,6 +501,11 @@ SKILL_TAXONOMY: tuple[SkillDefinition, ...] = (
         ),
     ),
     SkillDefinition(
+        "incident_response",
+        "Incident Response",
+        (_exact("incident_response.named", "Incident response"),),
+    ),
+    SkillDefinition(
         "influencer_marketing",
         "Influencer Marketing",
         (
@@ -431,6 +555,23 @@ SKILL_TAXONOMY: tuple[SkillDefinition, ...] = (
     ),
     SkillDefinition("linux", "Linux", (_exact("linux.linux", "Linux"),)),
     SkillDefinition(
+        "llm",
+        "LLM",
+        (
+            _exact("llm.acronym", "LLM"),
+            _exact("llm.plural", "LLMs"),
+            _exact("llm.full_name", "Large language model"),
+        ),
+    ),
+    SkillDefinition(
+        "machine_learning",
+        "Machine Learning",
+        (
+            _exact("machine_learning.named", "Machine learning"),
+            _exact("machine_learning.ml_abbr", "ML"),
+        ),
+    ),
+    SkillDefinition(
         "market_research",
         "Market Research",
         (_exact("market_research.named", "Market research"),),
@@ -459,6 +600,14 @@ SKILL_TAXONOMY: tuple[SkillDefinition, ...] = (
     SkillDefinition("mongodb", "MongoDB", (_exact("mongodb.mongodb", "MongoDB"), _exact("mongodb.mongo", "Mongo"))),
     SkillDefinition("mysql", "MySQL", (_exact("mysql.mysql", "MySQL"),)),
     SkillDefinition(
+        "negotiation",
+        "Negotiation",
+        (
+            _exact("negotiation.singular", "Negotiation"),
+            _exact("negotiation.plural", "Negotiations"),
+        ),
+    ),
+    SkillDefinition(
         "nestjs",
         "NestJS",
         (
@@ -484,6 +633,11 @@ SKILL_TAXONOMY: tuple[SkillDefinition, ...] = (
         ),
     ),
     SkillDefinition(
+        "owasp",
+        "OWASP",
+        (_exact("owasp.acronym", "OWASP"),),
+    ),
+    SkillDefinition(
         "paid_media",
         "Paid Media",
         (
@@ -491,6 +645,14 @@ SKILL_TAXONOMY: tuple[SkillDefinition, ...] = (
             _exact("paid_media.paid_social", "Paid social"),
             _exact("paid_media.paid_search", "Paid search"),
             _exact("paid_media.ppc", "PPC"),
+        ),
+    ),
+    SkillDefinition(
+        "penetration_testing",
+        "Penetration Testing",
+        (
+            _exact("penetration_testing.full", "Penetration testing"),
+            _exact("penetration_testing.short", "Pen testing"),
         ),
     ),
     SkillDefinition(
@@ -512,6 +674,16 @@ SKILL_TAXONOMY: tuple[SkillDefinition, ...] = (
         ),
     ),
     SkillDefinition(
+        "product_design",
+        "Product Design",
+        (_exact("product_design.named", "Product design"),),
+    ),
+    SkillDefinition(
+        "product_strategy",
+        "Product Strategy",
+        (_exact("product_strategy.named", "Product strategy"),),
+    ),
+    SkillDefinition(
         "prometheus",
         "Prometheus",
         (
@@ -521,6 +693,27 @@ SKILL_TAXONOMY: tuple[SkillDefinition, ...] = (
                 "Prometheus",
                 ContextRule.PROMETHEUS_MONITORING,
             ),
+        ),
+    ),
+    SkillDefinition(
+        "prompt_engineering",
+        "Prompt Engineering",
+        (_exact("prompt_engineering.named", "Prompt engineering"),),
+    ),
+    SkillDefinition(
+        "prospecting",
+        "Sales Prospecting",
+        (
+            _exact("prospecting.sales", "Sales prospecting"),
+            _exact("prospecting.bare", "Prospecting"),
+        ),
+    ),
+    SkillDefinition(
+        "prototyping",
+        "Prototyping",
+        (
+            _exact("prototyping.gerund", "Prototyping"),
+            _exact("prototyping.noun", "Prototypes"),
         ),
     ),
     SkillDefinition(
@@ -565,12 +758,22 @@ SKILL_TAXONOMY: tuple[SkillDefinition, ...] = (
         (_contextual("rust.rust", "Rust", ContextRule.RUST_LANGUAGE),),
     ),
     SkillDefinition(
+        "sales_operations",
+        "Sales Operations",
+        (_exact("sales_operations.named", "Sales operations"),),
+    ),
+    SkillDefinition(
         "seo",
         "SEO",
         (
             _exact("seo.acronym", "SEO"),
             _exact("seo.full_name", "Search engine optimization"),
         ),
+    ),
+    SkillDefinition(
+        "siem",
+        "SIEM",
+        (_exact("siem.acronym", "SIEM"),),
     ),
     SkillDefinition(
         "snowflake",
@@ -608,6 +811,14 @@ SKILL_TAXONOMY: tuple[SkillDefinition, ...] = (
     ),
     SkillDefinition("solidity", "Solidity", (_exact("solidity.solidity", "Solidity"),)),
     SkillDefinition(
+        "spark",
+        "Spark",
+        (
+            _exact("spark.apache_spark", "Apache Spark"),
+            _exact("spark.spark", "Spark"),
+        ),
+    ),
+    SkillDefinition(
         "spring",
         "Spring",
         (
@@ -618,7 +829,17 @@ SKILL_TAXONOMY: tuple[SkillDefinition, ...] = (
     SkillDefinition("sql", "SQL", (_exact("sql.sql", "SQL"),)),
     SkillDefinition("tensorflow", "TensorFlow", (_exact("tensorflow.tensorflow", "TensorFlow"),)),
     SkillDefinition("terraform", "Terraform", (_exact("terraform.terraform", "Terraform"),)),
+    SkillDefinition(
+        "troubleshooting",
+        "Troubleshooting",
+        (_exact("troubleshooting.named", "Troubleshooting"),),
+    ),
     SkillDefinition("typescript", "TypeScript", (_exact("typescript.typescript", "TypeScript"),)),
+    SkillDefinition(
+        "user_research",
+        "User Research",
+        (_exact("user_research.named", "User research"),),
+    ),
     SkillDefinition(
         "vue",
         "Vue",
@@ -629,12 +850,26 @@ SKILL_TAXONOMY: tuple[SkillDefinition, ...] = (
         ),
     ),
     SkillDefinition(
+        "vulnerability",
+        "Vulnerability Management",
+        (
+            _exact("vulnerability.management", "Vulnerability management"),
+            _exact("vulnerability.assessment", "Vulnerability assessment"),
+            _exact("vulnerability.bare", "Vulnerabilities"),
+        ),
+    ),
+    SkillDefinition(
         "web3js",
         "Web3.js",
         (
             _exact("web3js.web3_dot_js", "Web3.js"),
             _exact("web3js.web3js", "Web3JS"),
         ),
+    ),
+    SkillDefinition(
+        "zendesk",
+        "Zendesk",
+        (_exact("zendesk.named", "Zendesk"),),
     ),
 
 )

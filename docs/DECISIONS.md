@@ -1074,3 +1074,44 @@ Live re-analysis of 7,413 postings: 15,044 evidence records created;
 marketing gap now leads with Positioning (45.4%) and Go-to-Market (44.4%).
 The same mining approach should be repeated per role family before further
 taxonomy revisions.
+
+---
+
+## ADR-028: Skill Taxonomy v4 covers all role families from cross-family mining
+
+Date: 2026-08-23
+
+Status: Accepted and committed.
+
+### Decision
+
+Extend the taxonomy to 122 canonical skills (+36) after running the same
+frequency-mining pass across ALL 19 role families (not just marketing).
+Additions span: AI/ML (machine learning, LLM, generative AI, prompt
+engineering, fine-tuning, deep learning), data (Spark, dbt, Airflow, ETL,
+data modeling, BigQuery, data analysis, Excel), design (prototyping, product
+design, design systems, user research), product (product strategy),
+go-to-market (prospecting, forecasting, negotiation, enterprise sales,
+customer success, account management, sales operations), support
+(troubleshooting, Zendesk), and security/compliance (incident response,
+vulnerability management, penetration testing, OWASP, SIEM, AML). The single
+taxonomy/extractor version advances to `4`.
+
+### Reason
+
+The marketing-only v3 revision fixed one family but left identical blind
+spots in every other role. Cross-family mining exposed two classes of
+phrases: genuine skills (added) and context words appearing everywhere as
+company-topic boilerplate (compliance, HR, recruitment, roadmap,
+onboarding, documentation) — the latter are deliberately excluded because
+they describe what the employer talks about, not what the candidate must
+know.
+
+### Consequences
+
+Live re-analysis of 7,413 postings: postings with at least one skill rose
+from 4,969 (67%) to 6,442 (87%); zero-skill runs fell from 2,444 to 971.
+Sales gaps now lead with Customer Success (30%), Negotiation (28%),
+Prospecting (22%). The mining script pattern (candidate phrases per family,
+threshold ?5 postings, taxonomy-status check) is the standing recipe for
+future revisions.

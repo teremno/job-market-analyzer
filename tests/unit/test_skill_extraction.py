@@ -31,8 +31,8 @@ def test_taxonomy_v2_has_unique_stable_contracts() -> None:
         for alias in skill.aliases
     ]
 
-    assert SKILL_TAXONOMY_VERSION == "3"
-    assert len(SKILL_TAXONOMY) == 86
+    assert SKILL_TAXONOMY_VERSION == "4"
+    assert len(SKILL_TAXONOMY) == 122
     assert skill_codes_in_taxonomy == sorted(skill_codes_in_taxonomy)
     assert len(skill_codes_in_taxonomy) == len(set(skill_codes_in_taxonomy))
     assert len(rule_ids) == len(set(rule_ids))
@@ -576,7 +576,7 @@ def test_repeated_calls_have_identical_ordered_output() -> None:
             "Machine Learning Engineer",
             "Train Python models with PyTorch and TensorFlow.",
             (),
-            {"python", "pytorch", "tensorflow"},
+            {"machine_learning", "python", "pytorch", "tensorflow"},
         ),
     ],
 )
