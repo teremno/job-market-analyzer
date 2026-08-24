@@ -332,7 +332,8 @@ MVP identity:
 - `source_scope` = the lowercase company board token (for example `coinbase`);
 - `external_id` uses the source-native numeric `id`.
 
-Curated boards (25): coinbase, ripple, fireblocks, gemini, bitgo, consensys,
+Curated boards (36): databricks, samsara, airbnb, lyft, pinterest,
+reddit, flexport, instacart, twitch, klaviyo, webflow, coinbase, ripple, fireblocks, gemini, bitgo, consensys,
 recordedfuture, gitlab, canonical, cloudflare, datadog, elastic, grafanalabs,
 chainguard, duolingo, coursera, stripe, figma, discord, dropbox, twilio,
 robinhood, affirm, gusto, cockroachlabs. (Order in file mirrors registry; see GREENHOUSE_BOARD_TOKENS.)
@@ -414,10 +415,10 @@ MVP identity:
 - `source_scope` = the lowercase company board token;
 - `external_id` uses the source-native `id`.
 
-Curated boards (24): openai, elevenlabs, clickhouse, cohere, ramp, notion,
+Curated boards (28): openai, elevenlabs, clickhouse, cohere, ramp, notion,
 langchain, perplexity, baseten, replit, fireworks, supabase, temporal, sentry,
 sardine, linear, modal, posthog, cerebras, cognition, suno, vanta,
-attio, warp.
+attio, warp, n8n, lovable, kong, character.
 
 Normalized fields include title, description with a plain-text preference and
 safe HTML fallback, location, boolean `isRemote`, employment type mapped

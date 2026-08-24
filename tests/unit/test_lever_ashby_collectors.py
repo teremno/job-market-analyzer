@@ -153,10 +153,10 @@ def test_every_board_failing_is_systemic(collector) -> None:
 
 def test_curated_registrations_are_lowercase_and_bounded() -> None:
     assert len(LEVER_BOARD_TOKENS) == 2
-    assert len(ASHBY_BOARD_TOKENS) == 24
+    assert len(ASHBY_BOARD_TOKENS) == 28
     from job_market_analyzer.collectors.greenhouse import GREENHOUSE_BOARD_TOKENS
 
-    assert len(GREENHOUSE_BOARD_TOKENS) == 25
+    assert len(GREENHOUSE_BOARD_TOKENS) == 36
     for tokens in (LEVER_BOARD_TOKENS, ASHBY_BOARD_TOKENS, GREENHOUSE_BOARD_TOKENS):
         assert all(token == token.strip().lower() for token in tokens)
 

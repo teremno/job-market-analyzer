@@ -40,6 +40,17 @@ GREENHOUSE_BOARD_TOKENS: tuple[str, ...] = (
     "affirm",
     "gusto",
     "cockroachlabs",
+    "airbnb",
+    "lyft",
+    "pinterest",
+    "reddit",
+    "flexport",
+    "instacart",
+    "twitch",
+    "klaviyo",
+    "webflow",
+    "samsara",
+    "databricks",
 )
 
 
