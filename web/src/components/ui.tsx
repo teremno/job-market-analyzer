@@ -52,7 +52,7 @@ export function Coverage({ title, counts, zeroLabel }: { title: string; counts: 
 export function DataError({ error }: { error: unknown }) {
   const unavailable = error instanceof ApiClientError && error.kind === "unavailable";
   const notFound = error instanceof ApiClientError && error.kind === "not_found";
-  const isLocalApi = !process.env.NEXT_PUBLIC_API_BASE_URL;
+  const isLocalApi = !process.env.NEXT_PUBLIC_API_BASE_URL?.trim();
   return (
     <section className="state-card" role="alert">
       <span className="state-code">{notFound ? "404" : "OFFLINE"}</span>
@@ -88,7 +88,7 @@ export function BarList(
       <li key={item.code}>
         <Link href={
           linkTemplate
-            ? linkTemplate.replace("{code}", encodeURIComponent(item.code))
+            ? linkTemplate.replaceAll("{code}", encodeURIComponent(item.code))
             : `/${kind}/${encodeURIComponent(item.code)}`
         }>
           <span className="bar-label"><strong>{item.name}</strong><code>{item.code}</code></span>

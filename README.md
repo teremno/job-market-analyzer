@@ -80,7 +80,7 @@ job-market-analyzer update --database .\job-market.sqlite3
 
 The database path is required and may be new or existing. Sources run once in the
 explicit registry order: Remote OK, Web3.career, Himalayas, Jobicy, Remotive, We
-Work Remotely, Greenhouse, Lever, and Ashby. The three ATS sources collect curated
+Work Remotely, Greenhouse, Lever, Ashby, The Muse, and Adzuna. The three ATS sources collect curated
 company boards through one credential-free request per board; their approved board
 lists live in `docs/SOURCES.md` and grow by one-token registry additions rather
 than new CLI commands. If `WEB3_CAREER_API_TOKEN` is absent, Web3.career alone is
@@ -171,7 +171,7 @@ Analyze a bounded set of current durable postings already stored in SQLite:
 job-market-analyzer analyze-skills --database ./job-market.sqlite3 --limit 100
 ```
 
-`--database` is required, must identify an existing SQLite file, and `--limit` defaults to `100`. A missing path fails without creating an empty database. The command reads current `JobPosting` rows in deterministic source-identity order, runs the active deterministic Skill Taxonomy v2 extractor once for each selected posting, persists versioned analysis runs and evidence, prints posting-level coverage and bounded samples, then exits. It makes no network requests and does not start a scheduler or background process.
+`--database` is required, must identify an existing SQLite file, and `--limit` defaults to `100`. A missing path fails without creating an empty database. The command reads current `JobPosting` rows in deterministic source-identity order, runs the active deterministic Skill Taxonomy v5 extractor once for each selected posting, persists versioned analysis runs and evidence, prints posting-level coverage and bounded samples, then exits. It makes no network requests and does not start a scheduler or background process.
 
 Repeated runs reuse identical analysis runs and create no duplicate evidence. If a posting's skill-analysis input changes, the command creates a new versioned run while preserving previous derived evidence for reproducibility.
 

@@ -1,18 +1,18 @@
 # Grants & Hackathons Notes
 
 Verified snapshot of external funding opportunities relevant to this project.
-Re-verify before acting вЂ” terms change.
+Re-verify before acting " terms change.
 
 ---
 
-## Sentient Foundation вЂ” Open Source AGI Grant Programme
+## Sentient Foundation " Open Source AGI Grant Programme
 
 Verified: 2026-08-23 against https://sentient.foundation/grants and press coverage.
 
 | Item | Fact |
 |---|---|
 | Fund size | $42M committed (announced June 2026) |
-| Deadline | None вЂ” applications reviewed on a rolling basis |
+| Deadline | None " applications reviewed on a rolling basis |
 | Tracks | (1) Non-dilutive grants for open-source maintainers / independent developers / public goods; (2) founder-friendly investments for startups |
 | Ownership | Recipients keep IP; no equity, no lockups on the grant track |
 | Openness bar | At least one essential element openly available; full stack opening is NOT required |
@@ -36,7 +36,7 @@ Gap to close before applying:
 
 - An AI explanation/recommendation layer grounded in our deterministic
   evidence (the foundation funds AI products; pure deterministic analytics
-  alone is a weaker story). This is exactly the handoff В§63 demo milestone:
+  alone is a weaker story). This is exactly the handoff §63 demo milestone:
   market data + skill gap + recommendations + AI explanation + multilingual
   output as a real capability.
 
@@ -45,7 +45,7 @@ Gap to close before applying:
 1. Deploy the public read-only alpha (working proof).
 2. Add the multilingual AI-explanation layer over structured evidence.
 3. Apply with a live demo, repository, and the positioning drafted in
-   PROJECT_HANDOFF В§62 (never pitch "a job scraper").
+   PROJECT_HANDOFF §62 (never pitch "a job scraper").
 
 
 ---
@@ -78,7 +78,7 @@ announcement, Forbes/TNW coverage, website ToS.
 
 Two hard blockers before applying:
 1. RESOLVED 2026-08-23: MIT LICENSE added at repo root (founder decision).
-2. No deployed public demo (deploy kit exists, execution pending).
+2. RESOLVED 2026-08-23: deployed at https://jobpulse.support
 
 Core gaps that make the application competitive rather than weak:
 3. AI explanation layer (provider-agnostic, grounded in evidence tables,
@@ -88,7 +88,7 @@ Core gaps that make the application competitive rather than weak:
 Then: README restructure for external reviewers, one-pager PDF, repo hygiene
 (CONTRIBUTING, release tag), optional 90-second walkthrough video.
 
-Estimated total to competitive submission: ~50вЂ“80 focused hours.
+Estimated total to competitive submission: ~50—“80 focused hours.
 
 ### Positioning statement (draft)
 
@@ -96,13 +96,13 @@ Labor-market transparency for candidates the global remote market forgot:
 English postings bury skill/seniority/salary signals; non-native candidates
 overpay coaches or misjudge reachable roles. We extract versioned, auditable
 evidence deterministically and explain it in the candidate's language using
-open-weight models by default вЂ” openness is a design constraint, not a
+open-weight models by default " openness is a design constraint, not a
 license checkbox.
 
 ### One-line variants (в‰¤80 chars)
 
 - Open, private job-market evidence and skill-gap answers in your language.
-- Free local-first career intelligence from live job data вЂ” open and private.
+- Free local-first career intelligence from live job data " open and private.
 - Evidence-based remote-job skill gaps, explained in your own language.
 
 ### Risks register

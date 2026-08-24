@@ -31,7 +31,7 @@ This roadmap is directional. It describes meaningful product milestones, not a r
 | Role Classification V1 | ✅ | Committed pure deterministic classifier with bounded 200-posting local validation |
 | Versioned role persistence / recomputation | ✅ | Committed schema v3, repository, exact identity, and analyzer-kind protections |
 | Manual persisted role validation | ✅ | One-shot CLI and two-pass disposable-copy validation are committed |
-| Multi-source expansion | ✅ | Nine supported sources: six feeds plus curated Greenhouse (16 boards), Lever, and Ashby (18 boards) ATS adapters |
+| Multi-source expansion | ✅ | Eleven supported sources: six feeds plus curated Greenhouse (36 boards), Lever, and Ashby (28 boards) ATS adapters |
 | Dashboard v0 internal analytics/query layer | ✅ | Read-only exact-current overview, posting search, role/skill detail, and source summaries |
 | Local read-only Dashboard API | ✅ | Committed loopback-only FastAPI adapter over posting-level analytics |
 | Browser Dashboard v0 | ✅ | Committed browser UI over the local read-only API and validated on real persisted data |
@@ -46,7 +46,6 @@ This roadmap is directional. It describes meaningful product milestones, not a r
 | Skill Gap v1 | ✅ | CLI + API + dashboard `/gap` page over exact-current analytics |
 | Deployment foundation | 🟡 | Dockerfiles, Compose, loopback-safe any-host opt-in, GitHub Actions CI; public TLS/reverse proxy pending |
 | Salary normalization v1 (`salary/en`) | ✅ | Deterministic structured/text salary normalization with provenance, confidence, and guarded annualization behind schema v6; live pass estimated 104 postings (salary data remains thin because ATS endpoints do not publish it) |
-| Deployment foundation (Docker, CI, hosted alpha) | ⬜ | Required before the public read-only website |
 
 ## Visual Direction
 
@@ -95,7 +94,7 @@ flowchart LR
 
 ### Planned foundation work
 
-- ✅ Pilot curated remote-friendly Greenhouse boards: 16 approved company boards
+- ✅ Pilot curated remote-friendly Greenhouse boards: 36 approved company boards
   collected through one credential-free request per board, with per-board
   isolation and documented attribution.
 - ✅ Lever and Ashby ATS boards: curated spotify/palantir (Lever) and 18 AI-era
@@ -126,9 +125,6 @@ flowchart LR
   parameter; deletion is not part of retention (ADR-020). Source-provided expiry and
   richer lifecycle states remain future work.
 - ⬜ Company normalization.
-- ⬜ Geography and remote-restriction normalization.
-- ⬜ Salary normalization with explicit disclosed, estimated, and derived provenance.
-- ⬜ Seniority detection.
 - ✅ Salary normalization v1: deterministic `salary/en` analyzer over normalized
   salary fields with structured/text provenance, direct/parsed confidence, and
   annualization only under known periods (2080h/260d/52w/12m conventions).

@@ -202,7 +202,7 @@ https://jobicy.com/api/v2/remote-jobs
 
 Status: implemented, offline-tested, and live-validated twice on 2026-08-21.
 
-Authentication and cost: none. The documented `count` parameter supports 1вЂ“100
+Authentication and cost: none. The documented `count` parameter supports 1"100
 records. Jobicy says API jobs are delayed by six hours, recommends polling no more
 than hourly, and restricts bulk republishing/resale; this project performs only one
 bounded request per manual command.
@@ -437,28 +437,28 @@ documented contract.
 
 ### Good future sources
 
-- **Greenhouse additional boards** вЂ” the adapter is source-scope driven, so new
+- **Greenhouse additional boards** " the adapter is source-scope driven, so new
   company boards are one-token additions to `GREENHOUSE_BOARD_TOKENS`.
-- **Lever and Ashby additional boards** вЂ” new company boards are one-token
+- **Lever and Ashby additional boards** " new company boards are one-token
   additions to `LEVER_BOARD_TOKENS` or `ASHBY_BOARD_TOKENS`.
 
-### Credential required вЂ” not implemented
+### Credential required " not implemented
 
-- **Adzuna** вЂ” requires registered `app_id` and `app_key`:
+- **Adzuna** " requires registered `app_id` and `app_key`:
   https://developer.adzuna.com/overview.
-- **The Muse** вЂ” its developer contract requires application registration/API-key
+- **The Muse** " its developer contract requires application registration/API-key
   usage for a production integration: https://www.themuse.com/developers/api/v2 and
   https://www.themuse.com/developers/api/v2/terms.
 
 ### Skipped or brittle
 
-- **Arbeitnow** вЂ” a JSON endpoint is referenced by third parties, but no sufficiently
+- **Arbeitnow** " a JSON endpoint is referenced by third parties, but no sufficiently
   strong official API contract was found for a durable adapter.
-- **Remote.co** вЂ” HTML-oriented listing pages without a documented structured public
+- **Remote.co** " HTML-oriented listing pages without a documented structured public
   vacancy API; skipped to avoid a brittle scraper.
-- **Wellfound** вЂ” account/interactive HTML-oriented access and anti-automation risk;
+- **Wellfound** " account/interactive HTML-oriented access and anti-automation risk;
   skipped rather than bypassing controls.
-- **CryptoJobsList and other small Web3 boards** вЂ” no better credential-free,
+- **CryptoJobsList and other small Web3 boards** " no better credential-free,
   documented broad feed was verified in this sprint; avoid duplicating Web3.career
   through brittle HTML extraction.
 
@@ -567,19 +567,6 @@ API contract and live-validated responses.
 
 ---
 
-### Adzuna Jobs API (implemented, pending credentials)
-
-Official documentation: https://developer.adzuna.com
-
-Status: collector/normalizer implemented and offline-tested; live smoke
-pending the `ADZUNA_APP_ID` (the `ADZUNA_APP_KEY` is already provisioned in
-the environment). Adzuna requires both `app_id` and `app_key` on every call.
-
-Design notes: country-scoped searches (`source_scope` = country code),
-plain-text descriptions, structured `salary_min`/`salary_max` normalized
-directly, `created` as publication time, `redirect_url` preserved for
-attribution. Free tier: 250 calls/day.
-
 ---
 
 ### Adzuna Jobs API (LIVE)
@@ -597,7 +584,7 @@ Normalized fields: title, plain-text description, company display name,
 location display name, structured `salary_min`/`salary_max` with country-
 mapped currency (GBP/USD), ISO `created` as publication time, contract type
 mapped conservatively, category label as source tag. Adzuna-predicted
-salaries (`salary_is_predicted=1`) are deliberately skipped � only actually
+salaries (`salary_is_predicted=1`) are deliberately skipped � only actually
 advertised figures are recorded. Bounded at 2 pages x 50 results per
 country, `what=remote` keyword search, `max_days_old=30`.
 

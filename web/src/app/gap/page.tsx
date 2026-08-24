@@ -68,7 +68,7 @@ export default async function SkillGapPage({ searchParams }: { searchParams: Sea
           ? <p>{report.known_recognized.map((code) => <span key={code} className="source-pill">{code}</span>)}</p>
           : <p className="muted">None of your inputs matched the taxonomy.</p>}
         {report.unknown_inputs.length > 0 && (
-          <p>Not recognized and ignored: <em>{report.unknown_inputs.join(", ")}</em></p>
+          <p>Not recognized and ignored: <em>{[...new Set(report.unknown_inputs)].join(", ")}</em></p>
         )}
       </section>
     )}
