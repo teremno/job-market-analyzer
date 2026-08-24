@@ -1,63 +1,165 @@
-# Deployment Status — live notes
+# JobPulse — Deployment Status & Memory
+# Last updated: 2026-08-24, end of 2-day intensive sprint
+# For any agent or human continuing: this is the COMPLETE state.
 
-Last updated: 2026-08-23 (late night). For any agent or human continuing:
-this is the exact state of the first production deployment.
+## PROJECT IDENTITY
 
-## Infrastructure facts
+- Product name: **JobPulse** (working brand; repo name stays job-market-analyzer)
+- Domain: **https://jobpulse.support** (LIVE, HTTPS via Caddy auto-TLS)
+- API: **https://api.jobpulse.support** (schema v6)
+- License: **MIT** (LICENSE file at root)
+- Grant target: **Sentient Foundation Open Source AGI Grant** (rolling, no deadline)
+  - See docs/GRANTS_NOTES.md for full research + readiness plan
 
-- VPS: Hetzner CX23, 2 vCPU / 4 GB RAM / 40 GB, Ubuntu 24.04, Nuremberg.
-- IP: `162.55.178.137` (SSH as root, key auth).
-- Domain: `jobpulse.support` (Spaceship registrar). DNS A records for `@`,
-  `api`, and `www` (CNAME) all point to the IP and are already resolving.
-- Database: `job-market.sqlite3` (~7,400 postings) copied to `/root/` on the
-  server. Repository cloned to `/root/job-market-analyzer/`.
+## CURRENT DATASET (as of 2026-08-24)
 
-## What already works
+- **10,451 source postings** across **11 platforms**
+- Platforms: Remote OK, Web3.career, Himalayas, Jobicy, Remotive,
+  We Work Remotely, Greenhouse (36 boards), Lever (2 boards),
+  Ashby (28 boards, with compensation), The Muse (public API), Adzuna (GB+US)
+- 5 intelligence dimensions: skills, roles, seniority, geography, salary
+- Skill taxonomy: **v5, 122 canonical skills** (96.2% ESCO/O*NET coverage)
+- Role taxonomy: **v2, 19 role codes** (45.6% classification coverage)
+- SQLite schema: **v6**
+- Tests: **858 passed**, ruff clean, frontend gates clean, CI green (tri-OS)
 
-- `docker compose` stack is up: `jma-api` and `jma-web` containers are
-  running healthy.
-- DNS verified resolving from outside.
+## SERVER
 
-## What was broken and how it was fixed (2026-08-23 night)
+- VPS: Hetzner CX23, 2 vCPU / 4 GB RAM / 40 GB, Ubuntu 24.04, Nuremberg
+- IP: **162.55.178.137** (SSH as root, key auth)
+- Docker Compose stack: api + web + caddy (auto-TLS)
+- Database: /root/job-market-analyzer/job-market.sqlite3 (read-only mount)
+- DNS: A records @ and api → 162.55.178.137 (Spaceship registrar)
 
-1. Caddy container was crash-looping: `unrecognized global option:
-   reverse_proxy` — caused by `DOMAIN` env being empty inside the container
-   because `.env` did not exist on the server.
-2. Root cause found: `.env.production.example` was never committed — the
-   repo's `.gitignore` rule `.env*` silently excluded it. Fixed in commit
-   `fc98f76` (gitignore exception added, template tracked).
-3. `deploy/Caddyfile` also gained a `www → apex` redirect block
-   (commit `0f41229`).
+## ENVIRONMENT VARIABLES (user-level on Windows, set via setx)
 
-## Remaining steps (morning checklist)
+- WEB3_CAREER_API_TOKEN — Web3.career source
+- ADZUNA_APP_ID = 1a4b9b99
+- ADZUNA_APP_KEY = (set, 32 hex chars)
+- THE_MUSE_API_KEY — optional (works without, 500 req/hr anonymous)
+- JMA_SERVE_ALLOW_ANY_HOST — server-side only (Dockerfile sets it)
 
-Run on the server, inside `/root/job-market-analyzer/`:
+## WHAT WAS ACCOMPLISHED (2-day sprint, ~25 commits)
 
-```bash
-git pull                                        # get the fixed template
-cp .env.production.example .env
-sed -i 's/your-domain.com/jobpulse.support/' .env
-sed -i 's/api.your-domain.com/api.jobpulse.support/' .env
-cat .env                                        # must show both domains
-docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --force-recreate caddy
-sleep 60                                        # Caddy fetches TLS certificates
-```
+### Day 1 (2026-08-22)
+- Block 0: Docs sync, ADR-019 (accounts after alpha), ADR-020 (lifecycle not deletion)
+- Block 1: First real 9-source update + data audit → DATA_QUALITY_NOTES.md
+- Web3.career token fixed (user regenerated)
+- Block 2: Job Lifecycle v1 (30-day freshness, include_stale param)
+- Block 3: Greenhouse ATS (16→36 boards)
+- Role Taxonomy v2 (coverage 32.9%→45.6%)
+- Seniority v1 (schema v4, title-only)
+- Geography v1 (schema v5, arrangement + region)
+- Lever + Ashby sources (+2677 postings)
+- Salary v1 (schema v6, structured + text parsing)
+- Dashboard v2 (all intelligence exposed in UI)
+- Full audit (3 agents)
+- Skill Gap v1 (CLI + API + /gap page)
+- Search autocomplete + role families UX
+- Tri-agent review (Clear filters bug, taxonomy FP guards, missing LICENSE)
+- Taxonomy v5 (contextual guards hardening)
+- The Muse + Adzuna sources
+- ESCO/O*NET validation (96.2% coverage)
+- Production deployment (jobpulse.support live)
+- Self-reflection report (docs/SELF_REFLECTION.md)
 
-Then verify from anywhere:
+### Key metrics achieved
+- Postings: 532 → **10,451**
+- Sources: 6 → **11**
+- Skill taxonomy: 60 → **122** (v2 → v5)
+- Role coverage: 32.9% → **45.6%**
+- Geography coverage: **86%**
+- Salary coverage: 104 → **1,481**
+- Tests: 731 → **858**
+- ESCO/O*NET validation: **96.2%**
 
-- https://jobpulse.support — dashboard
-- https://api.jobpulse.support/api/health — must return
-  `{"status":"ok","schema_version":6}`
+## ARCHITECTURE DECISIONS (ADRs)
 
-If Caddy still fails: `docker logs jma-caddy --tail 20` and check that
-`.env` contains exactly `DOMAIN=jobpulse.support` and
-`API_DOMAIN=api.jobpulse.support`.
+- ADR-019: Optional accounts ONLY after hosted alpha
+- ADR-020: Retention = lifecycle status, NOT deletion
+- ADR-021: Role Taxonomy v2 (mined from Unknown titles)
+- ADR-022: Seniority v1 (title-only, experience-axis)
+- ADR-023: Geography v1 (arrangement + region)
+- ADR-024: Salary v1 (structured + text, conservative)
+- ADR-025: Skill Gap v1 (read-only calculator)
+- ADR-026: Ashby compensation enabled
+- ADR-027: Skill Taxonomy v3 (marketing family)
+- ADR-028: Skill Taxonomy v4→v5 (all families + guards)
 
-## After it is live (next backlog)
+## CRITICAL INVARIANTS (do not break)
 
-1. Auto-update worker on the server (cron/systemd timer for `update`).
-2. AI explanation layer v0 (OpenAI-compatible endpoint, Groq default;
-   languages = parameter, top-20 world languages; founder confirmed Groq).
-3. Grant application to Sentient Foundation — see
-   `docs/GRANTS_NOTES.md` (readiness plan; LICENSE blocker already resolved
-   with MIT).
+1. Posting identity: (source_provider, source_scope, external_id)
+2. Arrival-order raw observations + event-time freshness
+3. Deterministic serialization (UTC format, canonical JSON, 64-hex hashes)
+4. Idempotency of updates and analysis runs
+5. Exact-current resolution by input_hash + version (NEVER MAX(created_at))
+6. Analyzer-kind isolation (schema triggers)
+7. Historical run retention (no deletes)
+8. Read-only API connections (mode=ro, query_only, per-request)
+9. Secret redaction (tokens never logged)
+10. Posting-level honesty ("source postings" not "unique jobs")
+
+## TOP 5 NEXT RECOMMENDATIONS (from self-reflection)
+
+### R1. Make deployment rehearseable
+Add to CI: compose config validation, env-var check, deploy smoke script.
+
+### R2. Gate taxonomy revisions with gold-set FP/FN suite
+Each ambiguous alias gets positive/negative/guard test cases.
+No version bump ships unless the suite passes.
+
+### R3. Production update worker + source health visibility
+Systemd timer running `update` against the server DB.
+Expose "last successful update per source" on the Sources page.
+**THIS IS URGENT** — the live site serves a frozen snapshot that
+goes stale within days under the 30-day freshness rule.
+
+### R4. Fix documentation integrity mechanically
+UTF-8 conformance check in CI. Pre-commit hook rejecting stray files.
+PROJECT_HANDOFF.md still has ~78 residual mojibake sequences.
+
+### R5. Security sprint before surface growth
+Rate limiting, auth scoping, salary presentation caveat,
+canonical dedup v1 scoping.
+
+## NEXT STEPS (in priority order)
+
+1. **Sync server DB** (if not done): scp local DB → server, restart containers
+2. **R3: Production update worker** (systemd timer, URGENT)
+3. **ESCO validation expansion** (more roles, deeper comparison)
+4. **Adzuna live smoke** (code ready, credentials in env, just run update)
+5. **The Muse API key** (optional, register at themuse.com/developers/api/v2/apps)
+6. **Grant application** to Sentient Foundation (see docs/GRANTS_NOTES.md)
+7. **Multilingual AI layer** (top-25 world languages, Groq/OpenRouter)
+8. **User profiles** (localStorage first, accounts later per ADR-019)
+
+## KEY FILES FOR NEW AGENTS
+
+- PROJECT_HANDOFF.md — full handoff (3000+ lines, comprehensive)
+- docs/DEPLOYMENT_STATUS.md — server state + morning checklist
+- docs/DEPLOYMENT.md — deployment guide (beginner walkthrough included)
+- docs/GRANTS_NOTES.md — Sentient Foundation research + readiness plan
+- docs/TAXONOMY_VALIDATION.md — ESCO/O*NET validation report
+- docs/SELF_REFLECTION.md — bug patterns, process lessons, recommendations
+- docs/DATA_QUALITY_NOTES.md — data audit findings
+- docs/ARCHITECTURE.md — system architecture
+- docs/DECISIONS.md — ADR-001 through ADR-028
+- docs/ROADMAP.md — current roadmap with status
+
+## COMMANDS QUICK REFERENCE
+
+### Local (PowerShell, from repo root, ALWAYS use venv)
+.\.venv\Scripts\job-market-analyzer.exe update --database .\job-market.sqlite3
+.\.venv\Scripts\job-market-analyzer.exe skill-gap --database .\job-market.sqlite3 --role backend --skills python,sql
+.\.venv\Scripts\python.exe -m pytest -q
+.\.venv\Scripts\python.exe -m ruff check .
+
+### Server (SSH: ssh root@162.55.178.137)
+cd /root/job-market-analyzer && git pull
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build api web
+docker compose restart api web
+docker logs jma-api --tail 20
+
+### Database sync (local → server)
+scp .\job-market.sqlite3 root@162.55.178.137:/root/job-market-analyzer/job-market.sqlite3
+# Then on server: docker compose restart api web
