@@ -335,7 +335,7 @@ MVP identity:
 Curated boards (25): coinbase, ripple, fireblocks, gemini, bitgo, consensys,
 recordedfuture, gitlab, canonical, cloudflare, datadog, elastic, grafanalabs,
 chainguard, duolingo, coursera, stripe, figma, discord, dropbox, twilio,
-robinhood. (Order in file mirrors registry; see GREENHOUSE_BOARD_TOKENS.)
+robinhood, affirm, gusto, cockroachlabs. (Order in file mirrors registry; see GREENHOUSE_BOARD_TOKENS.)
 
 Normalized fields include title, company name, HTML description through the
 shared safe converter, location name, `first_published` as publication time,

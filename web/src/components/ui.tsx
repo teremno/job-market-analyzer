@@ -52,12 +52,17 @@ export function Coverage({ title, counts, zeroLabel }: { title: string; counts: 
 export function DataError({ error }: { error: unknown }) {
   const unavailable = error instanceof ApiClientError && error.kind === "unavailable";
   const notFound = error instanceof ApiClientError && error.kind === "not_found";
+  const isLocalApi = !process.env.NEXT_PUBLIC_API_BASE_URL;
   return (
     <section className="state-card" role="alert">
       <span className="state-code">{notFound ? "404" : "OFFLINE"}</span>
-      <h2>{notFound ? "This analytics view was not found." : unavailable ? "Backend unavailable." : "Data could not be loaded."}</h2>
-      <p>{unavailable ? "Start the local read-only API, then refresh this page." : "Check that the API and dashboard use the same current contract."}</p>
-      {unavailable && <code>job-market-analyzer serve --database .\job-market.sqlite3</code>}
+      <h2>{notFound ? "This analytics view was not found." : unavailable ? "Data is temporarily unavailable." : "Data could not be loaded."}</h2>
+      <p>{unavailable
+        ? isLocalApi
+          ? "Start the local read-only API, then refresh this page."
+          : "Please try again later."
+        : "Check that the API and dashboard use the same current contract."}</p>
+      {unavailable && isLocalApi && <code>job-market-analyzer serve --database .\job-market.sqlite3</code>}
       <Link href="/">Return to overview</Link>
     </section>
   );
@@ -67,13 +72,25 @@ export function EmptyState({ title, children }: { title: string; children: React
   return <section className="state-card"><span className="state-code">0 RESULTS</span><h2>{title}</h2><p>{children}</p></section>;
 }
 
-export function BarList({ items, kind }: { items: Array<{ code: string; name: string; count: number }>; kind: "roles" | "skills" }) {
+export function BarList(
+  { items, kind, linkTemplate }:
+  {
+    items: Array<{ code: string; name: string; count: number }>;
+    kind: "roles" | "skills";
+    /** When provided, items link to this URL template instead of /{kind}/{code}. */
+    linkTemplate?: string;
+  },
+) {
   const max = Math.max(...items.map((item) => item.count), 1);
   if (items.length === 0) return <p className="muted">No analyzed results yet.</p>;
   return <ol className="bar-list">
     {items.map((item) => (
       <li key={item.code}>
-        <Link href={`/${kind}/${encodeURIComponent(item.code)}`}>
+        <Link href={
+          linkTemplate
+            ? linkTemplate.replace("{code}", encodeURIComponent(item.code))
+            : `/${kind}/${encodeURIComponent(item.code)}`
+        }>
           <span className="bar-label"><strong>{item.name}</strong><code>{item.code}</code></span>
           <span className="bar-track"><i style={{ width: `${(item.count / max) * 100}%` }} /></span>
           <b>{formatNumber(item.count)}</b>

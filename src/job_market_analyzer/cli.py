@@ -714,6 +714,7 @@ def _loopback_host(value: str) -> str:
         and address.version == 4
         and not address.is_multicast
         and not address.is_reserved
+        and not address.is_link_local
     ):
         return normalized
     raise argparse.ArgumentTypeError("must be a loopback host")

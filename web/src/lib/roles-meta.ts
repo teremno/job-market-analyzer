@@ -134,8 +134,10 @@ export function groupRolesByFamily(
     bucket.push(role.code);
     byFamily.set(family, bucket);
   }
-  return FAMILY_ORDER.filter((family) => byFamily.has(family)).map((family) => ({
+  const ordered = FAMILY_ORDER.filter((family) => byFamily.has(family)).map((family) => ({
     family,
     codes: byFamily.get(family) as string[],
   }));
+  const other = byFamily.get("Other");
+  return other ? [...ordered, { family: "Other" as const, codes: other }] : ordered;
 }

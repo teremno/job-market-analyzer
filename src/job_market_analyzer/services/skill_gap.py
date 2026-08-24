@@ -47,8 +47,11 @@ class SkillGapReport:
 def _skill_lookup() -> dict[str, str]:
     lookup: dict[str, str] = {}
     for skill in SKILL_TAXONOMY:
-        lookup[skill.code.casefold()] = skill.code
-        lookup[skill.name.casefold()] = skill.code
+        for key in (skill.code.casefold(), skill.name.casefold()):
+            existing = lookup.get(key)
+            if existing is not None and existing != skill.code:
+                raise ValueError(f"skill lookup collision on {key!r}")
+            lookup[key] = skill.code
     return lookup
 
 
@@ -79,7 +82,7 @@ def compute_skill_gap(
         if not cleaned:
             continue
         code = lookup.get(cleaned)
-        if code is None:
+        if code is None and raw_input.strip() not in unknown_inputs:
             unknown_inputs.append(raw_input.strip())
         else:
             recognized_known.add(code)

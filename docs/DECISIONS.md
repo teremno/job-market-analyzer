@@ -1026,8 +1026,8 @@ ADR-024 paragraph deferring "enabling Ashby compensation" to future work.
 
 ### Reason
 
-Ashby exposes exactly the structured provenance our salary contract wants —
-no text parsing and no invented numbers — so enabling it required no new
+Ashby exposes exactly the structured provenance our salary contract wants â€”
+no text parsing and no invented numbers â€” so enabling it required no new
 versioning subsystem: the existing `salary/en` input hash already covers these
 normalized fields, and re-collection naturally created fresh versioned runs.
 Live effect: salary coverage rose from 104 to 1,324+ postings.
@@ -1052,10 +1052,9 @@ Add 26 canonical marketing/growth/communications skills to the taxonomy
 (positioning, go-to-market, brand marketing, campaign management, marketing
 funnel, marketing strategy, growth marketing, B2B marketing, copywriting,
 CRM, social media marketing, content marketing, paid media, performance
-marketing, SEO, email marketing, public relations, influencer marketing,
-market research, A/B testing, Google Ads, Google Analytics, digital
-marketing, lead generation, community management, marketing analytics,
-Canva), grounded in a frequency-mining pass over 216 live marketing_growth
+marketing, SEO, public relations, influencer marketing, market research,
+A/B testing, Google Ads, Google Analytics, digital marketing, lead
+generation, community management, marketing analytics, Canva), grounded in a frequency-mining pass over 216 live marketing_growth
 postings. The single taxonomy/extractor version advances to `3`; v2 runs
 remain preserved and exact-current resolution selects v3 automatically.
 
@@ -1066,7 +1065,9 @@ spot: the marketing role showed DeFi/AWS/SQL as "top skills" because the
 taxonomy had zero marketing-domain entries. Mining showed 39 frequent
 marketing phrases, all missing. Ambiguous bare words (brand, PR, GTM) are
 deliberately excluded or guarded (PR strategy, GTM strategy only) to avoid
-pull-request and Google-Tag-Manager false positives.
+pull-request and Google-Tag-Manager false positives. Email marketing was
+identified by mining but deferred to the next revision (dropped from the
+shipped v3 set during curation).
 
 ### Consequences
 
@@ -1093,8 +1094,9 @@ data modeling, BigQuery, data analysis, Excel), design (prototyping, product
 design, design systems, user research), product (product strategy),
 go-to-market (prospecting, forecasting, negotiation, enterprise sales,
 customer success, account management, sales operations), support
-(troubleshooting, Zendesk), and security/compliance (incident response,
-vulnerability management, penetration testing, OWASP, SIEM, AML). The single
+(troubleshooting, Zendesk), finance (financial reporting, budgeting), and
+security/compliance (incident response, vulnerability management,
+penetration testing, OWASP, SIEM, AML). The single
 taxonomy/extractor version advances to `4`.
 
 ### Reason
@@ -1103,7 +1105,7 @@ The marketing-only v3 revision fixed one family but left identical blind
 spots in every other role. Cross-family mining exposed two classes of
 phrases: genuine skills (added) and context words appearing everywhere as
 company-topic boilerplate (compliance, HR, recruitment, roadmap,
-onboarding, documentation) — the latter are deliberately excluded because
+onboarding, documentation) â€” the latter are deliberately excluded because
 they describe what the employer talks about, not what the candidate must
 know.
 

@@ -58,6 +58,11 @@ source set, and users search whatever the collected dataset contains.
 - Web3 / Blockchain
 - Crypto Investigations
 
+## Live demo
+
+A public read-only deployment of this dashboard is available at
+**https://jobpulse.support** (API: https://api.jobpulse.support).
+
 ## Project status
 
 Early development / research phase.
@@ -273,6 +278,6 @@ See [Dashboard v0](docs/DASHBOARD_V0.md) for product scope and troubleshooting a
 
 ## License
 
-MIT — see [LICENSE](LICENSE). The collected dataset files are yours; source
+MIT â€” see [LICENSE](LICENSE). The collected dataset files are yours; source
 attribution requirements of each job source are documented in
 [docs/SOURCES.md](docs/SOURCES.md).

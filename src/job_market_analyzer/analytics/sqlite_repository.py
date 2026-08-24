@@ -189,6 +189,8 @@ def _runs_ctes(*analyzer_kinds: str) -> tuple[str, tuple[str, ...]]:
     ordered_kinds = [
         kind for kind in _KIND_RUN_CTES if kind in analyzer_kinds
     ]
+    if not ordered_kinds:
+        raise ValueError("at least one analyzer kind is required")
     ctes = ",\n".join(_KIND_RUN_CTES[kind] for kind in ordered_kinds)
     parameters: tuple[str, ...] = ()
     for kind in ordered_kinds:

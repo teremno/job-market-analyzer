@@ -569,7 +569,7 @@ Do not weaken transaction semantics.
 
 ---
 
-# 15. Skill Intelligence v2
+# 15. Skill Intelligence (taxonomy v4)
 
 Skill extraction is deterministic.
 

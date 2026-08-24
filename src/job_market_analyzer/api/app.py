@@ -65,9 +65,18 @@ def _configured_cors_origins() -> list[str]:
     origins: list[str] = []
     for candidate in raw.split(","):
         origin = candidate.strip().rstrip("/")
-        if origin.startswith("http://") or origin.startswith("https://"):
-            if origin not in origins:
-                origins.append(origin)
+        valid = origin.startswith("http://") or origin.startswith("https://")
+        if valid and origin not in origins:
+            origins.append(origin)
+        if not valid:
+            LOGGER.warning(
+                "Ignoring invalid JMA_CORS_ORIGINS entry: %r", candidate
+            )
+    if not origins:
+        LOGGER.warning(
+            "JMA_CORS_ORIGINS was set but produced no valid origins; "
+            "falling back to localhost defaults."
+        )
     return origins or list(LOCAL_DASHBOARD_ORIGINS)
 
 DatabaseSession = Annotated[ApiDatabaseSession, Depends(get_database_session)]

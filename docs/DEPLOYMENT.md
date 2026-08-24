@@ -133,7 +133,7 @@ docker run -d --name jma-web \
 
 ---
 
-## Public deployment (alpha) � step by step
+## Public deployment (alpha) — step by step
 
 Goal: a public read-only site on your own domain, served over HTTPS with
 automatic certificates, from one small VPS.
@@ -142,31 +142,31 @@ automatic certificates, from one small VPS.
 
 | Resource | Alpha (up to ~100 visitors/day) | Notes |
 |---|---|---|
-| vCPU | 1�2 | The API is I/O-bound; analytics queries are milliseconds. |
+| vCPU | 1–2 | The API is I/O-bound; analytics queries are milliseconds. |
 | RAM | 2 GB works, 4 GB comfortable | api ?150 MB, web ?120 MB, Caddy ?30 MB, OS headroom. |
 | Disk | 20 GB SSD | The SQLite dataset is tens of MB; logs are the only growth item. |
 | OS | Ubuntu 24.04 LTS | Docker + Compose installed via the official script. |
 
-Any provider works; Hetzner CX22-class (~�5/month) is the reference budget.
+Any provider works; Hetzner CX22-class (~EUR 5/month) is the reference budget.
 Do not buy managed databases or Kubernetes for this stage.
 
 ### Steps
 
-1. **DNS** � in your domain registrar, point two A records at the server IP:
+1. **DNS** — in your domain registrar, point two A records at the server IP:
    `your-domain.com` and `api.your-domain.com`. Wait for propagation
    (`ping api.your-domain.com` returns your IP).
-2. **Server** � install Docker:
+2. **Server** — install Docker:
    `curl -fsSL https://get.docker.com | sh`
-3. **Get the code + data** � clone this repository, then copy your populated
+3. **Get the code + data** — clone this repository, then copy your populated
    `job-market.sqlite3` to the repo root on the server (scp/rsync).
-4. **Configure** � copy `.env.production.example` to `.env`, set your two
+4. **Configure** — copy `.env.production.example` to `.env`, set your two
    domains. Edit `deploy/Caddyfile` placeholders if you prefer hardcoding.
-5. **Start** �
+5. **Start** —
    ```bash
    docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
    ```
    Caddy obtains TLS certificates automatically within a minute.
-6. **Verify** � open `https://your-domain.com`; check
+6. **Verify** — open `https://your-domain.com`; check
    `https://api.your-domain.com/api/health`.
 
 ### Updating the dataset on the server
@@ -189,4 +189,4 @@ mutate it.
   domain via `JMA_CORS_ORIGINS` (wildcards are ignored).
 - Still required before treating it as hardened: basic rate limiting,
   log monitoring, backup automation for the SQLite file, and dependency
-  scanning (PROJECT_HANDOFF �51).
+  scanning (PROJECT_HANDOFF EUR 51).

@@ -34,6 +34,10 @@ class ContextRule(StrEnum):
     FIGMA_DESIGN = "figma_design"
     SOLANA_TECHNICAL = "solana_technical"
     BASH_SHELL = "bash_shell"
+    EXCEL_SPREADSHEET = "excel_spreadsheet"
+    SPARK_DATA = "spark_data"
+    POSITIONING_MARKETING = "positioning_marketing"
+    AIRFLOW_INFRA = "airflow_infra"
 
 
 @dataclass(frozen=True, slots=True)
@@ -100,7 +104,7 @@ SKILL_TAXONOMY: tuple[SkillDefinition, ...] = (
         "Airflow",
         (
             _exact("airflow.apache_airflow", "Apache Airflow"),
-            _exact("airflow.airflow", "Airflow"),
+            _contextual("airflow.airflow", "Airflow", ContextRule.AIRFLOW_INFRA),
         ),
     ),
     SkillDefinition(
@@ -357,7 +361,7 @@ SKILL_TAXONOMY: tuple[SkillDefinition, ...] = (
         "Excel",
         (
             _exact("excel.microsoft_excel", "Microsoft Excel"),
-            _exact("excel.excel", "Excel"),
+            _contextual("excel.excel", "Excel", ContextRule.EXCEL_SPREADSHEET),
         ),
     ),
     SkillDefinition(
@@ -568,7 +572,11 @@ SKILL_TAXONOMY: tuple[SkillDefinition, ...] = (
         "Machine Learning",
         (
             _exact("machine_learning.named", "Machine learning"),
-            _exact("machine_learning.ml_abbr", "ML"),
+            _exact(
+                "machine_learning.ml_abbr",
+                "ML",
+                case_sensitive=True,
+            ),
         ),
     ),
     SkillDefinition(
@@ -663,7 +671,13 @@ SKILL_TAXONOMY: tuple[SkillDefinition, ...] = (
     SkillDefinition(
         "positioning",
         "Positioning",
-        (_exact("positioning.positioning", "Positioning"),),
+        (
+            _contextual(
+                "positioning.positioning",
+                "Positioning",
+                ContextRule.POSITIONING_MARKETING,
+            ),
+        ),
     ),
     SkillDefinition(
         "postgresql",
@@ -815,7 +829,7 @@ SKILL_TAXONOMY: tuple[SkillDefinition, ...] = (
         "Spark",
         (
             _exact("spark.apache_spark", "Apache Spark"),
-            _exact("spark.spark", "Spark"),
+            _contextual("spark.spark", "Spark", ContextRule.SPARK_DATA),
         ),
     ),
     SkillDefinition(
@@ -1081,6 +1095,14 @@ def _context_allows(
         return _has_solana_context(window)
     if context_rule is ContextRule.BASH_SHELL:
         return _has_bash_context(window)
+    if context_rule is ContextRule.EXCEL_SPREADSHEET:
+        return _has_excel_context(window)
+    if context_rule is ContextRule.SPARK_DATA:
+        return _has_spark_data_context(window)
+    if context_rule is ContextRule.POSITIONING_MARKETING:
+        return _has_positioning_marketing_context(window)
+    if context_rule is ContextRule.AIRFLOW_INFRA:
+        return _has_airflow_infra_context(window)
     return False
 
 
@@ -1172,6 +1194,71 @@ def _has_web3_tool_context(
             r"(?:ethereum|solidity)\s+smart\s+contracts?"
             r"[^.!?\n]{0,60}\b(?:using|with)\b[^.!?\n]{0,40}$",
             before,
+        )
+    )
+
+
+def _has_excel_context(window: str) -> bool:
+    if re.search(r"\b(?:you\s+can\s+|where\s+you\s+|to\s+)?excel\b", window) and not re.search(
+        r"\b(?:microsoft|ms|spreadsheet|pivot|vba|advanced|formulas?)\b", window
+    ):
+        return False
+    return bool(
+        re.search(
+            r"\b(?:microsoft|ms)\s+excel\b|"
+            r"\bexcel\s+(?:skills?|formulas?|pivot|vba|spreadsheet|data)\b|"
+            r"\b(?:advanced|proficient\s+in|experience\s+(?:with|in)|skilled\s+in)\s+excel\b|"
+            r"\b(?:spreadsheet|pivot\s+tables?|vba)\b[^.!?\n]{0,40}\bexcel\b",
+            window,
+            re.IGNORECASE,
+        )
+    )
+
+
+def _has_spark_data_context(window: str) -> bool:
+    if re.search(r"\bspark(?:ed|s|ling)?\b", window) and not re.search(
+        r"\b(?:apache|scala|pyspark|big\s+data|streaming|cluster|distributed)\b",
+        window,
+    ):
+        return False
+    return bool(
+        re.search(
+            r"\bapache\s+spark\b|"
+            r"\bspark\s+(?:sql|streaming|cluster|dataframes?|scala|pyspark)\b|"
+            r"\b(?:scala|pyspark|big\s+data|data\s+engineering|distributed\s+computing)\b"
+            r"[^.!?\n]{0,40}\bspark\b",
+            window,
+            re.IGNORECASE,
+        )
+    )
+
+
+def _has_positioning_marketing_context(window: str) -> bool:
+    if re.search(
+        r"\b(?:css|layout|flexbox|grid|absolute|relative|gps|satellite)\b", window
+    ):
+        return False
+    return bool(
+        re.search(
+            r"\b(?:brand|product|messaging|gtm|go-to-market|campaign|marketing|"
+            r"market|customer|communication)\b[^.!?\n]{0,60}\bpositioning\b|"
+            r"\bpositioning\b[^.!?\n]{0,60}\b(?:brand|product|messaging|gtm|"
+            r"campaign|marketing|statement)\b",
+            window,
+            re.IGNORECASE,
+        )
+    )
+
+
+def _has_airflow_infra_context(window: str) -> bool:
+    return bool(
+        re.search(
+            r"\bapache\s+airflow\b|"
+            r"\bairflow\s+(?:dag|dags|pipeline|orchestration|scheduler)\b|"
+            r"\b(?:data\s+pipeline|workflow\s+orchestration|dag|etl)\b"
+            r"[^.!?\n]{0,40}\bairflow\b",
+            window,
+            re.IGNORECASE,
         )
     )
 

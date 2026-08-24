@@ -587,3 +587,31 @@ def test_realistic_job_examples(
     expected: set[str],
 ) -> None:
     assert set(skill_codes(title, description, tags)) == expected
+
+
+def test_v4_false_positive_guards_reject_marketing_prose() -> None:
+    # These sentences must NOT create skill evidence (live-site data quality).
+    for text in (
+        "Join a team where you can excel in your career.",
+        "You will spark new ideas across our campaigns.",
+        "Improve the positioning of blocks across the pages.",
+        "GPS positioning accuracy is critical for the device.",
+    ):
+        assert skill_codes(text, "") == (), text
+
+
+def test_v4_positive_contexts_still_recognize_skills() -> None:
+    assert "excel" in skill_codes("", "Advanced Excel skills required.")
+    assert "spark" in skill_codes("", "Build pipelines with Apache Spark.")
+    assert "positioning" in skill_codes(
+        "", "Own brand positioning and messaging strategy."
+    )
+    assert "machine_learning" in skill_codes("", "Experience with ML models.")
+
+
+def test_ml_alias_is_case_sensitive() -> None:
+    assert "machine_learning" in skill_codes("", "Experience with ML models.")
+    assert "machine_learning" not in skill_codes("", "Add 500 ml of water.")
+    assert "machine_learning" not in skill_codes(
+        "", "Apply at https://careers.company.ml/apply"
+    )
