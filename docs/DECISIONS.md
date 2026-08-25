@@ -1159,3 +1159,47 @@ serve the last WAL checkpoint for a few minutes because the container mounts
 only the main database file; clean worker shutdown checkpoints everything.
 The API requires a v7 database for `/api/sources`; deploy flow must run the
 updater (or one manual update) after pulling new code.
+
+---
+
+## ADR-030: Role Taxonomy v3 adds delivery engineering, solutions architecture, and mined family extensions
+
+Date: 2026-08-25
+
+Status: Accepted.
+
+### Decision
+
+Mine the current 10,451-posting dataset for Unknown titles (exact-current v2
+resolution) and land a bounded v3 revision: two new role codes plus targeted
+rule extensions. `delivery_engineering` covers the Forward Deployed Engineer /
+Deployment Strategist / Implementation Consultant / Professional Services
+consultant family (330 postings matched). `solutions_architect` covers
+Solutions Architect variants including delivery/senior/staff prefixes and the
+inverted "Architect, Solutions" form (285 postings). Extensions: brand/graphic/
+motion designer into design; database reliability engineer into
+devops_platform; commercial counsel into legal_compliance; events roles into
+marketing_growth; executive/administrative assistant into operations;
+partnerships associate/specialist, sales-development leadership, and explicit
+sales/deal operations into sales_bd; AI product engineer into ai_ml. The
+taxonomy advances to version `3` (21 codes); historical v1/v2 runs remain and
+exact-current resolution selects v3 automatically.
+
+### Rejected
+
+Bare level-titled engineers ("Senior Software Engineer", ~60 postings),
+Technical Program Managers, bare "Product Engineer", and "IT Engineer" remain
+Unknown - no functional signal without fabrication risk (extends the ADR-021
+rejection list). Explicit "Solutions Engineer(ing)" stays in sales_bd as
+pre-sales; it must not leak into solutions_architect or delivery_engineering,
+now pinned by gold-set guard cases.
+
+### Consequences
+
+Same-dataset posting-level coverage rose from 40.5% to 47.7% (+750 classified).
+A permanent gold-set FP/FN suite (tests/unit/test_role_taxonomy_gold_set.py)
+now gates every future revision: positive, negative, and guard cases per
+ambiguous alias, a pinned-version meta-test, and a coverage assertion that
+every role code keeps at least one positive case (closes audit recommendation
+R2 for roles). ESCO/O*NET cross-reference extended in
+docs/TAXONOMY_VALIDATION.md.

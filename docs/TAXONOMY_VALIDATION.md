@@ -1,8 +1,28 @@
 # Skill Taxonomy Validation — ESCO/O*NET Cross-Reference
 
-Date: 2026-08-23
-Taxonomy version: 5 (122 skills)
-Roles validated: 13 of 19
+Date: 2026-08-23 (skills), extended 2026-08-25 (roles v3)
+Taxonomy version: 5 (122 skills); roles v3 (21 codes)
+Roles validated: 13 of 19 core families + 2 new v3 codes
+
+## Role Taxonomy v3 — ESCO/O*NET anchors (2026-08-25)
+
+| Our code | Closest O*NET occupation | Closest ESCO occupation |
+|---|---|---|
+| solutions_architect | Computer Network Architects; Software Developers | ICT system architect |
+| delivery_engineering | Computer Systems Engineers/Architects | ICT consultant |
+| sales_bd (solutions/pre-sales) | Sales Engineers | ICT sales engineer |
+
+v3 family extensions map to existing validated anchors: brand/motion/graphic
+designer -> Graphic Designers (O*NET 27-1024); database reliability engineer ->
+Database Administrators (15-1243); events manager -> Meeting, Convention, and
+Event Planners (13-1121); executive/administrative assistant -> Executive
+Secretaries (43-6011); commercial counsel -> Lawyers (23-1011); revenue
+accounting -> Accountants (13-2011). No skill-taxonomy gaps were introduced:
+all new role families rely on already-covered skills.
+
+Deliberately unclassified (precision-first): bare level-titled engineers,
+Technical Program Managers, "Product Engineer", "IT Engineer" - no clean
+ESCO/O*NET functional anchor without fabrication risk.
 
 ## Methodology
 

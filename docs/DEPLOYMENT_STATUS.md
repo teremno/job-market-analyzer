@@ -19,10 +19,11 @@
   Ashby (28 boards, with compensation), The Muse (public API), Adzuna (GB+US)
 - 5 intelligence dimensions: skills, roles, seniority, geography, salary
 - Skill taxonomy: **v5, 122 canonical skills** (96.2% ESCO/O*NET coverage)
-- Role taxonomy: **v2, 19 role codes** (45.6% classification coverage)
+- Role taxonomy: **v3, 21 role codes** (47.7% classification coverage on the
+  live dataset, up from 40.5%; gold-set FP/FN gate added per R2)
 - SQLite schema: **v7** (v6 + source_update_runs history; server DB migrates
   on first updater run)
-- Tests: **858 passed**, ruff clean, frontend gates clean, CI green (tri-OS)
+- Tests: **909 passed**, ruff clean, frontend gates clean, CI green (tri-OS)
 
 ## SERVER
 
@@ -130,10 +131,11 @@ canonical dedup v1 scoping.
 
 ## NEXT STEPS (in priority order)
 
-1. **Activate R3 on the server** (code done): git pull, creds → `.env`,
-   build updater, `systemctl enable --now jma-update.timer`
-2. **ESCO validation expansion** (more roles, deeper comparison)
-4. **Adzuna live smoke** (code ready, credentials in env, just run update)
+1. **Activate R3 on the server**: DONE 2026-08-25 — timer live, daily
+   04:03 UTC; first run 11/11 sources, 0 failures
+2. **ESCO validation expansion**: roles v3 DONE 2026-08-25 (+gold-set gate
+   closes R2 for roles); remaining: deeper skills-vs-ESCO per family
+3. **Adzuna live smoke**: DONE via first timer run (200 fetched)
 5. **The Muse API key** (optional, register at themuse.com/developers/api/v2/apps)
 6. **Grant application** to Sentient Foundation (see docs/GRANTS_NOTES.md)
 7. **Multilingual AI layer** (top-25 world languages, Groq/OpenRouter)

@@ -21,8 +21,8 @@ def role_codes(
 
 
 def test_role_taxonomy_v1_has_unique_stable_contracts() -> None:
-    assert ROLE_TAXONOMY_VERSION == "2"
-    assert len(ROLE_CODES) == 19
+    assert ROLE_TAXONOMY_VERSION == "3"
+    assert len(ROLE_CODES) == 21
     assert list(ROLE_CODES) == sorted(ROLE_CODES)
     assert len(ROLE_CODES) == len(set(ROLE_CODES))
     assert "other" not in ROLE_CODES
@@ -177,7 +177,9 @@ def test_ai_ml_and_data_role_boundaries_are_explicit(
         ("Developer Operations Engineer", ()),
         ("Product Operations Manager", ()),
         ("Marketing Operations Manager", ()),
-        ("Sales Operations Manager", ()),
+        # v3: explicit sales/deal operations belongs to the commercial family;
+        # the guard here only ensures it never leaks into general operations.
+        ("Sales Operations Manager", ("sales_bd",)),
         ("Finance Operations Manager", ()),
         ("People Operations Manager", ()),
         ("Revenue Operations Manager", ()),

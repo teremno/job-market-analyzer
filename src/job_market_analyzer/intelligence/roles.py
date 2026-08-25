@@ -4,7 +4,7 @@ import re
 from dataclasses import dataclass
 from enum import StrEnum
 
-ROLE_TAXONOMY_VERSION = "2"
+ROLE_TAXONOMY_VERSION = "3"
 
 
 class RoleEvidenceField(StrEnum):
@@ -72,6 +72,7 @@ ROLE_TAXONOMY: tuple[RoleDefinition, ...] = (
                 priority=90,
             ),
             _rule("ai_ml.applied_scientist", r"\bapplied\s+scientist\b"),
+            _rule("ai_ml.product_engineer", r"\bai\s+product\s+engineer\b"),
         ),
     ),
     RoleDefinition(
@@ -153,6 +154,31 @@ ROLE_TAXONOMY: tuple[RoleDefinition, ...] = (
         ),
     ),
     RoleDefinition(
+        "delivery_engineering",
+        "Delivery / Forward-Deployed Engineering",
+        (
+            _rule(
+                "delivery_engineering.forward_deployed",
+                r"\bforward[\s-]+deployed\s+(?:software\s+)?engineer(?:ing)?\b",
+            ),
+            _rule(
+                "delivery_engineering.deployment_strategist",
+                r"\bdeployment\s+strategist\b",
+                priority=90,
+            ),
+            _rule(
+                "delivery_engineering.implementation_consultant",
+                r"\bimplementation\s+consultant\b",
+                priority=90,
+            ),
+            _rule(
+                "delivery_engineering.professional_services",
+                r"\bprofessional\s+services\s+consultant\b",
+                priority=90,
+            ),
+        ),
+    ),
+    RoleDefinition(
         "design",
         "Design",
         (
@@ -164,6 +190,10 @@ ROLE_TAXONOMY: tuple[RoleDefinition, ...] = (
                 "design.ux_ui",
                 r"\b(?:(?:ui|ux|ui\s*/\s*ux|ux\s*/\s*ui)\s+designer|"
                 r"user\s+experience\s+designer)\b",
+            ),
+            _rule(
+                "design.visual",
+                r"\b(?:brand|graphic|motion|visual)\s+designer\b",
             ),
         ),
     ),
@@ -185,7 +215,8 @@ ROLE_TAXONOMY: tuple[RoleDefinition, ...] = (
             ),
             _rule(
                 "devops_platform.sre",
-                r"\b(?:site\s+reliability\s+engineer|sre)\b",
+                r"\b(?:site\s+reliability\s+engineer|"
+                r"database\s+reliability\s+engineer|sre)\b",
             ),
             _rule(
                 "devops_platform.infrastructure",
@@ -233,6 +264,11 @@ ROLE_TAXONOMY: tuple[RoleDefinition, ...] = (
                 r"\btrust\s+(?:officer|administrator|accounting\s+analyst)\b|"
                 r"\bdirector\s+of\s+trust\s+administration\b",
             ),
+            _rule(
+                "finance.revenue_accounting",
+                r"\brevenue\s+accounting\s+(?:manager|analyst|specialist|"
+                r"associate)|\brevenue\s+accountant\b",
+            ),
         ),
     ),
     RoleDefinition(
@@ -263,7 +299,7 @@ ROLE_TAXONOMY: tuple[RoleDefinition, ...] = (
         (
             _rule(
                 "legal_compliance.counsel",
-                r"\b(?:legal|corporate|product|general)\s+counsel\b",
+                r"\b(?:legal|corporate|product|general|commercial)\s+counsel\b",
             ),
             _rule(
                 "legal_compliance.compliance",
@@ -304,6 +340,10 @@ ROLE_TAXONOMY: tuple[RoleDefinition, ...] = (
             _rule(
                 "marketing_growth.marketing_bd_operations",
                 r"\bmarketing\s+bd\s+operations\b",
+            ),
+            _rule(
+                "marketing_growth.events",
+                r"\bevents?\s+(?:manager|lead|coordinator|specialist)\b",
             ),
         ),
     ),
@@ -351,6 +391,10 @@ ROLE_TAXONOMY: tuple[RoleDefinition, ...] = (
                 r"(?<!technical\s)(?<!service\s)"
                 r"\boperations\s+(?:specialist|analyst|coordinator|associate)\b",
             ),
+            _rule(
+                "operations.assistants",
+                r"\b(?:executive|administrative)\s+assistant\b",
+            ),
         ),
     ),
     RoleDefinition(
@@ -397,7 +441,8 @@ ROLE_TAXONOMY: tuple[RoleDefinition, ...] = (
             ),
             _rule(
                 "sales_bd.partnerships",
-                r"\bpartnerships?\s+(?:manager|lead|director)\b",
+                r"\bpartnerships?\s+(?:manager|lead|director|associate|"
+                r"specialist)\b",
             ),
             _rule(
                 "sales_bd.solutions",
@@ -426,6 +471,17 @@ ROLE_TAXONOMY: tuple[RoleDefinition, ...] = (
             _rule(
                 "sales_bd.leadership",
                 r"\b(?:head|vp|svp|director)\s+of\s+sales\b",
+            ),
+            _rule(
+                "sales_bd.sales_development_leadership",
+                r"\b(?:manager|director|lead),?\s+sales\s+development\b|"
+                r"\bsales\s+development\s+(?:manager|director|lead)\b",
+            ),
+            _rule(
+                "sales_bd.deal_operations",
+                r"\bdeal\s+(?:desk|operations)\b|"
+                r"\bsales\s+operations\s+(?:analyst|specialist|administrator|"
+                r"manager)\b",
             ),
         ),
     ),
@@ -457,6 +513,23 @@ ROLE_TAXONOMY: tuple[RoleDefinition, ...] = (
             _rule(
                 "security.specialist",
                 r"\bsecurity\s+(?:specialist|architect|consultant|manager)\b",
+            ),
+        ),
+    ),
+    RoleDefinition(
+        "solutions_architect",
+        "Solutions Architecture",
+        (
+            _rule(
+                "solutions_architect.named",
+                r"\b(?:delivery\s+|senior\s+|sr\.?\s+|staff\s+|principal\s+|"
+                r"lead\s+|cloud\s+|data\s+|technical\s+)?solutions?\s+"
+                r"architect\b",
+            ),
+            _rule(
+                "solutions_architect.inverted",
+                r"\barchitect\s*,\s*solutions?\b",
+                priority=90,
             ),
         ),
     ),
