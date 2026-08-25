@@ -213,3 +213,6 @@ class SourceSummary:
     current_skill_zero_posting_count: int
     current_skill_not_analyzed_posting_count: int
     current_skill_classified_percentage: float
+    last_update_status: str | None
+    last_update_finished_at: datetime | None
+    last_successful_update_at: datetime | None

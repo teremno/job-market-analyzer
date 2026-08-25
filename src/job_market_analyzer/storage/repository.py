@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Protocol
 from uuid import UUID
 
@@ -20,6 +21,27 @@ class PersistResult:
     canonical_created: bool
     posting_created: bool
     raw_observation_created: bool
+
+
+@dataclass(frozen=True)
+class SourceUpdateRunRecord:
+    """
+    One observable source update attempt destined for durable history.
+
+    ``status`` must be one of 'completed', 'failed', or 'skipped'.
+    Per-attempt counts are populated only for completed runs; messages are
+    pre-redacted by the caller and must never contain credentials.
+    """
+
+    source_provider: str
+    display_name: str
+    status: str
+    started_at: datetime
+    finished_at: datetime
+    message: str | None = None
+    fetched_count: int | None = None
+    persisted_count: int | None = None
+    failed_count: int | None = None
 
 
 class JobRepository(Protocol):

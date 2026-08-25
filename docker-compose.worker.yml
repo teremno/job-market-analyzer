@@ -1,0 +1,22 @@
+# Update worker overlay:
+#   docker compose -f docker-compose.yml -f docker-compose.worker.yml run --rm updater
+#
+# Runs one guided update (collection + all analyzers) against the same SQLite
+# file the API serves. Credentials come from the shell environment or the
+# .env file next to this compose file; a missing optional credential skips
+# exactly its own source and never fails the run.
+
+services:
+  updater:
+    build: .
+    container_name: jma-updater
+    command: ["job-market-analyzer", "update", "--database", "/data/jobs.sqlite3"]
+    environment:
+      WEB3_CAREER_API_TOKEN: ${WEB3_CAREER_API_TOKEN:-}
+      ADZUNA_APP_ID: ${ADZUNA_APP_ID:-}
+      ADZUNA_APP_KEY: ${ADZUNA_APP_KEY:-}
+      THE_MUSE_API_KEY: ${THE_MUSE_API_KEY:-}
+    volumes:
+      # Read-write on purpose: only this service mutates the dataset.
+      - ./job-market.sqlite3:/data/jobs.sqlite3
+    restart: "no"

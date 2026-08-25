@@ -15,7 +15,8 @@ ROLE_INTELLIGENCE_SCHEMA_VERSION = 3
 SENIORITY_INTELLIGENCE_SCHEMA_VERSION = 4
 GEOGRAPHY_INTELLIGENCE_SCHEMA_VERSION = 5
 SALARY_INTELLIGENCE_SCHEMA_VERSION = 6
-CURRENT_SCHEMA_VERSION = SALARY_INTELLIGENCE_SCHEMA_VERSION
+SOURCE_UPDATE_RUNS_SCHEMA_VERSION = 7
+CURRENT_SCHEMA_VERSION = SOURCE_UPDATE_RUNS_SCHEMA_VERSION
 _SKILL_INTELLIGENCE_OBJECTS = frozenset(
     {
         "analysis_runs",
@@ -60,6 +61,12 @@ _SALARY_INTELLIGENCE_OBJECTS = frozenset(
         "job_salaries",
         "trg_job_salaries_kind",
         "trg_job_salaries_kind_update",
+    }
+)
+_SOURCE_UPDATE_RUNS_OBJECTS = frozenset(
+    {
+        "source_update_runs",
+        "idx_source_update_runs_provider_finished",
     }
 )
 
@@ -132,6 +139,15 @@ def load_salary_intelligence_schema() -> str:
     return schema_file.read_text(encoding="utf-8")
 
 
+def load_source_update_runs_schema() -> str:
+    """Load the additive SQLite schema for source update run history."""
+
+    schema_file = resources.files("job_market_analyzer.storage").joinpath(
+        "source_update_runs_schema.sql"
+    )
+    return schema_file.read_text(encoding="utf-8")
+
+
 def connect_database(
     database_path: DatabasePath,
 ) -> sqlite3.Connection:
@@ -200,10 +216,13 @@ def initialize_database(
         )
 
     if initial_version == CURRENT_SCHEMA_VERSION:
-        _validate_v6_schema(connection)
+        _validate_v7_schema(connection)
         return
 
-    if initial_version == GEOGRAPHY_INTELLIGENCE_SCHEMA_VERSION:
+    if initial_version == SALARY_INTELLIGENCE_SCHEMA_VERSION:
+        _validate_v6_schema(connection)
+        _validate_no_partial_update_runs_schema(connection, initial_version)
+    elif initial_version == GEOGRAPHY_INTELLIGENCE_SCHEMA_VERSION:
         _validate_v5_schema(connection)
         _validate_no_partial_salary_schema(connection, initial_version)
     elif initial_version == SENIORITY_INTELLIGENCE_SCHEMA_VERSION:
@@ -256,6 +275,11 @@ def initialize_database(
             _migrate_salary_intelligence,
             _validate_v6_schema,
         ),
+        (
+            SOURCE_UPDATE_RUNS_SCHEMA_VERSION,
+            _migrate_source_update_runs,
+            _validate_v7_schema,
+        ),
     )
     for target_version, migrate_step, validate_step in intelligence_ladder:
         if _get_schema_version(connection) < target_version:
@@ -287,6 +311,7 @@ def _validate_no_partial_intelligence_schema(
         | _SENIORITY_INTELLIGENCE_OBJECTS
         | _GEOGRAPHY_INTELLIGENCE_OBJECTS
         | _SALARY_INTELLIGENCE_OBJECTS
+        | _SOURCE_UPDATE_RUNS_OBJECTS
     )
     if unexpected:
         names = ", ".join(sorted(unexpected))
@@ -336,6 +361,19 @@ def _validate_no_partial_salary_schema(
         raise InconsistentDatabaseSchemaError(
             f"Database schema version {version} contains unexpected partial "
             f"salary objects: {names}"
+        )
+
+
+def _validate_no_partial_update_runs_schema(
+    connection: sqlite3.Connection,
+    version: int,
+) -> None:
+    unexpected = _schema_object_names(connection) & _SOURCE_UPDATE_RUNS_OBJECTS
+    if unexpected:
+        names = ", ".join(sorted(unexpected))
+        raise InconsistentDatabaseSchemaError(
+            f"Database schema version {version} contains unexpected partial "
+            f"source update run objects: {names}"
         )
 
 
@@ -501,6 +539,23 @@ def _validate_v6_schema(connection: sqlite3.Connection) -> None:
     _validate_seniority_intelligence_schema(connection, version=version)
     _validate_geography_intelligence_schema(connection, version=version)
     _validate_salary_intelligence_schema(connection, version=version)
+
+
+def _validate_v7_schema(connection: sqlite3.Connection) -> None:
+    version = _get_schema_version(connection)
+    if version != SOURCE_UPDATE_RUNS_SCHEMA_VERSION:
+        raise InconsistentDatabaseSchemaError(
+            "Expected database schema version "
+            f"{SOURCE_UPDATE_RUNS_SCHEMA_VERSION}, got {version}"
+        )
+
+    _validate_source_schema(connection, version=version)
+    _validate_intelligence_schema(connection, version=version)
+    _validate_role_intelligence_schema(connection, version=version)
+    _validate_seniority_intelligence_schema(connection, version=version)
+    _validate_geography_intelligence_schema(connection, version=version)
+    _validate_salary_intelligence_schema(connection, version=version)
+    _validate_source_update_runs_schema(connection, version=version)
 
 
 def _validate_intelligence_schema(
@@ -1085,6 +1140,62 @@ def _validate_salary_intelligence_schema(
             "where id = new.analysis_run_id",
             "!= 'salary'",
             "job_salaries requires a salary analysis run",
+        ),
+        version=version,
+    )
+    _require_no_foreign_key_violations(connection, version=version)
+
+
+def _validate_source_update_runs_schema(
+    connection: sqlite3.Connection,
+    *,
+    version: int,
+) -> None:
+    expected_columns = {
+        "source_update_runs": {
+            "id",
+            "source_provider",
+            "display_name",
+            "status",
+            "message",
+            "fetched_count",
+            "persisted_count",
+            "failed_count",
+            "started_at",
+            "finished_at",
+        },
+    }
+    _require_tables(connection, set(expected_columns), version=version)
+    for table_name in expected_columns:
+        # message and per-run counts are nullable by design; their nullability
+        # is tied to status through table-level CHECK constraints.
+        _require_columns(
+            connection,
+            table_name,
+            expected_columns[table_name],
+            version=version,
+        )
+
+    _require_primary_key(connection, "source_update_runs", ("id",), version=version)
+    _require_index_columns(
+        connection,
+        "idx_source_update_runs_provider_finished",
+        ("source_provider", "finished_at"),
+        version=version,
+    )
+    _require_table_sql_fragments(
+        connection,
+        "source_update_runs",
+        (
+            "status in ('completed', 'failed', 'skipped')",
+            "length(trim(source_provider)) > 0",
+            "length(trim(display_name)) > 0",
+            "message is null or length(trim(message)) > 0",
+            "(status = 'completed' and fetched_count is not null"
+            " and persisted_count is not null and failed_count is not null)",
+            "or (status != 'completed' and fetched_count is null"
+            " and persisted_count is null and failed_count is null)",
+            "finished_at >= started_at",
         ),
         version=version,
     )
@@ -1685,6 +1796,30 @@ def _requires_salary_intelligence_migration(
     connection: sqlite3.Connection,
 ) -> bool:
     return _get_schema_version(connection) < SALARY_INTELLIGENCE_SCHEMA_VERSION
+
+
+def _migrate_source_update_runs(connection: sqlite3.Connection) -> None:
+    """Create source update run history without backfilling anything."""
+
+    try:
+        connection.executescript(
+            f"""
+            BEGIN IMMEDIATE;
+            {load_source_update_runs_schema()}
+            """
+        )
+        _validate_source_update_runs_schema(
+            connection,
+            version=SOURCE_UPDATE_RUNS_SCHEMA_VERSION,
+        )
+        connection.execute(
+            f"PRAGMA user_version = {SOURCE_UPDATE_RUNS_SCHEMA_VERSION}"
+        )
+        connection.commit()
+    except Exception:
+        if connection.in_transaction:
+            connection.rollback()
+        raise
 
 
 def _migrate_salary_intelligence(connection: sqlite3.Connection) -> None:

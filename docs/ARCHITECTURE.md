@@ -249,6 +249,8 @@ Geography Classification V1 is the fourth deterministic intelligence boundary. I
 
 Salary Classification V1 is the fifth deterministic intelligence boundary. It consumes only normalized salary fields and produces at most one estimate per run with explicit provenance (`structured`/`text`) and confidence (`direct`/`parsed`). Annual equivalents are derived only under known periods using documented conventions, unknown periods store null annual figures, equity-only mentions produce no estimate, and inverted ranges are rejected. Persistence uses schema v6's additive `job_salaries` table keyed by analysis run with analyzer-kind triggers. The analyzer is registered as `salary/en`; dashboard v2 exposes salary coverage and per-currency medians in overview projections.
 
+Source Update Run History V1 (schema v7) records one append-only row per guided-update source attempt (`completed`/`failed`/`skipped`) with redacted messages and counts in `source_update_runs`. The guided update orchestrator writes history; analytics join the latest attempt and last success per provider into `/api/sources`, and the Sources page shows "Last successful update" with a visible warning for failed or skipped latest attempts. Production refresh runs the same image's `update` command via a compose overlay plus a systemd timer, so hosted data stays fresh without manual scp.
+
 Canonical analytics remove duplication only when multiple postings already share one `CanonicalJob`. Complete cross-source canonical linking is not implemented yet, so current data must not be described as fully deduplicated across sources.
 
 ## Engineering Principles

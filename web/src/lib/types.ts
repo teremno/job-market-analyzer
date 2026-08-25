@@ -104,6 +104,9 @@ export interface SourceSummary {
   newest_last_seen_at: string;
   role_analysis: AnalysisCoverage;
   skill_analysis: AnalysisCoverage;
+  last_update_status?: string | null;
+  last_update_finished_at?: string | null;
+  last_successful_update_at?: string | null;
 }
 
 export interface HealthResponse { status: string; schema_version: number; }

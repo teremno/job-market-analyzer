@@ -342,6 +342,9 @@ class SourceSummaryResponse(ApiModel):
     newest_last_seen_at: datetime
     role_analysis: AnalysisCoverage
     skill_analysis: AnalysisCoverage
+    last_update_status: str | None = None
+    last_update_finished_at: datetime | None = None
+    last_successful_update_at: datetime | None = None
 
     @classmethod
     def from_dto(cls, value: SourceSummary) -> "SourceSummaryResponse":
@@ -362,4 +365,7 @@ class SourceSummaryResponse(ApiModel):
                 analyzed_with_results=value.current_skill_classified_posting_count,
                 with_results_percentage=value.current_skill_classified_percentage,
             ),
+            last_update_status=value.last_update_status,
+            last_update_finished_at=value.last_update_finished_at,
+            last_successful_update_at=value.last_successful_update_at,
         )

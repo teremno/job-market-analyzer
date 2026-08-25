@@ -7,6 +7,7 @@ from job_market_analyzer.models import JobPosting, NormalizedJobPosting, RawJob
 from job_market_analyzer.storage.repository import (
     PersistResult,
     SourceIdentityMismatchError,
+    SourceUpdateRunRecord,
 )
 from job_market_analyzer.storage.serialization import (
     SQLiteValue,
@@ -451,6 +452,44 @@ class SQLiteJobRepository:
             values.pop("source_tags_json")
         )
         return JobPosting.model_validate(values)
+
+    def record_source_update_run(self, record: SourceUpdateRunRecord) -> None:
+        """Append one observable source update attempt atomically."""
+
+        try:
+            self._connection.execute("BEGIN IMMEDIATE")
+            self._connection.execute(
+                """
+                INSERT INTO source_update_runs (
+                    source_provider,
+                    display_name,
+                    status,
+                    message,
+                    fetched_count,
+                    persisted_count,
+                    failed_count,
+                    started_at,
+                    finished_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    record.source_provider,
+                    record.display_name,
+                    record.status,
+                    record.message,
+                    record.fetched_count,
+                    record.persisted_count,
+                    record.failed_count,
+                    serialize_utc_datetime(record.started_at),
+                    serialize_utc_datetime(record.finished_at),
+                ),
+            )
+            self._connection.commit()
+        except Exception:
+            if self._connection.in_transaction:
+                self._connection.rollback()
+            raise
 
     @staticmethod
     def _validate_source_identity(

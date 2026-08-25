@@ -1,0 +1,9 @@
+[Unit]
+Description=JobPulse dataset update (one guided update run)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/root/job-market-analyzer
+ExecStart=/usr/bin/docker compose -f docker-compose.yml -f docker-compose.worker.yml run --rm updater

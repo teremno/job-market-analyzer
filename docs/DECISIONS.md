@@ -1119,3 +1119,43 @@ Sales gaps now lead with Customer Success (30%), Negotiation (28%),
 Prospecting (22%). The mining script pattern (candidate phrases per family,
 threshold ?5 postings, taxonomy-status check) is the standing recipe for
 future revisions.
+
+---
+
+## ADR-029: Source update run history and production update worker
+
+Date: 2026-08-25
+
+Status: Accepted.
+
+### Decision
+
+Persist one row per source update attempt in a new additive schema v7 table
+`source_update_runs` (status `completed`/`failed`/`skipped`, redacted message,
+fetched/persisted/failed counts, UTC start/finish). The guided update
+orchestrator records every attempt; history is append-only, never upserted.
+Analytics expose, per provider: last attempt status/time and last successful
+update time through `/api/sources` and the Sources page. Production refresh
+uses a dedicated compose overlay (`docker-compose.worker.yml`) that runs the
+same image's `update` command against the server database with read-write
+access, triggered by a systemd timer (`deploy/systemd/jma-update.*`).
+Credentials flow from `.env`; a missing optional credential skips exactly its
+own source exactly as before.
+
+### Reason
+
+The live site served a frozen snapshot under the 30-day freshness rule
+(R3, DEPLOYMENT_STATUS). Source health was previously invisible: nothing in
+the database distinguished "collected an hour ago" from "collected two weeks
+ago" per provider. Recording attempts (not just successes) keeps failures and
+credential skips observable without shell access.
+
+### Consequences
+
+Schema advances to v7 with a purely additive migration; repeated updates now
+append history rows by design (this does not violate posting/observation/
+analysis idempotency, which is unchanged). During a worker run the API may
+serve the last WAL checkpoint for a few minutes because the container mounts
+only the main database file; clean worker shutdown checkpoints everything.
+The API requires a v7 database for `/api/sources`; deploy flow must run the
+updater (or one manual update) after pulling new code.

@@ -3,6 +3,7 @@ from pathlib import Path
 
 import pytest
 
+from job_market_analyzer.analytics.sqlite_repository import SQLiteAnalyticsRepository
 from job_market_analyzer import cli
 from job_market_analyzer.collectors.base import CollectedJobs
 from job_market_analyzer.models import NormalizedJobPosting, RawJob
@@ -387,3 +388,84 @@ def test_current_registries_have_exact_source_and_english_analyzer_capabilities(
         ("geography", "en"),
         ("salary", "en"),
     }
+
+
+def test_update_records_source_run_history_for_every_source_attempt(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    database_path = tmp_path / "jobs.sqlite3"
+    failed = FailingCollector(f"request rejected for token {FAKE_TOKEN}")
+    successful = StaticCollector(make_raw_job("healthy_source"))
+    monkeypatch.delenv("MISSING_SOURCE_TOKEN", raising=False)
+    monkeypatch.setenv("WEB3_CAREER_API_TOKEN", FAKE_TOKEN)
+    monkeypatch.setattr(
+        cli,
+        "SOURCE_REGISTRY",
+        (
+            make_source(
+                "skipped_source",
+                StaticCollector(make_raw_job("skipped_source")),
+                credential_env="MISSING_SOURCE_TOKEN",
+            ),
+            make_source(
+                "failing_source",
+                failed,
+                credential_env="WEB3_CAREER_API_TOKEN",
+            ),
+            make_source("healthy_source", successful),
+        ),
+    )
+
+    first_exit = cli.main(["update", "--database", str(database_path)])
+
+    assert first_exit == 1
+
+    with connect_database(database_path) as connection:
+        rows = connection.execute(
+            """
+            SELECT source_provider, status, message,
+                   fetched_count, persisted_count, failed_count,
+                   started_at, finished_at
+            FROM source_update_runs
+            ORDER BY id
+            """
+        ).fetchall()
+        summaries = SQLiteAnalyticsRepository(
+            connection
+        ).list_source_summaries()
+
+    assert [(row["source_provider"], row["status"]) for row in rows] == [
+        ("skipped_source", "skipped"),
+        ("failing_source", "failed"),
+        ("healthy_source", "completed"),
+    ]
+    assert rows[0]["message"] == "MISSING_SOURCE_TOKEN is not configured"
+    assert rows[0]["fetched_count"] is None
+    assert rows[0]["persisted_count"] is None
+    assert rows[0]["failed_count"] is None
+    assert FAKE_TOKEN not in rows[1]["message"]
+    assert "[REDACTED]" in rows[1]["message"]
+    assert rows[1]["fetched_count"] is None
+    assert rows[2]["fetched_count"] == 1
+    assert rows[2]["persisted_count"] == 1
+    assert rows[2]["failed_count"] == 0
+    assert all(row["finished_at"] >= row["started_at"] for row in rows)
+    healthy_summary = next(
+        item
+        for item in summaries
+        if item.source_provider == "healthy_source"
+    )
+    assert healthy_summary.last_successful_update_at is not None
+    assert healthy_summary.last_update_status == "completed"
+
+    cli.main(["update", "--database", str(database_path)])
+
+    with connect_database(database_path) as connection:
+        history_count = int(
+            connection.execute(
+                "SELECT COUNT(*) FROM source_update_runs"
+            ).fetchone()[0]
+        )
+
+    assert history_count == 6

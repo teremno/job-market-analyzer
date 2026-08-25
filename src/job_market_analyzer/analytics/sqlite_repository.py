@@ -948,6 +948,27 @@ class SQLiteAnalyticsRepository:
                            WHERE job_skills.analysis_run_id = current_skill_runs.id
                        ) THEN 1 ELSE 0 END AS has_results
                 FROM current_skill_runs
+            ),
+            last_update_run AS (
+                SELECT update_runs.source_provider,
+                       update_runs.status AS last_update_status,
+                       update_runs.finished_at AS last_update_finished_at
+                FROM source_update_runs AS update_runs
+                WHERE update_runs.id = (
+                    SELECT later_runs.id
+                    FROM source_update_runs AS later_runs
+                    WHERE later_runs.source_provider = update_runs.source_provider
+                    ORDER BY later_runs.finished_at DESC, later_runs.id DESC
+                    LIMIT 1
+                )
+            ),
+            last_successful_update AS (
+                SELECT successful_runs.source_provider,
+                       MAX(successful_runs.finished_at)
+                           AS last_successful_update_at
+                FROM source_update_runs AS successful_runs
+                WHERE successful_runs.status = 'completed'
+                GROUP BY successful_runs.source_provider
             )
             SELECT
                 job_postings.source_provider,
@@ -965,12 +986,22 @@ class SQLiteAnalyticsRepository:
                 SUM(CASE WHEN skill_state.has_results = 0 THEN 1 ELSE 0 END)
                     AS skill_zero,
                 SUM(CASE WHEN skill_state.job_posting_id IS NULL THEN 1 ELSE 0 END)
-                    AS skill_not_analyzed
+                    AS skill_not_analyzed,
+                last_update_run.last_update_status AS last_update_status,
+                last_update_run.last_update_finished_at
+                    AS last_update_finished_at,
+                last_successful_update.last_successful_update_at
+                    AS last_successful_update_at
             FROM job_postings
             LEFT JOIN role_state
               ON role_state.job_posting_id = job_postings.id
             LEFT JOIN skill_state
               ON skill_state.job_posting_id = job_postings.id
+            LEFT JOIN last_update_run
+              ON last_update_run.source_provider = job_postings.source_provider
+            LEFT JOIN last_successful_update
+              ON last_successful_update.source_provider =
+                 job_postings.source_provider
             WHERE job_postings.last_seen_at >= ?
             GROUP BY job_postings.source_provider
             ORDER BY posting_count DESC, job_postings.source_provider ASC
@@ -1593,6 +1624,13 @@ def _source_summary(row: sqlite3.Row) -> SourceSummary:
         current_skill_zero_posting_count=row["skill_zero"] or 0,
         current_skill_not_analyzed_posting_count=row["skill_not_analyzed"] or 0,
         current_skill_classified_percentage=100.0 * skill_classified / posting_count,
+        last_update_status=row["last_update_status"],
+        last_update_finished_at=_deserialize_datetime(
+            row["last_update_finished_at"]
+        ),
+        last_successful_update_at=_deserialize_datetime(
+            row["last_successful_update_at"]
+        ),
     )
 
 

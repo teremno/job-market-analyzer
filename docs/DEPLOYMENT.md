@@ -180,6 +180,46 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 The database is mounted read-only into the API container; visitors can never
 mutate it.
 
+### Automated updates on the server (systemd timer)
+
+The `updater` service runs one guided `update` against the same database file
+the API serves. Credentials are read from `.env` next to the compose files;
+a missing optional credential skips exactly its own source and never fails
+the run. Every attempt is recorded per source in `source_update_runs`
+(schema v7), and the Sources page shows the last successful update time.
+
+One-time setup on the server:
+
+```bash
+cd /root/job-market-analyzer
+git pull
+# put source credentials into .env (never commit them):
+#   WEB3_CAREER_API_TOKEN=...
+#   ADZUNA_APP_ID=...
+#   ADZUNA_APP_KEY=...
+#   THE_MUSE_API_KEY=...          # optional
+docker compose -f docker-compose.yml -f docker-compose.worker.yml build updater
+sudo cp deploy/systemd/jma-update.service /etc/systemd/system/
+sudo cp deploy/systemd/jma-update.timer  /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now jma-update.timer
+systemctl list-timers jma-update.timer    # verify next run
+```
+
+Operate it:
+
+```bash
+sudo systemctl start jma-update.service            # run once now
+journalctl -u jma-update.service -n 50             # inspect a run
+```
+
+Notes:
+
+- Run one update (timer or manual) right after `git pull` of a schema bump;
+  `/api/sources` requires the newest schema.
+- During an update the API may briefly serve the previous WAL checkpoint;
+  clean worker shutdown makes everything visible without restarts.
+
 ### Security posture of this alpha
 
 - Only ports 80/443 are exposed (Caddy); the API and dashboard containers are

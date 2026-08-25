@@ -181,7 +181,10 @@ export function isSourceSummary(value: unknown): value is SourceSummary {
   return isRecord(value) && hasString(value, "source_provider")
     && hasNumber(value, "posting_count") && hasString(value, "newest_last_seen_at")
     && hasNullableString(value, "newest_published_at")
-    && isAnalysisCoverage(value.role_analysis) && isAnalysisCoverage(value.skill_analysis);
+    && isAnalysisCoverage(value.role_analysis) && isAnalysisCoverage(value.skill_analysis)
+    && (!("last_update_status" in value) || hasNullableString(value, "last_update_status"))
+    && (!("last_update_finished_at" in value) || hasNullableString(value, "last_update_finished_at"))
+    && (!("last_successful_update_at" in value) || hasNullableString(value, "last_successful_update_at"));
 }
 
 export function isHealth(value: unknown): value is HealthResponse {

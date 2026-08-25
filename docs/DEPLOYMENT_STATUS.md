@@ -20,7 +20,8 @@
 - 5 intelligence dimensions: skills, roles, seniority, geography, salary
 - Skill taxonomy: **v5, 122 canonical skills** (96.2% ESCO/O*NET coverage)
 - Role taxonomy: **v2, 19 role codes** (45.6% classification coverage)
-- SQLite schema: **v6**
+- SQLite schema: **v7** (v6 + source_update_runs history; server DB migrates
+  on first updater run)
 - Tests: **858 passed**, ruff clean, frontend gates clean, CI green (tri-OS)
 
 ## SERVER
@@ -111,8 +112,13 @@ No version bump ships unless the suite passes.
 ### R3. Production update worker + source health visibility
 Systemd timer running `update` against the server DB.
 Expose "last successful update per source" on the Sources page.
-**THIS IS URGENT** — the live site serves a frozen snapshot that
-goes stale within days under the 30-day freshness rule.
+**STATUS (2026-08-25): CODE COMPLETE** — schema v7 `source_update_runs`
+(append-only attempt history), orchestrator records every attempt,
+`/api/sources` + Sources page expose last success/latest attempt,
+`docker-compose.worker.yml` + `deploy/systemd/jma-update.*` shipped
+(docs/DEPLOYMENT.md → "Automated updates"). **REMAINING:** activate on the
+server (git pull, build updater, put creds in `.env`, enable timer) — the
+live site still serves a frozen snapshot until then.
 
 ### R4. Fix documentation integrity mechanically
 UTF-8 conformance check in CI. Pre-commit hook rejecting stray files.
@@ -124,9 +130,9 @@ canonical dedup v1 scoping.
 
 ## NEXT STEPS (in priority order)
 
-1. **Sync server DB** (if not done): scp local DB → server, restart containers
-2. **R3: Production update worker** (systemd timer, URGENT)
-3. **ESCO validation expansion** (more roles, deeper comparison)
+1. **Activate R3 on the server** (code done): git pull, creds → `.env`,
+   build updater, `systemctl enable --now jma-update.timer`
+2. **ESCO validation expansion** (more roles, deeper comparison)
 4. **Adzuna live smoke** (code ready, credentials in env, just run update)
 5. **The Muse API key** (optional, register at themuse.com/developers/api/v2/apps)
 6. **Grant application** to Sentient Foundation (see docs/GRANTS_NOTES.md)

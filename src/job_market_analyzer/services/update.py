@@ -3,6 +3,7 @@
 import sqlite3
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from enum import StrEnum
 
 from job_market_analyzer.analytics.models import AnalyticsOverview
@@ -12,6 +13,9 @@ from job_market_analyzer.models import NormalizedJobPosting, RawJob
 from job_market_analyzer.services.collection import (
     CollectionSummary,
     persist_collected_jobs,
+)
+from job_market_analyzer.storage.repository import (
+    SourceUpdateRunRecord,
 )
 from job_market_analyzer.storage.sqlite_repository import SQLiteJobRepository
 
@@ -181,18 +185,30 @@ async def run_guided_update(
     source_results: list[SourceUpdateResult] = []
 
     for source in sources:
+        run_started_at = datetime.now(UTC)
         credential = (
             environment.get(source.credential_env, "").strip()
             if source.credential_env is not None
             else ""
         )
         if source.credential_env is not None and not credential:
+            message = f"{source.credential_env} is not configured"
+            repository.record_source_update_run(
+                SourceUpdateRunRecord(
+                    source_provider=source.provider_code,
+                    display_name=source.display_name,
+                    status=SourceRunStatus.SKIPPED.value,
+                    started_at=run_started_at,
+                    finished_at=datetime.now(UTC),
+                    message=message,
+                )
+            )
             source_results.append(
                 SourceUpdateResult(
                     provider_code=source.provider_code,
                     display_name=source.display_name,
                     status=SourceRunStatus.SKIPPED,
-                    message=f"{source.credential_env} is not configured",
+                    message=message,
                 )
             )
             continue
@@ -200,15 +216,26 @@ async def run_guided_update(
         try:
             collected = await source.collector_factory().collect()
         except Exception as exc:  # noqa: BLE001 - isolated remote-source boundary
+            failure_message = _safe_exception_message(
+                exc,
+                sensitive_values=(credential,),
+            )
+            repository.record_source_update_run(
+                SourceUpdateRunRecord(
+                    source_provider=source.provider_code,
+                    display_name=source.display_name,
+                    status=SourceRunStatus.FAILED.value,
+                    started_at=run_started_at,
+                    finished_at=datetime.now(UTC),
+                    message=failure_message,
+                )
+            )
             source_results.append(
                 SourceUpdateResult(
                     provider_code=source.provider_code,
                     display_name=source.display_name,
                     status=SourceRunStatus.FAILED,
-                    message=_safe_exception_message(
-                        exc,
-                        sensitive_values=(credential,),
-                    ),
+                    message=failure_message,
                 )
             )
             continue
@@ -222,6 +249,18 @@ async def run_guided_update(
             raise RuntimeError(
                 f"source {source.provider_code!r} left an active transaction"
             )
+        repository.record_source_update_run(
+            SourceUpdateRunRecord(
+                source_provider=source.provider_code,
+                display_name=source.display_name,
+                status=SourceRunStatus.COMPLETED.value,
+                started_at=run_started_at,
+                finished_at=datetime.now(UTC),
+                fetched_count=collection.fetched,
+                persisted_count=collection.persisted,
+                failed_count=collection.failed,
+            )
+        )
         source_results.append(
             SourceUpdateResult(
                 provider_code=source.provider_code,
