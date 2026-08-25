@@ -456,6 +456,12 @@ class SQLiteJobRepository:
     def record_source_update_run(self, record: SourceUpdateRunRecord) -> None:
         """Append one observable source update attempt atomically."""
 
+        if self._connection.in_transaction:
+            raise RuntimeError(
+                "record_source_update_run must be called outside an active "
+                "transaction"
+            )
+
         try:
             self._connection.execute("BEGIN IMMEDIATE")
             self._connection.execute(

@@ -14,6 +14,7 @@ export function formatDate(value: string | null): string {
     month: "short",
     day: "numeric",
     year: "numeric",
+    timeZone: "UTC",
   }).format(date);
 }
 

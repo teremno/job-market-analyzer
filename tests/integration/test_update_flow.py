@@ -1,19 +1,27 @@
+import asyncio
+from contextlib import closing
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
 
-from job_market_analyzer.analytics.sqlite_repository import SQLiteAnalyticsRepository
+import job_market_analyzer.services.update as update_module
 from job_market_analyzer import cli
+from job_market_analyzer.analytics.sqlite_repository import SQLiteAnalyticsRepository
 from job_market_analyzer.collectors.base import CollectedJobs
 from job_market_analyzer.models import NormalizedJobPosting, RawJob
 from job_market_analyzer.services.update import (
     AnalyzerAdapter,
     SourceAdapter,
+    SourceRunStatus,
+    run_guided_update,
 )
 from job_market_analyzer.services.update_registry import ANALYZER_REGISTRY
 from job_market_analyzer.services.update_registry import SOURCE_REGISTRY as REAL_SOURCE_REGISTRY
-from job_market_analyzer.storage.sqlite import connect_database
+from job_market_analyzer.storage.sqlite import (
+    connect_database,
+    initialize_database,
+)
 
 FETCHED_AT = datetime(2026, 8, 22, 12, 0, tzinfo=UTC)
 FAKE_TOKEN = "fake-update-token-do-not-log"
@@ -279,10 +287,9 @@ def test_update_aborts_on_malformed_database_before_collection(
     assert "Update failed: DatabaseError:" in captured.err
 
 
-def test_update_aborts_remaining_sources_on_systemic_persistence_path_failure(
+def test_persistence_failure_records_history_and_continues_to_next_source(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
-    capsys: pytest.CaptureFixture[str],
 ) -> None:
     first = StaticCollector(make_raw_job("first"))
     second = StaticCollector(make_raw_job("second"))
@@ -300,12 +307,58 @@ def test_update_aborts_remaining_sources_on_systemic_persistence_path_failure(
     )
 
     exit_code = cli.main(["update", "--database", str(tmp_path / "jobs.sqlite3")])
-    captured = capsys.readouterr()
 
     assert exit_code == 1
     assert first.calls == 1
-    assert second.calls == 0
-    assert "Update failed: RuntimeError: unexpected normalization invariant failure" in captured.err
+    assert second.calls == 1
+
+    with connect_database(tmp_path / "jobs.sqlite3") as connection:
+        rows = connection.execute(
+            """
+            SELECT source_provider, status FROM source_update_runs ORDER BY id
+            """
+        ).fetchall()
+        postings = connection.execute(
+            "SELECT DISTINCT source_provider FROM job_postings ORDER BY 1"
+        ).fetchall()
+
+    assert [(row["source_provider"], row["status"]) for row in rows] == [
+        ("first", "failed"),
+        ("second", "completed"),
+    ]
+    assert [row["source_provider"] for row in postings] == ["second"]
+
+
+def test_completed_run_survives_history_write_failure(
+    tmp_path: Path,
+) -> None:
+    database_path = tmp_path / "jobs.sqlite3"
+    collector = StaticCollector(make_raw_job("resilient"))
+    adapter = make_source("resilient", collector)
+
+    with closing(connect_database(database_path)) as connection:
+        initialize_database(connection)
+        connection.execute("DROP TABLE source_update_runs")
+        connection.commit()
+
+        summary = asyncio.run(
+            run_guided_update(
+                connection,
+                sources=(adapter,),
+                analyzers=(),
+                analysis_language="en",
+                analysis_limit=10,
+                environment={"WEB3_CAREER_API_TOKEN": ""},
+            )
+        )
+
+    assert len(summary.sources) == 1
+    result = summary.sources[0]
+    assert result.status is SourceRunStatus.COMPLETED
+    assert result.collection is not None
+    assert result.collection.persisted == 1
+    assert result.message is not None
+    assert "history write failed" in result.message
 
 
 def test_update_reports_analyzer_failure_without_hiding_successful_analyzer(
@@ -469,3 +522,39 @@ def test_update_records_source_run_history_for_every_source_attempt(
         )
 
     assert history_count == 6
+
+
+def test_history_timestamps_are_clamped_against_backwards_clock(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    database_path = tmp_path / "jobs.sqlite3"
+    later = datetime(2026, 8, 25, 12, 0, tzinfo=UTC)
+    earlier = datetime(2026, 8, 25, 11, 0, tzinfo=UTC)
+    clock = iter([later, earlier])
+
+    class FakeDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):  # type: ignore[no-untyped-def]
+            return next(clock)
+
+    monkeypatch.setattr(update_module, "datetime", FakeDateTime)
+    collector = StaticCollector(make_raw_job("clock_source"))
+    monkeypatch.setattr(
+        cli,
+        "SOURCE_REGISTRY",
+        (make_source("clock_source", collector),),
+    )
+
+    exit_code = cli.main(["update", "--database", str(database_path)])
+    assert exit_code == 0
+
+    with connect_database(database_path) as connection:
+        row = connection.execute(
+            """
+            SELECT started_at, finished_at FROM source_update_runs
+            WHERE source_provider = 'clock_source'
+            """
+        ).fetchone()
+
+    assert row["finished_at"] == row["started_at"]

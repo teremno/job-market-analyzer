@@ -115,7 +115,8 @@ td > span:not(.source-pill) { margin-top: 4px; color: var(--muted); }
 .freshness div { padding: 12px; background: #f5f7f3; border-left: 3px solid var(--accent); }
 .freshness dt { color: var(--muted); font-size: 11px; }
 .freshness dd { margin: 4px 0 0; font-weight: 700; }
-.update-status-warning { margin: -8px 0 12px; padding: 10px 12px; background: #fdf6ec; border-left: 3px solid #c77b1e; color: #7a4a10; font-size: 13px; }
+.update-status-warning { margin: 0 0 12px; padding: 10px 12px; background: #fdf6ec; border-left: 3px solid #c77b1e; color: #7a4a10; font-size: 13px; }
+.update-status-note { margin: 0 0 12px; padding: 10px 12px; background: #f5f7f3; border-left: 3px solid var(--muted); color: var(--muted); font-size: 13px; }
 .source-card .coverage-panel { box-shadow: none; margin-top: 12px; }
 .state-card { max-width: 720px; padding: 32px; border: 1px solid var(--line); border-left: 4px solid var(--signal); border-radius: var(--radius); background: var(--surface); box-shadow: var(--shadow); }
 .state-card h2 { margin: 10px 0; font: 650 25px Georgia, serif; }

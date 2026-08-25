@@ -1,6 +1,7 @@
 """Explicit, frontend-friendly response models for the local API."""
 
 from datetime import datetime
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
@@ -339,10 +340,12 @@ class SourceSummaryResponse(ApiModel):
     source_provider: str
     posting_count: int
     newest_published_at: datetime | None
-    newest_last_seen_at: datetime
+    newest_last_seen_at: datetime | None
     role_analysis: AnalysisCoverage
     skill_analysis: AnalysisCoverage
-    last_update_status: str | None = None
+    last_update_status: (
+        Literal["completed", "failed", "skipped"] | None
+    ) = None
     last_update_finished_at: datetime | None = None
     last_successful_update_at: datetime | None = None
 

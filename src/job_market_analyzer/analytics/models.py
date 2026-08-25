@@ -204,7 +204,7 @@ class SourceSummary:
     source_provider: str
     posting_count: int
     newest_published_at: datetime | None
-    newest_last_seen_at: datetime
+    newest_last_seen_at: datetime | None
     current_role_classified_posting_count: int
     current_role_unknown_posting_count: int
     current_role_not_analyzed_posting_count: int

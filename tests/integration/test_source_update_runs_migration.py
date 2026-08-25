@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 
 import pytest
 
+from job_market_analyzer.analytics.sqlite_repository import SQLiteAnalyticsRepository
 from job_market_analyzer.storage.repository import SourceUpdateRunRecord
 from job_market_analyzer.storage.sqlite import (
     InconsistentDatabaseSchemaError,
@@ -172,5 +173,40 @@ def test_recorded_history_survives_reinitialization_with_postings_present() -> N
         ).fetchone()
         assert row["status"] == "skipped"
         assert row["message"] == "TOKEN is not configured"
+    finally:
+        connection.close()
+
+
+def test_history_only_provider_remains_visible_in_source_summaries() -> None:
+    connection = connect_database(":memory:")
+    try:
+        initialize_database(connection)
+        repository = SQLiteJobRepository(connection)
+        repository.record_source_update_run(
+            SourceUpdateRunRecord(
+                source_provider="ghost_source",
+                display_name="Ghost Source",
+                status="failed",
+                started_at=STARTED_AT,
+                finished_at=FINISHED_AT,
+                message="RuntimeError: temporary source failure",
+            )
+        )
+
+        summaries = SQLiteAnalyticsRepository(
+            connection
+        ).list_source_summaries()
+
+        assert len(summaries) == 1
+        ghost = summaries[0]
+        assert ghost.source_provider == "ghost_source"
+        assert ghost.posting_count == 0
+        assert ghost.newest_published_at is None
+        assert ghost.newest_last_seen_at is None
+        assert ghost.current_role_classified_percentage == 0.0
+        assert ghost.current_skill_classified_percentage == 0.0
+        assert ghost.last_update_status == "failed"
+        assert ghost.last_successful_update_at is None
+        assert ghost.last_update_finished_at is not None
     finally:
         connection.close()

@@ -969,42 +969,82 @@ class SQLiteAnalyticsRepository:
                 FROM source_update_runs AS successful_runs
                 WHERE successful_runs.status = 'completed'
                 GROUP BY successful_runs.source_provider
+            ),
+            active_providers AS (
+                SELECT
+                    job_postings.source_provider AS source_provider,
+                    COUNT(*) AS posting_count,
+                    MAX(job_postings.published_at) AS newest_published_at,
+                    MAX(job_postings.last_seen_at) AS newest_last_seen_at,
+                    SUM(CASE WHEN role_state.has_results = 1 THEN 1 ELSE 0 END)
+                        AS role_classified,
+                    SUM(CASE WHEN role_state.has_results = 0 THEN 1 ELSE 0 END)
+                        AS role_zero,
+                    SUM(CASE WHEN role_state.job_posting_id IS NULL THEN 1 ELSE 0 END)
+                        AS role_not_analyzed,
+                    SUM(CASE WHEN skill_state.has_results = 1 THEN 1 ELSE 0 END)
+                        AS skill_classified,
+                    SUM(CASE WHEN skill_state.has_results = 0 THEN 1 ELSE 0 END)
+                        AS skill_zero,
+                    SUM(CASE WHEN skill_state.job_posting_id IS NULL THEN 1 ELSE 0 END)
+                        AS skill_not_analyzed
+                FROM job_postings
+                LEFT JOIN role_state
+                  ON role_state.job_posting_id = job_postings.id
+                LEFT JOIN skill_state
+                  ON skill_state.job_posting_id = job_postings.id
+                WHERE job_postings.last_seen_at >= ?
+                GROUP BY job_postings.source_provider
+            ),
+            history_only_providers AS (
+                SELECT DISTINCT update_runs.source_provider AS source_provider
+                FROM source_update_runs AS update_runs
+                WHERE NOT EXISTS (
+                    SELECT 1
+                    FROM active_providers
+                    WHERE
+                        active_providers.source_provider =
+                            update_runs.source_provider
+                )
+            ),
+            combined AS (
+                SELECT * FROM active_providers
+                UNION ALL
+                SELECT history_only_providers.source_provider,
+                       0 AS posting_count,
+                       NULL AS newest_published_at,
+                       NULL AS newest_last_seen_at,
+                       0 AS role_classified,
+                       0 AS role_zero,
+                       0 AS role_not_analyzed,
+                       0 AS skill_classified,
+                       0 AS skill_zero,
+                       0 AS skill_not_analyzed
+                FROM history_only_providers
             )
             SELECT
-                job_postings.source_provider,
-                COUNT(*) AS posting_count,
-                MAX(job_postings.published_at) AS newest_published_at,
-                MAX(job_postings.last_seen_at) AS newest_last_seen_at,
-                SUM(CASE WHEN role_state.has_results = 1 THEN 1 ELSE 0 END)
-                    AS role_classified,
-                SUM(CASE WHEN role_state.has_results = 0 THEN 1 ELSE 0 END)
-                    AS role_zero,
-                SUM(CASE WHEN role_state.job_posting_id IS NULL THEN 1 ELSE 0 END)
-                    AS role_not_analyzed,
-                SUM(CASE WHEN skill_state.has_results = 1 THEN 1 ELSE 0 END)
-                    AS skill_classified,
-                SUM(CASE WHEN skill_state.has_results = 0 THEN 1 ELSE 0 END)
-                    AS skill_zero,
-                SUM(CASE WHEN skill_state.job_posting_id IS NULL THEN 1 ELSE 0 END)
-                    AS skill_not_analyzed,
+                combined.source_provider,
+                combined.posting_count,
+                combined.newest_published_at,
+                combined.newest_last_seen_at,
+                combined.role_classified,
+                combined.role_zero,
+                combined.role_not_analyzed,
+                combined.skill_classified,
+                combined.skill_zero,
+                combined.skill_not_analyzed,
                 last_update_run.last_update_status AS last_update_status,
                 last_update_run.last_update_finished_at
                     AS last_update_finished_at,
                 last_successful_update.last_successful_update_at
                     AS last_successful_update_at
-            FROM job_postings
-            LEFT JOIN role_state
-              ON role_state.job_posting_id = job_postings.id
-            LEFT JOIN skill_state
-              ON skill_state.job_posting_id = job_postings.id
+            FROM combined
             LEFT JOIN last_update_run
-              ON last_update_run.source_provider = job_postings.source_provider
+              ON last_update_run.source_provider = combined.source_provider
             LEFT JOIN last_successful_update
               ON last_successful_update.source_provider =
-                 job_postings.source_provider
-            WHERE job_postings.last_seen_at >= ?
-            GROUP BY job_postings.source_provider
-            ORDER BY posting_count DESC, job_postings.source_provider ASC
+                 combined.source_provider
+            ORDER BY combined.posting_count DESC, combined.source_provider ASC
             """,
             (
                 self._active_cutoff(),
@@ -1608,22 +1648,26 @@ def _skill_count_dict(row: dict[str, object]) -> SkillCount:
 
 
 def _source_summary(row: sqlite3.Row) -> SourceSummary:
-    posting_count = row["posting_count"]
+    posting_count = row["posting_count"] or 0
     role_classified = row["role_classified"] or 0
     skill_classified = row["skill_classified"] or 0
     return SourceSummary(
         source_provider=row["source_provider"],
         posting_count=posting_count,
         newest_published_at=_deserialize_datetime(row["newest_published_at"]),
-        newest_last_seen_at=_required_datetime(row["newest_last_seen_at"]),
+        newest_last_seen_at=_deserialize_datetime(row["newest_last_seen_at"]),
         current_role_classified_posting_count=role_classified,
         current_role_unknown_posting_count=row["role_zero"] or 0,
         current_role_not_analyzed_posting_count=row["role_not_analyzed"] or 0,
-        current_role_classified_percentage=100.0 * role_classified / posting_count,
+        current_role_classified_percentage=(
+            100.0 * role_classified / posting_count if posting_count else 0.0
+        ),
         current_skill_classified_posting_count=skill_classified,
         current_skill_zero_posting_count=row["skill_zero"] or 0,
         current_skill_not_analyzed_posting_count=row["skill_not_analyzed"] or 0,
-        current_skill_classified_percentage=100.0 * skill_classified / posting_count,
+        current_skill_classified_percentage=(
+            100.0 * skill_classified / posting_count if posting_count else 0.0
+        ),
         last_update_status=row["last_update_status"],
         last_update_finished_at=_deserialize_datetime(
             row["last_update_finished_at"]

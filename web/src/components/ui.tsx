@@ -50,18 +50,27 @@ export function Coverage({ title, counts, zeroLabel }: { title: string; counts: 
 }
 
 export function DataError({ error }: { error: unknown }) {
-  const unavailable = error instanceof ApiClientError && error.kind === "unavailable";
-  const notFound = error instanceof ApiClientError && error.kind === "not_found";
+  const kind = error instanceof ApiClientError ? error.kind : undefined;
+  const unavailable = kind === "unavailable";
+  const notFound = kind === "not_found";
+  const contractMismatch = kind === "invalid_response";
   const isLocalApi = !process.env.NEXT_PUBLIC_API_BASE_URL?.trim();
+  const heading = notFound
+    ? "This analytics view was not found."
+    : unavailable
+      ? "Data is temporarily unavailable."
+      : "Data could not be loaded.";
   return (
     <section className="state-card" role="alert">
-      <span className="state-code">{notFound ? "404" : "OFFLINE"}</span>
-      <h2>{notFound ? "This analytics view was not found." : unavailable ? "Data is temporarily unavailable." : "Data could not be loaded."}</h2>
+      <span className="state-code">{notFound ? "404" : contractMismatch ? "MISMATCH" : "OFFLINE"}</span>
+      <h2>{heading}</h2>
       <p>{unavailable
         ? isLocalApi
           ? "Start the local read-only API, then refresh this page."
           : "Please try again later."
-        : "Check that the API and dashboard use the same current contract."}</p>
+        : contractMismatch
+          ? "The API response does not match this dashboard's contract — update the dashboard and the API together."
+          : "Check that the API and dashboard use the same current contract."}</p>
       {unavailable && isLocalApi && <code>job-market-analyzer serve --database .\job-market.sqlite3</code>}
       <Link href="/">Return to overview</Link>
     </section>

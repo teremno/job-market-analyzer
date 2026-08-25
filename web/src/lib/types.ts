@@ -97,14 +97,18 @@ export interface SkillDetail extends SkillCount {
   representative_postings: Posting[];
 }
 
+export type SourceUpdateStatus = "completed" | "failed" | "skipped";
+
+// The three last_update_* fields are optional only for pre-R3 API backends;
+// current backends always emit them (possibly null).
 export interface SourceSummary {
   source_provider: string;
   posting_count: number;
   newest_published_at: string | null;
-  newest_last_seen_at: string;
+  newest_last_seen_at: string | null;
   role_analysis: AnalysisCoverage;
   skill_analysis: AnalysisCoverage;
-  last_update_status?: string | null;
+  last_update_status?: SourceUpdateStatus | null;
   last_update_finished_at?: string | null;
   last_successful_update_at?: string | null;
 }

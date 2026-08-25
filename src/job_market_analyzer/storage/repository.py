@@ -1,9 +1,11 @@
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Protocol
+from typing import Literal, Protocol
 from uuid import UUID
 
 from job_market_analyzer.models import JobPosting, NormalizedJobPosting, RawJob
+
+SourceUpdateStatus = Literal["completed", "failed", "skipped"]
 
 
 class SourceIdentityMismatchError(ValueError):
@@ -35,7 +37,7 @@ class SourceUpdateRunRecord:
 
     source_provider: str
     display_name: str
-    status: str
+    status: SourceUpdateStatus
     started_at: datetime
     finished_at: datetime
     message: str | None = None

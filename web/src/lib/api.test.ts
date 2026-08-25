@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { isHealth, isJobsResponse, isOverview } from "./api.ts";
+import { isHealth, isJobsResponse, isOverview, isSourceSummary } from "./api.ts";
 
 const analysisCounts = {
   not_analyzed: 1,
@@ -95,5 +95,52 @@ describe("runtime API validators", () => {
   it("validates health field types", () => {
     assert.equal(isHealth({ status: "ok", schema_version: 3 }), true);
     assert.equal(isHealth({ status: "ok", schema_version: "3" }), false);
+  });
+
+  const sourceBase = {
+    source_provider: "remote_ok",
+    posting_count: 6,
+    newest_published_at: "2026-08-25T10:00:00Z",
+    newest_last_seen_at: "2026-08-25T11:00:00Z",
+    role_analysis: { ...analysisCounts, with_results_percentage: 50.0 },
+    skill_analysis: { ...analysisCounts, with_results_percentage: 33.3 },
+  };
+
+  it("accepts source summaries with and without update-health fields", () => {
+    assert.equal(isSourceSummary({
+      ...sourceBase,
+      last_update_status: "completed",
+      last_update_finished_at: "2026-08-25T11:05:00Z",
+      last_successful_update_at: "2026-08-25T11:05:00Z",
+    }), true);
+    assert.equal(isSourceSummary({
+      ...sourceBase,
+      last_update_status: null,
+      last_update_finished_at: null,
+      last_successful_update_at: null,
+    }), true);
+    assert.equal(isSourceSummary(sourceBase), true);
+    assert.equal(
+      isSourceSummary({
+        ...sourceBase,
+        newest_last_seen_at: null,
+        posting_count: 0,
+      }),
+      true,
+    );
+  });
+
+  it("rejects malformed source summaries", () => {
+    assert.equal(isSourceSummary({ ...sourceBase, posting_count: "6" }), false);
+    assert.equal(isSourceSummary({ ...sourceBase, newest_last_seen_at: 5 }), false);
+    assert.equal(
+      isSourceSummary({
+        ...sourceBase,
+        role_analysis: { not_analyzed: 1, analyzed_zero: 2, analyzed_with_results: 3 },
+      }),
+      false,
+    );
+    assert.equal(isSourceSummary([sourceBase]), false);
+    assert.equal(isSourceSummary({ ...sourceBase, source_provider: 7 }), false);
   });
 });

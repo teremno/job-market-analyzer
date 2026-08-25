@@ -219,6 +219,13 @@ Notes:
   `/api/sources` requires the newest schema.
 - During an update the API may briefly serve the previous WAL checkpoint;
   clean worker shutdown makes everything visible without restarts.
+- **Known limitation (alpha):** the database is bind-mounted as a single
+  file, so the worker's WAL lives inside its ephemeral container filesystem.
+  A hard crash mid-run (OOM, `docker kill`, host power loss) can lose that
+  run's committed transactions; a clean shutdown always checkpoints them.
+  Sharing a directory mount would fix this but currently trades away
+  read-only serving guarantees; revisit at the PostgreSQL/deployment-foundation
+  phase.
 
 ### Security posture of this alpha
 

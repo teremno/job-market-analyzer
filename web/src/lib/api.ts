@@ -36,6 +36,7 @@ export async function loadData<T>(promise: Promise<T>): Promise<LoadResult<T>> {
   try {
     return { ok: true, data: await promise };
   } catch (error) {
+    console.error("Dashboard data load failed:", error);
     return { ok: false, error };
   }
 }
@@ -179,7 +180,7 @@ export function isSkillDetail(value: unknown): value is SkillDetail {
 
 export function isSourceSummary(value: unknown): value is SourceSummary {
   return isRecord(value) && hasString(value, "source_provider")
-    && hasNumber(value, "posting_count") && hasString(value, "newest_last_seen_at")
+    && hasNumber(value, "posting_count") && hasNullableString(value, "newest_last_seen_at")
     && hasNullableString(value, "newest_published_at")
     && isAnalysisCoverage(value.role_analysis) && isAnalysisCoverage(value.skill_analysis)
     && (!("last_update_status" in value) || hasNullableString(value, "last_update_status"))

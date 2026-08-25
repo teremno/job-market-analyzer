@@ -1,9 +1,12 @@
 [Unit]
 Description=JobPulse dataset update (one guided update run)
 Wants=network-online.target
-After=network-online.target
+After=network-online.target docker.service docker.socket
 
 [Service]
 Type=oneshot
+# Assumes the repository checkout lives at /root/job-market-analyzer
+# (documented server layout); adjust when relocating the deployment.
 WorkingDirectory=/root/job-market-analyzer
 ExecStart=/usr/bin/docker compose -f docker-compose.yml -f docker-compose.worker.yml run --rm updater
+TimeoutStartSec=1800

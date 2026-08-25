@@ -199,7 +199,7 @@ async def run_guided_update(
                     display_name=source.display_name,
                     status=SourceRunStatus.SKIPPED.value,
                     started_at=run_started_at,
-                    finished_at=datetime.now(UTC),
+                    finished_at=_finished_clock(run_started_at),
                     message=message,
                 )
             )
@@ -226,7 +226,7 @@ async def run_guided_update(
                     display_name=source.display_name,
                     status=SourceRunStatus.FAILED.value,
                     started_at=run_started_at,
-                    finished_at=datetime.now(UTC),
+                    finished_at=_finished_clock(run_started_at),
                     message=failure_message,
                 )
             )
@@ -240,45 +240,86 @@ async def run_guided_update(
             )
             continue
 
-        collection = persist_collected_jobs(
-            collected,
-            source.normalizer,
-            repository,
-        )
+        try:
+            collection = persist_collected_jobs(
+                collected,
+                source.normalizer,
+                repository,
+            )
+        except Exception as exc:  # noqa: BLE001 - isolated persistence boundary
+            if connection.in_transaction:
+                raise RuntimeError(
+                    f"source {source.provider_code!r} left an active transaction"
+                ) from exc
+            failure_message = _safe_exception_message(exc)
+            repository.record_source_update_run(
+                SourceUpdateRunRecord(
+                    source_provider=source.provider_code,
+                    display_name=source.display_name,
+                    status=SourceRunStatus.FAILED.value,
+                    started_at=run_started_at,
+                    finished_at=_finished_clock(run_started_at),
+                    message=failure_message,
+                )
+            )
+            source_results.append(
+                SourceUpdateResult(
+                    provider_code=source.provider_code,
+                    display_name=source.display_name,
+                    status=SourceRunStatus.FAILED,
+                    message=failure_message,
+                )
+            )
+            continue
+
         if connection.in_transaction:
             raise RuntimeError(
                 f"source {source.provider_code!r} left an active transaction"
             )
-        repository.record_source_update_run(
-            SourceUpdateRunRecord(
-                source_provider=source.provider_code,
-                display_name=source.display_name,
-                status=SourceRunStatus.COMPLETED.value,
-                started_at=run_started_at,
-                finished_at=datetime.now(UTC),
-                fetched_count=collection.fetched,
-                persisted_count=collection.persisted,
-                failed_count=collection.failed,
+        history_note: str | None = None
+        try:
+            repository.record_source_update_run(
+                SourceUpdateRunRecord(
+                    source_provider=source.provider_code,
+                    display_name=source.display_name,
+                    status=SourceRunStatus.COMPLETED.value,
+                    started_at=run_started_at,
+                    finished_at=_finished_clock(run_started_at),
+                    fetched_count=collection.fetched,
+                    persisted_count=collection.persisted,
+                    failed_count=collection.failed,
+                )
             )
-        )
+        except sqlite3.Error as exc:  # noqa: BLE001 - history is best-effort
+            history_note = (
+                "postings persisted but update-run history write failed: "
+                f"{_safe_exception_message(exc)}"
+            )
         source_results.append(
             SourceUpdateResult(
                 provider_code=source.provider_code,
                 display_name=source.display_name,
                 status=SourceRunStatus.COMPLETED,
                 collection=collection,
+                message=history_note,
             )
         )
 
     posting_count = int(
         connection.execute("SELECT COUNT(*) FROM job_postings").fetchone()[0]
     )
-    effective_limit = analysis_limit or max(posting_count, 1)
+    effective_limit = (
+        max(posting_count, 1) if analysis_limit is None else analysis_limit
+    )
     analyzer_results: list[AnalyzerUpdateResult] = []
     for analyzer in selected_analyzers:
         try:
             execution = analyzer.runner(connection, effective_limit)
-        except sqlite3.Error:
+        except sqlite3.Error as exc:
+            if connection.in_transaction:
+                raise RuntimeError(
+                    f"analyzer {analyzer.kind!r} left an active transaction"
+                ) from exc
             raise
         except Exception as exc:  # noqa: BLE001 - visible analyzer failure boundary
             if connection.in_transaction:
@@ -314,6 +355,13 @@ async def run_guided_update(
         analyzers=tuple(analyzer_results),
         dataset=dataset,
     )
+
+
+def _finished_clock(started_at: datetime) -> datetime:
+    """Return a monotonic-safe UTC finish timestamp for one attempt."""
+
+    now = datetime.now(UTC)
+    return now if now >= started_at else started_at
 
 
 def _safe_exception_message(
