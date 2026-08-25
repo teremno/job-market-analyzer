@@ -177,7 +177,7 @@ def analytics_dataset(analytics_connection: sqlite3.Connection) -> DatasetIds:
         created_at=BASE_TIME + timedelta(days=8),
     )
     assert ROLE_TAXONOMY_VERSION == "3"
-    assert SKILL_TAXONOMY_VERSION == "5"
+    assert SKILL_TAXONOMY_VERSION == "6"
     return DatasetIds(p1, p2, p3, p4, stale, old_version)
 
 

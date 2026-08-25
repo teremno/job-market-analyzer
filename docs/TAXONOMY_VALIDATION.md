@@ -1,8 +1,21 @@
 # Skill Taxonomy Validation — ESCO/O*NET Cross-Reference
 
-Date: 2026-08-23 (skills), extended 2026-08-25 (roles v3)
-Taxonomy version: 5 (122 skills); roles v3 (21 codes)
+Date: 2026-08-23 (skills v5), extended 2026-08-25 (roles v3, skills v6)
+Taxonomy version: 6 (125 skills); roles v3 (21 codes)
 Roles validated: 13 of 19 core families + 2 new v3 codes
+
+## Skill Taxonomy v6 closes the last ESCO/O*NET gaps (2026-08-25)
+
+| Missing skill (v5 report) | v6 resolution | Live postings with new evidence |
+|---|---|---|
+| nlp | `nlp` ("Natural language processing"; acronym case-sensitive "NLP") | 92 |
+| nginx | `nginx` ("Nginx") | 23 |
+| email_marketing | `email_marketing` ("Email marketing", "Email campaigns") | 18 |
+
+Expected-skill coverage across the 13 validated role anchors: **79/79 = 100%**.
+Posting-level skill coverage on the live dataset is intentionally unchanged
+(84.6% v5 -> v6): the three additions enrich evidence on postings that already
+had other skills rather than flipping zero-skill ones.
 
 ## Role Taxonomy v3 — ESCO/O*NET anchors (2026-08-25)
 
@@ -51,11 +64,11 @@ was checked against our taxonomy's 122 canonical codes.
 
 Overall: 76/79 expected skills covered = 96.2%.
 
-## Missing skills (all scheduled for v6)
+## Missing skills — all resolved in v6
 
-1. email_marketing — identified by mining, deferred from v3
-2. nginx — tool, covered by linux + devops_platform role
-3. nlp — covered by machine_learning + llm + prompt_engineering
+1. email_marketing — added as canonical `email_marketing` (v6)
+2. nginx — added as canonical `nginx` (v6)
+3. nlp — added as canonical `nlp` with case-sensitive acronym guard (v6)
 
 ## Skills we have that ESCO/O*NET do not (35)
 

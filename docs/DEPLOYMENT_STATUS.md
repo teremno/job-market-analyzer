@@ -18,7 +18,8 @@
   We Work Remotely, Greenhouse (36 boards), Lever (2 boards),
   Ashby (28 boards, with compensation), The Muse (public API), Adzuna (GB+US)
 - 5 intelligence dimensions: skills, roles, seniority, geography, salary
-- Skill taxonomy: **v5, 122 canonical skills** (96.2% ESCO/O*NET coverage)
+- Skill taxonomy: **v6, 125 canonical skills** (ESCO/O*NET expected-skill
+  coverage 100%; v6 adds nlp/nginx/email_marketing)
 - Role taxonomy: **v3, 21 role codes** (47.7% classification coverage on the
   live dataset, up from 40.5%; gold-set FP/FN gate added per R2)
 - SQLite schema: **v7** (v6 + source_update_runs history; server DB migrates

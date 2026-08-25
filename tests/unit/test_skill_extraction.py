@@ -31,8 +31,8 @@ def test_taxonomy_v2_has_unique_stable_contracts() -> None:
         for alias in skill.aliases
     ]
 
-    assert SKILL_TAXONOMY_VERSION == "5"
-    assert len(SKILL_TAXONOMY) == 122
+    assert SKILL_TAXONOMY_VERSION == "6"
+    assert len(SKILL_TAXONOMY) == 125
     assert skill_codes_in_taxonomy == sorted(skill_codes_in_taxonomy)
     assert len(skill_codes_in_taxonomy) == len(set(skill_codes_in_taxonomy))
     assert len(rule_ids) == len(set(rule_ids))
@@ -615,3 +615,31 @@ def test_ml_alias_is_case_sensitive() -> None:
     assert "machine_learning" not in skill_codes(
         "", "Apply at https://careers.company.ml/apply"
     )
+
+
+@pytest.mark.parametrize(
+    ("text", "expected_code"),
+    [
+        ("Own our email marketing program end to end.", "email_marketing"),
+        ("Design email campaigns for lifecycle nurture.", "email_marketing"),
+        ("Deploy and tune Nginx behind our edge.", "nginx"),
+        ("Hands-on Natural language processing experience.", "nlp"),
+        ("Prior NLP research or applied work.", "nlp"),
+    ],
+)
+def test_v6_new_aliases_extract_canonical_skills(
+    text: str,
+    expected_code: str,
+) -> None:
+    assert expected_code in skill_codes("", text)
+
+
+def test_v6_false_positive_guards() -> None:
+    # Lowercase acronym is deliberately not accepted (precision-first).
+    assert "nlp" not in skill_codes("", "We call it nlp internally, casually.")
+    # Word boundaries: no matches inside larger tokens.
+    assert skill_codes("", "Their NLPipeline tooling is internal.") == ()
+    assert skill_codes("", "Configure the nginxing proxy pool.") == ()
+    # Bare "email"/"campaigns" without the marketing phrase stay silent.
+    assert skill_codes("", "Check your email for next steps.") == ()
+    assert skill_codes("", "Launch campaigns across paid channels.") == ()

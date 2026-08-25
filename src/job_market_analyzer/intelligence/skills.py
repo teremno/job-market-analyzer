@@ -10,7 +10,7 @@ from job_market_analyzer.intelligence.models import (
     SkillEvidence,
 )
 
-SKILL_TAXONOMY_VERSION = "5"
+SKILL_TAXONOMY_VERSION = "6"
 
 
 class ContextRule(StrEnum):
@@ -330,6 +330,14 @@ SKILL_TAXONOMY: tuple[SkillDefinition, ...] = (
         ),
     ),
     SkillDefinition(
+        "email_marketing",
+        "Email Marketing",
+        (
+            _exact("email_marketing.named", "Email marketing"),
+            _exact("email_marketing.campaigns", "Email campaigns"),
+        ),
+    ),
+    SkillDefinition(
         "enterprise_sales",
         "Enterprise Sales",
         (_exact("enterprise_sales.named", "Enterprise sales"),),
@@ -629,6 +637,19 @@ SKILL_TAXONOMY: tuple[SkillDefinition, ...] = (
         (
             _exact("nextjs.next_dot_js", "Next.js"),
             _exact("nextjs.nextjs", "NextJS"),
+        ),
+    ),
+    SkillDefinition(
+        "nginx",
+        "Nginx",
+        (_exact("nginx.nginx", "Nginx"),),
+    ),
+    SkillDefinition(
+        "nlp",
+        "NLP",
+        (
+            _exact("nlp.full_name", "Natural language processing"),
+            _exact("nlp.acronym", "NLP", case_sensitive=True),
         ),
     ),
     SkillDefinition(

@@ -1203,3 +1203,37 @@ ambiguous alias, a pinned-version meta-test, and a coverage assertion that
 every role code keeps at least one positive case (closes audit recommendation
 R2 for roles). ESCO/O*NET cross-reference extended in
 docs/TAXONOMY_VALIDATION.md.
+
+---
+
+## ADR-031: Skill Taxonomy v6 closes the last ESCO/O*NET gaps
+
+Date: 2026-08-25
+
+Status: Accepted.
+
+### Decision
+
+Add three canonical skills flagged as missing by the v5 ESCO/O*NET
+cross-reference: `nlp` (full phrase plus a case-sensitive "NLP" acronym alias,
+so lowercase prose like "we call it nlp" stays silent), `nginx`, and
+`email_marketing` ("Email marketing", "Email campaigns"; bare "email" and
+"campaigns" remain silent). The taxonomy advances to version `6`
+(125 skills); historical runs are preserved and exact-current resolution
+selects v6 automatically. Word-boundary compile semantics are reused; no new
+context-rule machinery was required.
+
+### Reason
+
+The v5 validation report scheduled exactly these three additions. Closing
+them brings expected-skill coverage across the 13 validated role anchors to
+79/79 (100%), deepening evidence quality rather than chasing coverage
+percentage.
+
+### Consequences
+
+Live-dataset posting-level skill coverage is unchanged at 84.6% by design:
+133 postings gained at least one new canonical evidence record
+(nlp 92, nginx 23, email_marketing 18), improving role-skill analytics
+granularity. v6 gold cases with positive and false-positive guards are pinned
+in tests/unit/test_skill_extraction.py alongside the existing guard suites.
