@@ -118,8 +118,9 @@ docs/ARCHITECTURE.md
 
 ### 9. Current phase
 
-The project is currently in the architecture and MVP development phase.
-
-Do not implement the entire system at once.
-
-The first objective is to successfully collect and normalize jobs from a small number of reliable sources.
+The project is past MVP: a hosted read-only alpha is live
+(https://jobpulse.support, 11 sources, scheduled daily updates, schema v7).
+Development remains incremental — one clearly defined sprint at a time.
+Current focus: security hardening of the public surface, data-quality depth,
+and honest presentation before accounts/AI layers (see docs/ROADMAP.md and
+docs/DEPLOYMENT_STATUS.md for the live roadmap).
