@@ -64,6 +64,7 @@ def staged_database_update(database_path: Path) -> Iterator[StagedDatabaseUpdate
             previous_path = previous_database_path(target_path)
             temporary_backup = _temporary_path(target_path, "previous")
             _snapshot_database(target_path, temporary_backup)
+            _consolidate_database(temporary_backup)
             validate_database_file(temporary_backup, require_current_schema=False)
             os.replace(temporary_backup, previous_path)
             _sync_directory(parent)

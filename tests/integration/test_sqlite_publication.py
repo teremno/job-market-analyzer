@@ -78,6 +78,7 @@ def test_staged_update_publishes_valid_database_and_keeps_previous_snapshot(
     rollback_path = previous_database_path(database_path)
     assert _providers(rollback_path) == ["before"]
     with closing(connect_read_only_database(rollback_path)) as connection:
+        assert connection.execute("PRAGMA journal_mode").fetchone()[0] == "delete"
         assert connection.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
         assert connection.execute("PRAGMA foreign_key_check").fetchall() == []
 

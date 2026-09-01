@@ -180,6 +180,7 @@ root, migrate without deleting the original file:
 docker compose -f docker-compose.yml -f docker-compose.prod.yml down
 mkdir -p runtime
 cp job-market.sqlite3 runtime/jobs.sqlite3
+python3 -c "import sqlite3; c=sqlite3.connect('runtime/jobs.sqlite3'); c.execute('PRAGMA wal_checkpoint(TRUNCATE)'); assert c.execute('PRAGMA journal_mode=DELETE').fetchone()[0] == 'delete'; assert c.execute('PRAGMA integrity_check').fetchone()[0] == 'ok'; assert not c.execute('PRAGMA foreign_key_check').fetchall(); c.close()"
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 ```
 
