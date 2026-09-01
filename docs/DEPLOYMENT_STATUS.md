@@ -1,12 +1,12 @@
 # JobPulse — Deployment Status & Memory
-# Last updated: 2026-08-24, end of 2-day intensive sprint
+# Last updated: 2026-09-01, API and SQLite publication hardening deployed
 # For any agent or human continuing: this is the COMPLETE state.
 
 ## PROJECT IDENTITY
 
 - Product name: **JobPulse** (working brand; repo name stays job-market-analyzer)
 - Domain: **https://jobpulse.support** (LIVE, HTTPS via Caddy auto-TLS)
-- API: **https://api.jobpulse.support** (schema v6)
+- API: **https://api.jobpulse.support** (schema v7)
 - License: **MIT** (LICENSE file at root)
 - Grant target: **Sentient Foundation Open Source AGI Grant** (rolling, no deadline)
   - See docs/GRANTS_NOTES.md for full research + readiness plan
@@ -24,17 +24,20 @@
   live dataset, up from 40.5%; gold-set FP/FN gate added per R2)
 - SQLite schema: **v7** (v6 + source_update_runs history; server DB migrates
   on first updater run)
-- Tests: **909 passed**, ruff clean, frontend gates clean, CI green (tri-OS)
+- Tests: **927 passed, 1 Windows-only skip**, Ruff clean, frontend gates clean,
+  CI green (Python tri-OS plus Linux Compose validation)
 
 ## SERVER
 
 - VPS: Hetzner CX23, 2 vCPU / 4 GB RAM / 40 GB, Ubuntu 24.04, Nuremberg
 - IP: **162.55.178.137** (SSH as root, key auth)
 - Docker Compose stack: api + web + caddy (auto-TLS)
-- Database: /root/job-market-analyzer/job-market.sqlite3 (read-only mount)
-- Pending local hardening (not deployed yet): the next release changes this to
-  `/root/job-market-analyzer/runtime/jobs.sqlite3` with a read-only directory mount,
-  validated staging updates, atomic publication, and one rolling rollback snapshot.
+- Database: `/root/job-market-analyzer/runtime/jobs.sqlite3` (runtime directory
+  mounted read-only into API)
+- Updates: isolated staging database, integrity/FK/schema validation, atomic
+  publication, and one rolling `runtime/jobs.previous.sqlite3` rollback snapshot
+- Legacy pre-migration copy retained at
+  `/root/job-market-analyzer/job-market.sqlite3` pending later cleanup approval
 - DNS: A records @ and api → 162.55.178.137 (Spaceship registrar)
 
 ## ENVIRONMENT VARIABLES (user-level on Windows, set via setx)
