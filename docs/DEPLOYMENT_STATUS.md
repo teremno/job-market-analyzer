@@ -1,5 +1,5 @@
 # JobPulse — Deployment Status & Memory
-# Last updated: 2026-09-01, API and SQLite publication hardening deployed
+# Last updated: 2026-09-01, API hardening and local backup timer deployed
 # For any agent or human continuing: this is the COMPLETE state.
 
 ## PROJECT IDENTITY
@@ -11,9 +11,9 @@
 - Grant target: **Sentient Foundation Open Source AGI Grant** (rolling, no deadline)
   - See docs/GRANTS_NOTES.md for full research + readiness plan
 
-## CURRENT DATASET (as of 2026-08-24)
+## CURRENT DATASET (as of 2026-09-01)
 
-- **10,451 source postings** across **11 platforms**
+- **13,393 source postings** across **11 platforms**
 - Platforms: Remote OK, Web3.career, Himalayas, Jobicy, Remotive,
   We Work Remotely, Greenhouse (36 boards), Lever (2 boards),
   Ashby (28 boards, with compensation), The Muse (public API), Adzuna (GB+US)
@@ -24,7 +24,7 @@
   live dataset, up from 40.5%; gold-set FP/FN gate added per R2)
 - SQLite schema: **v7** (v6 + source_update_runs history; server DB migrates
   on first updater run)
-- Tests: **927 passed, 1 Windows-only skip**, Ruff clean, frontend gates clean,
+- Tests: **935 passed, 1 Windows-only skip**, Ruff clean, frontend gates clean,
   CI green (Python tri-OS plus Linux Compose validation)
 
 ## SERVER
@@ -36,9 +36,9 @@
   mounted read-only into API)
 - Updates: isolated staging database, integrity/FK/schema validation, atomic
   publication, and one rolling `runtime/jobs.previous.sqlite3` rollback snapshot
-- Backups: validated timestamped local snapshots with seven-copy retention are
-  implemented; production timer activation and off-host replication are tracked
-  separately
+- Backups: validated timestamped local snapshots with seven-copy retention run
+  daily after the update window; the production timer and first systemd smoke are
+  successful, while off-host replication and restore drills remain separate work
 - Legacy pre-migration copy retained at
   `/root/job-market-analyzer/job-market.sqlite3` pending later cleanup approval
 - DNS: A records @ and api → 162.55.178.137 (Spaceship registrar)
@@ -141,15 +141,22 @@ canonical dedup v1 scoping.
 
 ## NEXT STEPS (in priority order)
 
-1. **Activate R3 on the server**: DONE 2026-08-25 — timer live, daily
+1. **Validated local backup retention**: DONE 2026-09-01 — timer live, daily
+   after the update window; first manual and systemd runs validated schema v7,
+   integrity, foreign keys, and a self-contained journal mode
+2. **Off-host disaster recovery**: choose an encrypted destination, replicate
+   retained snapshots, alert on failures, and complete a documented restore drill
+3. **Telegram operations alerts**: create the dedicated bot and add failure/health
+   notifications without exposing its token
+4. **Activate R3 on the server**: DONE 2026-08-25 — timer live, daily
    04:03 UTC; first run 11/11 sources, 0 failures
-2. **ESCO validation expansion**: roles v3 DONE 2026-08-25 (+gold-set gate
+5. **ESCO validation expansion**: roles v3 DONE 2026-08-25 (+gold-set gate
    closes R2 for roles); remaining: deeper skills-vs-ESCO per family
-3. **Adzuna live smoke**: DONE via first timer run (200 fetched)
-5. **The Muse API key** (optional, register at themuse.com/developers/api/v2/apps)
-6. **Grant application** to Sentient Foundation (see docs/GRANTS_NOTES.md)
-7. **Multilingual AI layer** (top-25 world languages, Groq/OpenRouter)
-8. **User profiles** (localStorage first, accounts later per ADR-019)
+6. **Adzuna live smoke**: DONE via first timer run (200 fetched)
+7. **The Muse API key** (optional, register at themuse.com/developers/api/v2/apps)
+8. **Grant application** to Sentient Foundation (see docs/GRANTS_NOTES.md)
+9. **Multilingual AI layer** (top-25 world languages, Groq/OpenRouter)
+10. **User profiles** (localStorage first, accounts later per ADR-019)
 
 ## KEY FILES FOR NEW AGENTS
 
