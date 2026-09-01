@@ -86,6 +86,7 @@ from job_market_analyzer.services.role_smoke import (
     run_role_smoke,
 )
 from job_market_analyzer.storage.sqlite import connect_database, initialize_database
+from job_market_analyzer.storage.sqlite_publication import staged_database_update
 from job_market_analyzer.storage.sqlite_intelligence_repository import (
     SQLiteRoleIntelligenceRepository,
     SQLiteSkillIntelligenceRepository,
@@ -184,18 +185,19 @@ def update_database(
         for value in _environment_secret_values(env_name)
     )
     try:
-        with closing(connect_database(database_path)) as connection:
-            initialize_database(connection)
-            summary = asyncio.run(
-                run_guided_update(
-                    connection,
-                    sources=sources,
-                    analyzers=analyzers,
-                    analysis_language=analysis_language,
-                    analysis_limit=analysis_limit,
-                    environment=os.environ,
+        with staged_database_update(database_path) as staged_update:
+            with closing(connect_database(staged_update.staging_path)) as connection:
+                initialize_database(connection)
+                summary = asyncio.run(
+                    run_guided_update(
+                        connection,
+                        sources=sources,
+                        analyzers=analyzers,
+                        analysis_language=analysis_language,
+                        analysis_limit=analysis_limit,
+                        environment=os.environ,
+                    )
                 )
-            )
     except Exception as exc:  # noqa: BLE001 - CLI boundary converts failures to exit 1
         print(
             f"Update failed: {type(exc).__name__}: "
@@ -204,7 +206,9 @@ def update_database(
         )
         return 1
 
-    _print_update_summary(summary, database_path=database_path)
+    _print_update_summary(summary, database_path=staged_update.target_path)
+    if staged_update.previous_path is not None:
+        print(f"Rollback snapshot: {staged_update.previous_path}")
     return int(summary.has_failures)
 
 

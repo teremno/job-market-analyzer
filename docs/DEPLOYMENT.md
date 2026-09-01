@@ -27,7 +27,8 @@ beyond loopback.
 ```bash
 pip install -e .
 export WEB3_CAREER_API_TOKEN=...   # optional; missing token skips one source
-job-market-analyzer update --database ./job-market.sqlite3
+mkdir -p runtime
+job-market-analyzer update --database ./runtime/jobs.sqlite3
 ```
 
 ## Buying your first server (beginner walkthrough)
@@ -82,27 +83,29 @@ mutate your dataset.
 
 ## Refresh the data
 
-Stop the stack, run a guided update natively (or inside a temporary
-container), then start it again:
+Run the isolated updater while the stack remains online:
 
 ```bash
-docker compose down
-job-market-analyzer update --database ./job-market.sqlite3
-docker compose up -d
+docker compose -f docker-compose.yml -f docker-compose.worker.yml run --rm updater
 ```
+
+The updater writes a staging database, validates it, and atomically publishes it.
+The API directory is mounted read-only and new requests see the replacement without
+a container restart.
 
 ## Configuration
 
 | Variable | Where | Purpose |
 |---|---|---|
 | `JMA_SERVE_ALLOW_ANY_HOST=1` | api container | Explicit opt-in that lets `serve --host 0.0.0.0` bind a non-loopback interface inside the container. The CLI default remains loopback-only for local users. Never set this on a machine where port 8000 is directly internet-facing. |
+| `JMA_RATE_LIMIT_PER_MINUTE` | api container | Per-client-IP API limit. Defaults to `120`; `0` explicitly disables it for local operation. Invalid or negative values stop API startup instead of silently removing the protection. |
 | `NEXT_PUBLIC_API_BASE_URL` | web container | Base URL the dashboard's server components use to call the API. Defaults to `http://api:8000` in Compose. |
 | `WEB3_CAREER_API_TOKEN` | update runs | Required only by the Web3.career source; never commit or log it. |
 
 Host port bindings default to `127.0.0.1` so nothing is exposed to the network
 by accident. To serve on a LAN/internet interface, change the binding in
 `docker-compose.yml` and put a reverse proxy (Caddy/nginx) with TLS in front —
-plus complete the security checklist (rate limiting, CORS origins, monitoring)
+plus complete the remaining security checklist (CORS origins and monitoring)
 from PROJECT_HANDOFF §51 before going public.
 
 ## CI
@@ -110,6 +113,7 @@ from PROJECT_HANDOFF §51 before going public.
 `.github/workflows/ci.yml` runs two jobs on push/PR:
 
 1. **python** — Python 3.13, `pip install -e ".[dev]"`, `ruff check .`,
+   worker/production Compose configuration validation on Ubuntu, and
    `python -m pytest -q`.
 2. **web** — Node 22, `npm ci`, then lint, typecheck, unit tests, and build.
 
@@ -120,7 +124,7 @@ docker build -t jma-api .
 docker run -d --name jma-api \
   -e JMA_SERVE_ALLOW_ANY_HOST=1 \
   -p 127.0.0.1:8000:8000 \
-  -v "$PWD/job-market.sqlite3:/data/jobs.sqlite3:ro" \
+  -v "$PWD/runtime:/data:ro" \
   jma-api
 
 docker build -t jma-web ./web
@@ -157,8 +161,8 @@ Do not buy managed databases or Kubernetes for this stage.
    (`ping api.your-domain.com` returns your IP).
 2. **Server** — install Docker:
    `curl -fsSL https://get.docker.com | sh`
-3. **Get the code + data** — clone this repository, then copy your populated
-   `job-market.sqlite3` to the repo root on the server (scp/rsync).
+3. **Get the code + data** — clone this repository, create `runtime/`, then copy your
+   populated database to `runtime/jobs.sqlite3` on the server (scp/rsync).
 4. **Configure** — copy `.env.production.example` to `.env`, set your two
    domains. Edit `deploy/Caddyfile` placeholders if you prefer hardcoding.
 5. **Start** —
@@ -169,12 +173,22 @@ Do not buy managed databases or Kubernetes for this stage.
 6. **Verify** — open `https://your-domain.com`; check
    `https://api.your-domain.com/api/health`.
 
+For an existing installation that still has `job-market.sqlite3` in the repository
+root, migrate without deleting the original file:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.prod.yml down
+mkdir -p runtime
+cp job-market.sqlite3 runtime/jobs.sqlite3
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+```
+
+Verify the site and API health before considering removal of the old root-level copy.
+
 ### Updating the dataset on the server
 
 ```bash
-docker compose down            # or: docker compose stop api web
-job-market-analyzer update --database ./job-market.sqlite3
-docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+docker compose -f docker-compose.yml -f docker-compose.worker.yml run --rm updater
 ```
 
 The database is mounted read-only into the API container; visitors can never
@@ -182,8 +196,9 @@ mutate it.
 
 ### Automated updates on the server (systemd timer)
 
-The `updater` service runs one guided `update` against the same database file
-the API serves. Credentials are read from `.env` next to the compose files;
+The `updater` service runs one guided `update` against an isolated staging copy and
+publishes it into the directory the API reads. Credentials are read from `.env` next
+to the compose files;
 a missing optional credential skips exactly its own source and never fails
 the run. Every attempt is recorded per source in `source_update_runs`
 (schema v7), and the Sources page shows the last successful update time.
@@ -217,15 +232,27 @@ Notes:
 
 - Run one update (timer or manual) right after `git pull` of a schema bump;
   `/api/sources` requires the newest schema.
-- During an update the API may briefly serve the previous WAL checkpoint;
-  clean worker shutdown makes everything visible without restarts.
-- **Known limitation (alpha):** the database is bind-mounted as a single
-  file, so the worker's WAL lives inside its ephemeral container filesystem.
-  A hard crash mid-run (OOM, `docker kill`, host power loss) can lose that
-  run's committed transactions; a clean shutdown always checkpoints them.
-  Sharing a directory mount would fix this but currently trades away
-  read-only serving guarantees; revisit at the PostgreSQL/deployment-foundation
-  phase.
+- The API mounts `./runtime` read-only; only the updater has a read-write mount.
+- Collection and analysis happen only in a sibling staging file. A crash or systemic
+  error before publication leaves `runtime/jobs.sqlite3` unchanged.
+- Publication requires SQLite integrity, foreign-key, schema-version, and structural
+  validation, then uses an atomic rename on the same filesystem.
+- `runtime/jobs.previous.sqlite3` is the validated snapshot from immediately before
+  the last attempted update. Only one rolling local rollback snapshot is retained.
+
+### Roll back the last published database
+
+First confirm that no updater is running. Copy the validated snapshot to a temporary
+sibling and rename it over the live file; the final rename is atomic:
+
+```bash
+cp runtime/jobs.previous.sqlite3 runtime/jobs.restore.sqlite3
+mv -f runtime/jobs.restore.sqlite3 runtime/jobs.sqlite3
+```
+
+New API requests see the restored file without restarting containers. This rolling
+snapshot is not an off-host backup: retention, encrypted off-host copies, monitoring,
+and a scheduled restore drill remain separate operational work.
 
 ### Security posture of this alpha
 
@@ -234,6 +261,8 @@ Notes:
 - The whole product surface is GET-only against a read-only SQLite file.
 - CORS allow-list defaults to localhost and must be widened explicitly per
   domain via `JMA_CORS_ORIGINS` (wildcards are ignored).
-- Still required before treating it as hardened: basic rate limiting,
-  log monitoring, backup automation for the SQLite file, and dependency
-  scanning (PROJECT_HANDOFF EUR 51).
+- A bounded in-process per-client-IP rate limit protects all routes except
+  `/api/health`; configure it with `JMA_RATE_LIMIT_PER_MINUTE`.
+- Still required before treating the alpha as hardened: log monitoring,
+  automated off-host backup retention and restore drills, and dependency scanning
+  (PROJECT_HANDOFF EUR 51).

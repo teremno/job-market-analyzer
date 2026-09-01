@@ -97,6 +97,15 @@ through the existing repository after collection, so it never analyzes stale
 collector objects. Analyzer failures are visible and independent unless SQLite or an
 open transaction indicates a systemic consistency failure.
 
+The CLI never mutates the SQLite file currently served by the API. `update` takes an
+online SQLite backup into a sibling rollback snapshot, updates a separate staging
+copy, consolidates its WAL, and validates integrity, foreign keys, current schema
+version, and schema structure. Only then does a same-filesystem `os.replace()` publish
+the staging file. A per-database lock rejects overlapping updater processes. The API
+mounts the containing directory read-only and opens one connection per request, so a
+new request resolves the newly published file while an in-flight request may finish
+against the previous inode.
+
 The registry is an explicit composition root, not a plugin framework. Adding a
 source changes its adapter module plus the registry entry; adding a language changes
 the relevant language-specific analyzer registrations. The CLI only selects and
@@ -175,7 +184,7 @@ immutable DTOs into explicit Pydantic response models. They contain no SQL, curr
 run selection, historical filtering, or distinct-count logic.
 
 The `serve` CLI requires an existing current-schema database, accepts only loopback
-bind hosts, and defaults to `127.0.0.1:8000`. Startup opens SQLite with `mode=ro`, validates schema v6 without
+bind hosts, and defaults to `127.0.0.1:8000`. Startup opens SQLite with `mode=ro`, validates schema v7 without
 migration, and stores only the validated path as application configuration. Every
 request creates its own read-only, `query_only` connection and closes it after the
 response; no SQLite connection is shared across request threads.
@@ -183,8 +192,11 @@ response; no SQLite connection is shared across request threads.
 The API exposes only GET endpoints under `/api`. Posting responses exclude full
 descriptions and RawJob payloads. Errors have stable codes, generic public messages,
 and request IDs without SQL or filesystem paths. Local Dashboard origins on ports
-3000 are explicitly allowlisted; authentication and hosted exposure remain postponed.
-The HTTP contract is documented in `docs/API_CONTRACT.md`.
+3000 are explicitly allowlisted. For the current single-instance hosted alpha, an
+in-process per-client-IP token bucket limits every route except `/api/health` and
+returns a stable, non-cacheable `429` response. Shared rate-limit state and
+authentication remain postponed. The HTTP contract is documented in
+`docs/API_CONTRACT.md`.
 
 ## Local Dashboard Boundary
 

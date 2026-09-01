@@ -14,5 +14,7 @@ build/
 *.sqlite3
 *-wal
 *-shm
+*.update.lock
+runtime/
 *.log
 .opencode/

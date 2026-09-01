@@ -8,7 +8,8 @@ services:
     ports:
       - "127.0.0.1:8000:8000"
     volumes:
-      - ./job-market.sqlite3:/data/jobs.sqlite3:ro
+      # Mount the directory so atomic file replacement is visible to new API requests.
+      - ./runtime:/data:ro
     restart: unless-stopped
 
   web:

@@ -6,9 +6,10 @@
 job-market-analyzer update --database .\job-market.sqlite3
 ```
 
-This is a one-shot local workflow. It initializes or reuses the selected SQLite
-database, executes enabled source adapters, runs current analyzers on durable current
-postings, prints one concise report, and exits. It does not schedule another run.
+This is a one-shot local workflow. It snapshots an existing SQLite database, updates
+an isolated sibling staging database, validates it, atomically publishes it, prints
+one concise report, and exits. It does not schedule another run. The previous valid
+database remains beside the target as `<name>.previous<suffix>` for one-step rollback.
 
 Optional controls:
 
@@ -25,10 +26,14 @@ current postings.
 
 1. Validate that every active analyzer kind has the requested input-language
    implementation.
-2. Initialize or validate SQLite.
-3. Run sources sequentially in registry order and persist each collected batch.
-4. Run skills and then roles for the requested language over current durable rows.
-5. Read current posting-level dashboard totals and print the matching `serve` command.
+2. Acquire a per-database update lock and create a consistent SQLite backup snapshot.
+3. Initialize or migrate only the isolated staging database.
+4. Run sources sequentially in registry order and persist each collected batch.
+5. Run the registered analyzers for the requested language over current durable rows.
+6. Checkpoint staging WAL, switch it to a self-contained rollback journal, and verify
+   `integrity_check`, `foreign_key_check`, current schema version, and schema structure.
+7. Atomically replace the published file on the same filesystem and print the matching
+   `serve` command. An exception before replacement leaves the published file unchanged.
 
 Missing `WEB3_CAREER_API_TOKEN` skips only Web3.career and prints the environment
 variable name, never its value. A collector/network failure is recorded and remaining
@@ -38,6 +43,13 @@ failure aborts. Analysis still runs after isolated source failures on data that 
 successfully persisted. An isolated analyzer failure is reported and other analyzers
 continue; database/transaction failures abort. Any source item, source, or analyzer
 failure makes the process exit non-zero.
+
+Source-level or analyzer-level failures still publish their internally consistent
+partial progress and return exit code 1, preserving the existing update contract.
+Systemic collection orchestration, SQLite, migration, validation, or publication
+failures do not publish staging data. A second concurrent update fails closed while
+the update lock exists; after a confirmed process crash, an operator may remove the
+stale `.<database-name>.update.lock` before retrying.
 
 ## Idempotency and language
 

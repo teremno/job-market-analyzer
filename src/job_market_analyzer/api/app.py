@@ -32,6 +32,10 @@ from job_market_analyzer.api.models import (
     SkillGapResponse,
     SourceSummaryResponse,
 )
+from job_market_analyzer.api.rate_limit import (
+    RateLimitMiddleware,
+    configured_rate_limit,
+)
 from job_market_analyzer.services.skill_gap import compute_skill_gap
 from job_market_analyzer.storage.sqlite import CURRENT_SCHEMA_VERSION
 
@@ -122,6 +126,15 @@ def create_app(database_path: Path) -> FastAPI:
         description="Read-only posting-level API for Dashboard v0.",
     )
     app.state.database_path = resolved_path
+
+    # Registered first so every other middleware (request id, CORS) wraps it
+    # and 429 responses still carry the x-request-id header.
+    rate_limit_per_minute = configured_rate_limit()
+    if rate_limit_per_minute is not None:
+        app.add_middleware(
+            RateLimitMiddleware,
+            requests_per_minute=rate_limit_per_minute,
+        )
 
     app.add_middleware(
         CORSMiddleware,

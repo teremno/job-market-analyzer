@@ -78,6 +78,11 @@ English analyzers (skills, roles, seniority, geography, salary) with one command
 job-market-analyzer update --database .\job-market.sqlite3
 ```
 
+`update` works on an isolated staging copy. It publishes only after SQLite integrity,
+foreign-key, and current-schema validation, and keeps the prior valid file as
+`job-market.previous.sqlite3`. The served database is unchanged if a systemic update
+or validation error occurs.
+
 The database path is required and may be new or existing. Sources run once in the
 explicit registry order: Remote OK, Web3.career, Himalayas, Jobicy, Remotive, We
 Work Remotely, Greenhouse, Lever, Ashby, The Muse, and Adzuna. The three ATS sources collect curated

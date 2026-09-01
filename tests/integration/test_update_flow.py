@@ -22,6 +22,7 @@ from job_market_analyzer.storage.sqlite import (
     connect_database,
     initialize_database,
 )
+from job_market_analyzer.storage.sqlite_publication import previous_database_path
 
 FETCHED_AT = datetime(2026, 8, 22, 12, 0, tzinfo=UTC)
 FAKE_TOKEN = "fake-update-token-do-not-log"
@@ -97,7 +98,7 @@ def normalize_test_job(raw_job: RawJob) -> NormalizedJobPosting:
 
 
 def database_counts(database_path: Path) -> tuple[int, int, int, int, int]:
-    with connect_database(database_path) as connection:
+    with closing(connect_database(database_path)) as connection:
         base_counts = tuple(
             int(connection.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0])
             for table in ("canonical_jobs", "job_postings", "raw_jobs")
@@ -149,6 +150,7 @@ def test_update_runs_sources_in_registry_order_skips_missing_token_and_is_idempo
     second_exit = cli.main(["update", "--database", str(database_path)])
     second_output = capsys.readouterr()
     second_counts = database_counts(database_path)
+    rollback_counts = database_counts(previous_database_path(database_path))
 
     expected_order = [provider for provider in providers if provider != "web3_career"]
     assert first_exit == second_exit == 0
@@ -159,6 +161,7 @@ def test_update_runs_sources_in_registry_order_skips_missing_token_and_is_idempo
     assert "0 changed" in second_output.out
     assert "5 reused" in second_output.out
     assert first_counts == second_counts == (5, 5, 5, 5, 5)
+    assert rollback_counts == first_counts
     assert first_output.err == second_output.err == ""
 
 
@@ -284,7 +287,8 @@ def test_update_aborts_on_malformed_database_before_collection(
 
     assert exit_code == 1
     assert collector.calls == 0
-    assert "Update failed: DatabaseError:" in captured.err
+    assert "Update failed: DatabasePublicationError:" in captured.err
+    assert database_path.read_bytes() == b"not a sqlite database"
 
 
 def test_persistence_failure_records_history_and_continues_to_next_source(
@@ -312,7 +316,7 @@ def test_persistence_failure_records_history_and_continues_to_next_source(
     assert first.calls == 1
     assert second.calls == 1
 
-    with connect_database(tmp_path / "jobs.sqlite3") as connection:
+    with closing(connect_database(tmp_path / "jobs.sqlite3")) as connection:
         rows = connection.execute(
             """
             SELECT source_provider, status FROM source_update_runs ORDER BY id
@@ -474,7 +478,7 @@ def test_update_records_source_run_history_for_every_source_attempt(
 
     assert first_exit == 1
 
-    with connect_database(database_path) as connection:
+    with closing(connect_database(database_path)) as connection:
         rows = connection.execute(
             """
             SELECT source_provider, status, message,
@@ -514,7 +518,7 @@ def test_update_records_source_run_history_for_every_source_attempt(
 
     cli.main(["update", "--database", str(database_path)])
 
-    with connect_database(database_path) as connection:
+    with closing(connect_database(database_path)) as connection:
         history_count = int(
             connection.execute(
                 "SELECT COUNT(*) FROM source_update_runs"
@@ -549,7 +553,7 @@ def test_history_timestamps_are_clamped_against_backwards_clock(
     exit_code = cli.main(["update", "--database", str(database_path)])
     assert exit_code == 0
 
-    with connect_database(database_path) as connection:
+    with closing(connect_database(database_path)) as connection:
         row = connection.execute(
             """
             SELECT started_at, finished_at FROM source_update_runs

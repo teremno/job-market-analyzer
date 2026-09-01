@@ -1,8 +1,9 @@
 # Update worker overlay:
 #   docker compose -f docker-compose.yml -f docker-compose.worker.yml run --rm updater
 #
-# Runs one guided update (collection + all analyzers) against the same SQLite
-# file the API serves. Credentials come from the shell environment or the
+# Runs one guided update against an isolated staging snapshot, then atomically
+# publishes it into the database directory shared with the API. Credentials come
+# from the shell environment or the
 # .env file next to this compose file; a missing optional credential skips
 # exactly its own source and never fails the run.
 
@@ -17,6 +18,6 @@ services:
       ADZUNA_APP_KEY: ${ADZUNA_APP_KEY:-}
       THE_MUSE_API_KEY: ${THE_MUSE_API_KEY:-}
     volumes:
-      # Read-write on purpose: only this service mutates the dataset.
-      - ./job-market.sqlite3:/data/jobs.sqlite3
+      # Read-write on purpose: only this service publishes into the dataset directory.
+      - ./runtime:/data
     restart: "no"

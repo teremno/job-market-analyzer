@@ -187,7 +187,7 @@ This track remains research until its methods are validated. It must not be pres
 
 ## Phase 5 — Product API / Hosted Backend
 
-- ✅ Local read-only FastAPI boundary for Dashboard v0, with existing schema v6,
+- ✅ Read-only FastAPI boundary for the hosted alpha, with existing schema v7,
   explicit database selection, bounded GET routes, and per-request connections.
 - ⬜ PostgreSQL when dataset size or hosted concurrency justifies migration.
 - ⬜ Hosted deployment, authentication, and multi-user API policy when required.

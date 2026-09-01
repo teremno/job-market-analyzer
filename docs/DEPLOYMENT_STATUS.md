@@ -32,6 +32,9 @@
 - IP: **162.55.178.137** (SSH as root, key auth)
 - Docker Compose stack: api + web + caddy (auto-TLS)
 - Database: /root/job-market-analyzer/job-market.sqlite3 (read-only mount)
+- Pending local hardening (not deployed yet): the next release changes this to
+  `/root/job-market-analyzer/runtime/jobs.sqlite3` with a read-only directory mount,
+  validated staging updates, atomic publication, and one rolling rollback snapshot.
 - DNS: A records @ and api → 162.55.178.137 (Spaceship registrar)
 
 ## ENVIRONMENT VARIABLES (user-level on Windows, set via setx)

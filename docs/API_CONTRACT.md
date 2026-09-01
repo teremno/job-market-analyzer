@@ -135,6 +135,7 @@ Errors use one stable shape:
 
 Every response also carries `x-request-id`. Expected statuses are:
 
+- 429: the per-client request limit was exceeded;
 - 404: unknown role or skill code;
 - 422: invalid path/query input;
 - 500: unexpected internal failure with a generic message;
@@ -153,9 +154,16 @@ Development CORS allows only `http://localhost:3000` and
 `http://127.0.0.1:3000`, only GET, and no credentials. Other origins receive no CORS
 allow header. This supports the local Dashboard v0 without a wildcard policy.
 
+All endpoints except `/api/health` use an in-process token-bucket limit keyed by
+client IP. `JMA_RATE_LIMIT_PER_MINUTE` defaults to `120`; explicit `0` disables the
+limit for local operation. A limited request returns the standard error shape with
+code `rate_limited`, `Retry-After`, `Cache-Control: no-store`, and the same
+`x-request-id` used by the response body. The limiter is deliberately process-local
+for the current single-API-instance alpha.
+
 ## Limitations and next consumer
 
-There is no authentication, hosted exposure, rate limiter, cache, cursor pagination,
-salary/seniority/geography normalization, or fuzzy canonical linker. API overhead is
-intentionally small relative to SQLite analytics. The browser Dashboard v0 consumes
-this contract through Overview, Jobs, Roles, Skills, and Sources screens.
+There is no authentication, shared/distributed rate-limit state, response cache, or
+cursor pagination. API overhead is intentionally small relative to SQLite analytics.
+The browser dashboard consumes this contract through Overview, Jobs, Roles, Skills,
+and Sources screens.

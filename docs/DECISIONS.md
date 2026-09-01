@@ -1237,3 +1237,73 @@ Live-dataset posting-level skill coverage is unchanged at 84.6% by design:
 (nlp 92, nginx 23, email_marketing 18), improving role-skill analytics
 granularity. v6 gold cases with positive and false-positive guards are pinned
 in tests/unit/test_skill_extraction.py alongside the existing guard suites.
+
+---
+
+## ADR-032: Hosted alpha uses a bounded in-process API rate limit
+
+Date: 2026-09-01
+
+Status: Accepted for the current hosted alpha.
+
+### Decision
+
+Protect every API route except `/api/health` with a token-bucket limiter keyed by
+client IP. The default is 120 requests per minute and
+`JMA_RATE_LIMIT_PER_MINUTE` provides an explicit deployment override; `0` disables
+the limiter for local operation. Limited requests preserve CORS and request IDs,
+return the stable API error contract with status `429` and `Retry-After`, and are
+marked `Cache-Control: no-store`.
+
+Keep limiter state in the API process for the current single-instance deployment.
+Do not add Redis or another infrastructure dependency during this hardening phase.
+
+### Reason
+
+The API is now publicly reachable through the reverse proxy, so the earlier
+localhost-only ADR-016 assumption no longer applies. A small dependency-free limit
+reduces accidental overload and basic request floods without changing the GET-only
+API or analytics boundaries.
+
+### Consequences
+
+Limits are per process and reset on restart. A multi-process or multi-instance
+deployment must replace or supplement this control with trusted edge or shared
+rate-limit state. Proxy configuration must keep the client-IP header trustworthy.
+
+---
+
+## ADR-033: SQLite updates publish validated staging snapshots atomically
+
+Date: 2026-09-01
+
+Status: Accepted for the current single-server alpha.
+
+### Decision
+
+Keep SQLite, but stop mutating the database file served by the API. The one-shot
+`update` command snapshots the current database with SQLite's online backup API,
+updates a sibling staging copy, consolidates WAL state, validates integrity, foreign
+keys, schema version, and exact schema structure, then publishes with same-filesystem
+atomic replacement. One validated pre-update snapshot is retained for rollback, and
+an exclusive lock file rejects overlapping update processes.
+
+In containers, mount the complete runtime database directory read-only into the API
+and read-write into the one-shot updater. Do not bind-mount the database file alone.
+
+### Reason
+
+A single-file bind mount separated the main SQLite file from updater WAL/SHM files and
+allowed readers to observe unsafe deployment states. It also made an atomic host file
+replacement invisible or unreliable through a file-level mount. Directory mounting
+preserves read-only API access while allowing new per-request connections to resolve
+the newly renamed file.
+
+### Consequences
+
+A systemic update failure cannot partially replace the served dataset. Recoverable
+source/analyzer failures retain the existing contract: valid partial progress may be
+published with a non-zero exit. The rolling snapshot protects only the immediately
+previous local version; off-host backup retention and restore monitoring remain to be
+built. SQLite remains appropriate for the current single API instance, while a future
+multi-writer deployment still requires PostgreSQL.
