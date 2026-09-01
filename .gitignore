@@ -16,5 +16,6 @@ build/
 *-shm
 *.update.lock
 runtime/
+backups/
 *.log
 .opencode/

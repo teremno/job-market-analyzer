@@ -112,6 +112,14 @@ the relevant language-specific analyzer registrations. The CLI only selects and
 reports these entries. No scheduler, background worker, language detection, or schema
 change is part of this flow.
 
+Operational backups reuse the same SQLite online-snapshot and validation boundary.
+The `backup` command writes a timestamped snapshot into a separate directory,
+consolidates WAL state, validates integrity, foreign keys, current schema version,
+and exact schema structure, then atomically publishes the backup file. Retention is
+applied only after a valid snapshot exists. The production backup container has no
+network and reads the live runtime directory read-only. These retained local copies
+improve recovery depth but are not off-host disaster recovery.
+
 Persistence uses deterministic representations:
 
 - timestamps: UTC `YYYY-MM-DDTHH:MM:SS.ffffffZ`;

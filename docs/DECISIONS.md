@@ -1307,3 +1307,36 @@ published with a non-zero exit. The rolling snapshot protects only the immediate
 previous local version; off-host backup retention and restore monitoring remain to be
 built. SQLite remains appropriate for the current single API instance, while a future
 multi-writer deployment still requires PostgreSQL.
+
+---
+
+## ADR-034: Retained local backups are validated SQLite snapshots
+
+Date: 2026-09-01
+
+Status: Accepted for the current single-server alpha.
+
+### Decision
+
+Create one timestamped local backup each day with SQLite's online backup API. Each
+snapshot must be consolidated into one `DELETE`-journal file and pass integrity,
+foreign-key, current-schema, and schema-structure validation before its final atomic
+rename. Keep the newest seven matching snapshots by default and prune only after a
+new valid backup exists.
+
+Run the backup in a one-shot container with the live runtime directory mounted
+read-only, a separate backup directory mounted read-write, and networking disabled.
+
+### Reason
+
+The single rolling pre-update snapshot protects only against the most recent bad
+publication. A validated multi-day local history adds a small, testable recovery
+layer without introducing a backup service or changing the application database.
+
+### Consequences
+
+At the current database size, seven daily local snapshots consume several gigabytes
+but fit the present VPS capacity. They do not protect against VPS loss, account
+compromise, or storage failure. Encrypted off-host replication, monitoring alerts,
+and periodic restore drills remain required before production readiness can be
+claimed.

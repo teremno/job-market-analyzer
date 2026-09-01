@@ -87,6 +87,7 @@ from job_market_analyzer.services.role_smoke import (
 )
 from job_market_analyzer.storage.sqlite import connect_database, initialize_database
 from job_market_analyzer.storage.sqlite_publication import staged_database_update
+from job_market_analyzer.storage.sqlite_backup import create_retained_database_backup
 from job_market_analyzer.storage.sqlite_intelligence_repository import (
     SQLiteRoleIntelligenceRepository,
     SQLiteSkillIntelligenceRepository,
@@ -112,6 +113,12 @@ def main(argv: Sequence[str] | None = None) -> int:
             analysis_language=arguments.language,
             source_codes=arguments.source,
             analysis_limit=arguments.limit_analysis,
+        )
+    if arguments.command == "backup":
+        return backup_database(
+            arguments.database,
+            destination=arguments.destination,
+            keep=arguments.keep,
         )
     if arguments.command == "collect-remote-ok":
         return collect_remote_ok(arguments.database)
@@ -144,6 +151,35 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
 
     parser.error(f"Unsupported command: {arguments.command}")
+
+
+def backup_database(
+    database_path: Path,
+    *,
+    destination: Path,
+    keep: int,
+) -> int:
+    """Create one validated timestamped SQLite backup and apply retention."""
+
+    try:
+        result = create_retained_database_backup(
+            database_path,
+            destination,
+            keep=keep,
+        )
+    except Exception as exc:  # noqa: BLE001 - CLI boundary converts failures to exit 1
+        print(
+            f"Backup failed: {type(exc).__name__}: {_short_message(exc)}",
+            file=sys.stderr,
+        )
+        return 1
+
+    print("Backup completed")
+    print()
+    print(f"Snapshot: {result.backup_path}")
+    print(f"Retained backups: {result.retained_count}")
+    print(f"Expired backups removed: {result.removed_count}")
+    return 0
 
 
 def update_database(
@@ -451,6 +487,31 @@ def _build_parser() -> argparse.ArgumentParser:
         type=_positive_int,
         metavar="N",
         help="Optional maximum current postings analyzed per analyzer.",
+    )
+    backup_parser = subparsers.add_parser(
+        "backup",
+        help="Create one validated timestamped SQLite backup.",
+    )
+    backup_parser.add_argument(
+        "--database",
+        required=True,
+        type=Path,
+        metavar="PATH",
+        help="Existing current-schema SQLite database path.",
+    )
+    backup_parser.add_argument(
+        "--destination",
+        required=True,
+        type=Path,
+        metavar="DIRECTORY",
+        help="Directory for validated timestamped backups.",
+    )
+    backup_parser.add_argument(
+        "--keep",
+        default=7,
+        type=_positive_int,
+        metavar="N",
+        help="Number of newest backups to retain (default: 7).",
     )
     collect_parser = subparsers.add_parser(
         "collect-remote-ok",

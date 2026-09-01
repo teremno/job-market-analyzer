@@ -63,9 +63,11 @@ def staged_database_update(database_path: Path) -> Iterator[StagedDatabaseUpdate
                 raise DatabasePublicationError("SQLite database path is not a file")
             previous_path = previous_database_path(target_path)
             temporary_backup = _temporary_path(target_path, "previous")
-            _snapshot_database(target_path, temporary_backup)
-            _consolidate_database(temporary_backup)
-            validate_database_file(temporary_backup, require_current_schema=False)
+            create_validated_database_snapshot(
+                target_path,
+                temporary_backup,
+                require_current_schema=False,
+            )
             os.replace(temporary_backup, previous_path)
             _sync_directory(parent)
             temporary_backup = None
@@ -126,6 +128,27 @@ def validate_database_file(
         raise DatabasePublicationError(
             "SQLite snapshot validation failed"
         ) from exc
+
+
+def create_validated_database_snapshot(
+    source_path: Path,
+    destination_path: Path,
+    *,
+    require_current_schema: bool,
+) -> None:
+    """Create one consolidated and validated SQLite online snapshot."""
+
+    try:
+        _snapshot_database(source_path, destination_path)
+        _consolidate_database(destination_path)
+        validate_database_file(
+            destination_path,
+            require_current_schema=require_current_schema,
+        )
+    except Exception:
+        _remove_if_present(destination_path)
+        _remove_sidecars(destination_path)
+        raise
 
 
 def _snapshot_database(source_path: Path, destination_path: Path) -> None:

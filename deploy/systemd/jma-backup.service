@@ -1,0 +1,9 @@
+[Unit]
+Description=JobPulse validated SQLite backup
+After=docker.service docker.socket
+
+[Service]
+Type=oneshot
+WorkingDirectory=/root/job-market-analyzer
+ExecStart=/usr/bin/docker compose -f docker-compose.yml -f docker-compose.backup.yml run --rm backup
+TimeoutStartSec=900

@@ -12,6 +12,7 @@ from job_market_analyzer.collectors.base import CollectedJobs
 from job_market_analyzer.models import NormalizedJobPosting, RawJob
 from job_market_analyzer.storage.sqlite import connect_database as real_connect_database
 from job_market_analyzer.storage.sqlite import initialize_database
+from job_market_analyzer.storage.sqlite_backup import DatabaseBackupResult
 from job_market_analyzer.storage.sqlite_repository import SQLiteJobRepository
 
 FETCHED_AT = datetime(2026, 8, 18, 12, 0, tzinfo=UTC)
@@ -149,6 +150,7 @@ def test_cli_help_lists_manual_collection_commands(
     captured = capsys.readouterr()
     assert error.value.code == 0
     assert "update" in captured.out
+    assert "backup" in captured.out
     assert "collect-remote-ok" in captured.out
     assert "collect-web3-career" in captured.out
     assert "collect-himalayas" in captured.out
@@ -159,6 +161,117 @@ def test_cli_help_lists_manual_collection_commands(
     assert "analyze-roles" in captured.out
     assert "serve" in captured.out
     assert captured.err == ""
+
+
+def test_backup_requires_database_and_destination(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    with pytest.raises(SystemExit) as missing_database:
+        cli.main(["backup"])
+    assert missing_database.value.code == 2
+    assert "--database" in capsys.readouterr().err
+
+    with pytest.raises(SystemExit) as missing_destination:
+        cli.main(["backup", "--database", "jobs.sqlite3"])
+    assert missing_destination.value.code == 2
+    assert "--destination" in capsys.readouterr().err
+
+
+def test_backup_dispatches_paths_and_retention(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    captured: dict[str, object] = {}
+
+    def backup_spy(
+        database_path: Path,
+        destination: Path,
+        *,
+        keep: int,
+    ) -> DatabaseBackupResult:
+        captured.update(
+            database_path=database_path,
+            destination=destination,
+            keep=keep,
+        )
+        return DatabaseBackupResult(
+            backup_path=Path("backups/jobs.backup-test.sqlite3"),
+            retained_count=3,
+            removed_count=1,
+        )
+
+    monkeypatch.setattr(cli, "create_retained_database_backup", backup_spy)
+
+    exit_code = cli.main(
+        [
+            "backup",
+            "--database",
+            "jobs.sqlite3",
+            "--destination",
+            "backups",
+            "--keep",
+            "3",
+        ]
+    )
+
+    output = capsys.readouterr()
+    assert exit_code == 0
+    assert captured == {
+        "database_path": Path("jobs.sqlite3"),
+        "destination": Path("backups"),
+        "keep": 3,
+    }
+    assert "Backup completed" in output.out
+    assert "Retained backups: 3" in output.out
+    assert "Expired backups removed: 1" in output.out
+    assert output.err == ""
+
+
+def test_backup_failure_is_nonzero(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    def fail_backup(*args: object, **kwargs: object) -> DatabaseBackupResult:
+        raise RuntimeError("snapshot unavailable")
+
+    monkeypatch.setattr(cli, "create_retained_database_backup", fail_backup)
+
+    exit_code = cli.main(
+        [
+            "backup",
+            "--database",
+            "jobs.sqlite3",
+            "--destination",
+            "backups",
+        ]
+    )
+
+    output = capsys.readouterr()
+    assert exit_code == 1
+    assert output.out == ""
+    assert "Backup failed: RuntimeError: snapshot unavailable" in output.err
+
+
+@pytest.mark.parametrize("keep", ["0", "-1"])
+def test_backup_rejects_non_positive_retention(
+    keep: str,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    with pytest.raises(SystemExit) as error:
+        cli.main(
+            [
+                "backup",
+                "--database",
+                "jobs.sqlite3",
+                "--destination",
+                "backups",
+                "--keep",
+                keep,
+            ]
+        )
+
+    assert error.value.code == 2
+    assert "must be greater than zero" in capsys.readouterr().err
 
 
 def test_serve_requires_database_and_valid_port(

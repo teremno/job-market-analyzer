@@ -36,6 +36,9 @@
   mounted read-only into API)
 - Updates: isolated staging database, integrity/FK/schema validation, atomic
   publication, and one rolling `runtime/jobs.previous.sqlite3` rollback snapshot
+- Backups: validated timestamped local snapshots with seven-copy retention are
+  implemented; production timer activation and off-host replication are tracked
+  separately
 - Legacy pre-migration copy retained at
   `/root/job-market-analyzer/job-market.sqlite3` pending later cleanup approval
 - DNS: A records @ and api → 162.55.178.137 (Spaceship registrar)

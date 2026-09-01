@@ -1,0 +1,10 @@
+[Unit]
+Description=Create a validated JobPulse SQLite backup daily
+
+[Timer]
+OnCalendar=*-*-* 05:00:00 UTC
+Persistent=true
+RandomizedDelaySec=600
+
+[Install]
+WantedBy=timers.target

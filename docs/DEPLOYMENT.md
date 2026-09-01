@@ -255,6 +255,43 @@ New API requests see the restored file without restarting containers. This rolli
 snapshot is not an off-host backup: retention, encrypted off-host copies, monitoring,
 and a scheduled restore drill remain separate operational work.
 
+### Automated validated local backups
+
+The `backup` command creates a self-contained timestamped SQLite snapshot, validates
+it, and keeps the newest seven backups by default:
+
+```bash
+job-market-analyzer backup \
+  --database ./runtime/jobs.sqlite3 \
+  --destination ./backups \
+  --keep 7
+```
+
+Production runs the same command in a network-disabled one-shot container. The live
+database is mounted read-only and only `./backups` is writable:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.backup.yml run --rm backup
+sudo cp deploy/systemd/jma-backup.service /etc/systemd/system/
+sudo cp deploy/systemd/jma-backup.timer /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now jma-backup.timer
+systemctl list-timers jma-backup.timer
+```
+
+Operate and verify it:
+
+```bash
+sudo systemctl start jma-backup.service
+journalctl -u jma-backup.service -n 50
+find backups -maxdepth 1 -type f -name 'jobs.backup-*.sqlite3' -printf '%f %s bytes\n'
+```
+
+The timer runs after the normal update window. SQLite online backup still guarantees
+a consistent snapshot if an update overlaps. Local retention is only recovery depth;
+the next backup phase must copy encrypted snapshots to a separately administered
+off-host destination and test restoration from that copy.
+
 ### Security posture of this alpha
 
 - Only ports 80/443 are exposed (Caddy); the API and dashboard containers are

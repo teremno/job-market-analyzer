@@ -35,6 +35,7 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: |
           docker compose -f docker-compose.yml -f docker-compose.worker.yml config
+          docker compose -f docker-compose.yml -f docker-compose.backup.yml config
           docker compose --env-file .env.production.example -f docker-compose.yml -f docker-compose.prod.yml config
 
       - name: Tests

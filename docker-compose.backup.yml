@@ -1,0 +1,21 @@
+# Local retained backup overlay:
+#   docker compose -f docker-compose.yml -f docker-compose.backup.yml run --rm backup
+
+services:
+  backup:
+    build: .
+    container_name: jma-backup
+    command:
+      - job-market-analyzer
+      - backup
+      - --database
+      - /data/jobs.sqlite3
+      - --destination
+      - /backups
+      - --keep
+      - "7"
+    volumes:
+      - ./runtime:/data:ro
+      - ./backups:/backups
+    network_mode: none
+    restart: "no"
